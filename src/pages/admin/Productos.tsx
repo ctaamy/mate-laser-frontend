@@ -12,7 +12,7 @@ export default function AdminProductos() {
     nombre: '', slug: '', descripcion: '', categoria_id: '',
     precio_base: '', precio_tachado: '', stock: '0', stock_alerta: '5',
     sku: '', material: '', dimensiones: '', peso_kg: '',
-    apto_grabado: false, colores_disponibles: '',
+    apto_grabado: false, costo_grabado: '0', colores_disponibles: '',
     personalizado_habilitado: false, personalizado_max_chars: '30',
     personalizado_placeholder: '', activo: true, destacado: false,
   });
@@ -59,6 +59,7 @@ export default function AdminProductos() {
         dimensiones: producto.dimensiones || '',
         peso_kg: producto.peso_kg?.toString() || '',
         apto_grabado: producto.apto_grabado,
+        costo_grabado: (producto as any).costo_grabado?.toString() || '0',
         colores_disponibles: Array.isArray(producto.colores_disponibles)
           ? producto.colores_disponibles.join(', ')
           : '',
@@ -74,7 +75,7 @@ export default function AdminProductos() {
         nombre: '', slug: '', descripcion: '', categoria_id: '',
         precio_base: '', precio_tachado: '', stock: '0', stock_alerta: '5',
         sku: '', material: '', dimensiones: '', peso_kg: '',
-        apto_grabado: false, colores_disponibles: '',
+        apto_grabado: false, costo_grabado: '0', colores_disponibles: '',
         personalizado_habilitado: false, personalizado_max_chars: '30',
         personalizado_placeholder: '', activo: true, destacado: false,
       });
@@ -92,7 +93,9 @@ export default function AdminProductos() {
       precio_tachado: form.precio_tachado ? parseFloat(form.precio_tachado) : undefined,
       stock: parseInt(form.stock),
       stock_alerta: parseInt(form.stock_alerta),
+      sku: form.sku.trim() || undefined,
       peso_kg: form.peso_kg ? parseFloat(form.peso_kg) : undefined,
+      costo_grabado: form.apto_grabado ? parseFloat(form.costo_grabado || '0') : 0,
       personalizado_max_chars: parseInt(form.personalizado_max_chars),
       colores_disponibles: form.colores_disponibles
         ? form.colores_disponibles.split(',').map(c => c.trim()).filter(Boolean)
@@ -157,9 +160,14 @@ export default function AdminProductos() {
                 </td>
                 <td className="px-5 py-3">
                   {p.apto_grabado ? (
-                    <span className="text-xs bg-[#E1F5EE] text-[#0F6E56] px-2 py-1 rounded-full flex items-center gap-1 w-fit">
-                      <Check size={10} /> Sí
-                    </span>
+                    <div>
+                      <span className="text-xs bg-[#E1F5EE] text-[#0F6E56] px-2 py-1 rounded-full flex items-center gap-1 w-fit">
+                        <Check size={10} /> Sí
+                      </span>
+                      {Number((p as any).costo_grabado) > 0 && (
+                        <div className="text-xs text-gray-400 mt-1">+${Number((p as any).costo_grabado).toLocaleString('es-AR')}</div>
+                      )}
+                    </div>
                   ) : <span className="text-xs text-gray-300">—</span>}
                 </td>
                 <td className="px-5 py-3">
@@ -267,9 +275,43 @@ export default function AdminProductos() {
 
               <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">Opciones</div>
               <div className="flex flex-col gap-2">
+
+                {/* APTO GRABADO LÁSER — controla personalizado_habilitado automáticamente */}
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                  <div>
+                    <div className="text-sm font-medium">Apto grabado láser</div>
+                    <div className="text-xs text-gray-400">Habilita la personalización y muestra el badge en la tienda</div>
+                  </div>
+                  <button
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      apto_grabado: !f.apto_grabado,
+                      personalizado_habilitado: !f.apto_grabado,
+                    }))}
+                    className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${form.apto_grabado ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}
+                  >
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${form.apto_grabado ? 'left-4' : 'left-0.5'}`} />
+                  </button>
+                </div>
+
+                {/* COSTO DEL GRABADO — solo visible si apto_grabado está activo */}
+                {form.apto_grabado && (
+                  <div className="bg-[#E1F5EE] rounded-lg px-4 py-3 border border-[#9FE1CB]">
+                    <label className="text-xs text-[#0F6E56] font-medium mb-1 block">Costo del grabado</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#0F6E56]">$</span>
+                      <input
+                        type="number"
+                        value={form.costo_grabado}
+                        onChange={e => setForm(f => ({ ...f, costo_grabado: e.target.value }))}
+                        className="border border-[#9FE1CB] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-28 bg-white"
+                      />
+                    </div>
+                    <p className="text-xs text-[#0F6E56] mt-1">Se suma al precio cuando el cliente elige personalizar</p>
+                  </div>
+                )}
+
                 {[
-                  { key: 'apto_grabado', label: 'Apto grabado láser', sub: 'Muestra el badge verde en la tienda' },
-                  { key: 'personalizado_habilitado', label: 'Permitir personalización', sub: 'Muestra el campo de texto para grabar' },
                   { key: 'activo', label: 'Producto activo', sub: 'Visible en la tienda' },
                   { key: 'destacado', label: 'Destacado en home', sub: 'Aparece en "Más vendidos"' },
                 ].map(({ key, label, sub }) => (
@@ -280,7 +322,7 @@ export default function AdminProductos() {
                     </div>
                     <button
                       onClick={() => setForm(f => ({ ...f, [key]: !(f as any)[key] }))}
-                      className={`w-9 h-5 rounded-full relative transition-colors ${(form as any)[key] ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}
+                      className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${(form as any)[key] ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}
                     >
                       <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${(form as any)[key] ? 'left-4' : 'left-0.5'}`} />
                     </button>
@@ -288,10 +330,12 @@ export default function AdminProductos() {
                 ))}
               </div>
 
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Colores de grabado (separados por coma)</label>
-                <input className={inputClass} value={form.colores_disponibles} onChange={e => setForm(f => ({ ...f, colores_disponibles: e.target.value }))} placeholder="Natural, Negro, Dorado, Verde" />
-              </div>
+              {form.apto_grabado && (
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Colores de grabado (separados por coma)</label>
+                  <input className={inputClass} value={form.colores_disponibles} onChange={e => setForm(f => ({ ...f, colores_disponibles: e.target.value }))} placeholder="Natural, Negro, Dorado, Verde" />
+                </div>
+              )}
 
             </div>
             <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3">

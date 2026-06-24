@@ -9,6 +9,7 @@ import type { Producto } from '../types';
 export default function ProductoDetalle() {
   const { slug } = useParams<{ slug: string }>();
   const [colorSeleccionado, setColorSeleccionado] = useState('');
+  const [quierePersonalizar, setQuierePersonalizar] = useState(false);
   const [textoGrabado, setTextoGrabado] = useState('');
   const [cantidad, setCantidad] = useState(1);
   const [imagenActiva, setImagenActiva] = useState(0);
@@ -32,14 +33,17 @@ export default function ProductoDetalle() {
     </div>
   );
 
+  const costoGrabado = Number((producto as any).costo_grabado || 0);
+  const precioFinal = Number(producto.precio_base) + (quierePersonalizar ? costoGrabado : 0);
+
   const handleAgregar = () => {
     agregar({
       producto_id: producto.id,
       nombre_producto: producto.nombre,
-      precio_unitario: Number(producto.precio_base),
+      precio_unitario: precioFinal,
       cantidad,
-      color: colorSeleccionado || undefined,
-      texto_grabado: textoGrabado || undefined,
+      color: quierePersonalizar ? (colorSeleccionado || undefined) : undefined,
+      texto_grabado: quierePersonalizar ? (textoGrabado || undefined) : undefined,
       imagen_url: producto.imagenes_producto?.[0]?.url,
     });
   };
@@ -108,11 +112,16 @@ export default function ProductoDetalle() {
 
           <div className="flex items-baseline gap-3">
             <span className="text-2xl font-medium text-[#0F6E56]">
-              ${Number(producto.precio_base).toLocaleString('es-AR')}
+              ${precioFinal.toLocaleString('es-AR')}
             </span>
-            {producto.precio_tachado && (
+            {producto.precio_tachado && !quierePersonalizar && (
               <span className="text-base text-gray-400 line-through">
                 ${Number(producto.precio_tachado).toLocaleString('es-AR')}
+              </span>
+            )}
+            {quierePersonalizar && costoGrabado > 0 && (
+              <span className="text-xs text-gray-400">
+                (${Number(producto.precio_base).toLocaleString('es-AR')} + ${costoGrabado.toLocaleString('es-AR')} grabado)
               </span>
             )}
           </div>
@@ -129,47 +138,73 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* COLORES */}
-          {colores.length > 0 && (
-            <div>
-              <div className="text-xs font-medium text-gray-500 mb-2">
-                Color de grabado
-                {colorSeleccionado && <span className="text-[#1D9E75] ml-1">· {colorSeleccionado}</span>}
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {colores.map((color: string) => (
-                  <button
-                    key={color}
-                    onClick={() => setColorSeleccionado(color)}
-                    className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                      colorSeleccionado === color
-                        ? 'border-[#1D9E75] bg-[#E1F5EE] text-[#0F6E56] font-medium'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
-                    {color}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TEXTO GRABADO */}
-          {producto.personalizado_habilitado && (
-            <div>
-              <div className="text-xs font-medium text-gray-500 mb-2">Texto a grabar</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-xl p-3">
-                <input
-                  type="text"
-                  value={textoGrabado}
-                  onChange={(e) => setTextoGrabado(e.target.value.slice(0, producto.personalizado_max_chars))}
-                  placeholder={producto.personalizado_placeholder || 'Ej: Nombre, frase, fecha...'}
-                  className="w-full bg-transparent text-sm focus:outline-none"
-                />
-                <div className="text-xs text-gray-400 mt-1">
-                  {textoGrabado.length}/{producto.personalizado_max_chars} caracteres
+          {/* TOGGLE PERSONALIZACIÓN */}
+          {producto.apto_grabado && producto.personalizado_habilitado && (
+            <div className={`rounded-xl border p-4 transition-colors ${quierePersonalizar ? 'border-[#1D9E75] bg-[#E1F5EE]' : 'border-gray-200 bg-gray-50'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">Quiero grabado personalizado</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {costoGrabado > 0 ? (
+                      <span className={quierePersonalizar ? 'text-[#0F6E56] font-medium' : ''}>+${costoGrabado.toLocaleString('es-AR')}</span>
+                    ) : (
+                      'Sin costo adicional'
+                    )}
+                  </div>
                 </div>
+                <button
+                  onClick={() => setQuierePersonalizar(!quierePersonalizar)}
+                  className={`w-10 h-5.5 rounded-full relative transition-colors flex-shrink-0 ${quierePersonalizar ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full absolute top-0.75 transition-all ${quierePersonalizar ? 'left-5' : 'left-0.75'}`} />
+                </button>
               </div>
+
+              {quierePersonalizar && (
+                <div className="mt-4 flex flex-col gap-4">
+                  {/* COLORES */}
+                  {colores.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 mb-2">
+                        Color de grabado
+                        {colorSeleccionado && <span className="text-[#0F6E56] ml-1">· {colorSeleccionado}</span>}
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        {colores.map((color: string) => (
+                          <button
+                            key={color}
+                            onClick={() => setColorSeleccionado(color)}
+                            className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                              colorSeleccionado === color
+                                ? 'border-[#1D9E75] bg-white text-[#0F6E56] font-medium'
+                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                            }`}
+                          >
+                            {color}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TEXTO GRABADO */}
+                  <div>
+                    <div className="text-xs font-medium text-gray-600 mb-2">Texto a grabar</div>
+                    <div className="bg-white border border-gray-200 rounded-xl p-3">
+                      <input
+                        type="text"
+                        value={textoGrabado}
+                        onChange={(e) => setTextoGrabado(e.target.value.slice(0, producto.personalizado_max_chars))}
+                        placeholder={producto.personalizado_placeholder || 'Ej: Nombre, frase, fecha...'}
+                        className="w-full bg-transparent text-sm focus:outline-none"
+                      />
+                      <div className="text-xs text-gray-400 mt-1">
+                        {textoGrabado.length}/{producto.personalizado_max_chars} caracteres
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

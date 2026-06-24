@@ -32,10 +32,10 @@ export default function Navbar() {
 
         {isAuthenticated ? (
           <div className="relative group">
-            <button className="text-gray-500 hover:text-gray-900">
+            <button className="text-gray-500 hover:text-gray-900 py-2">
               <User size={18} />
             </button>
-            <div className="absolute right-0 top-8 bg-white border border-gray-100 rounded-lg shadow-lg py-1 w-40 hidden group-hover:block">
+            <div className="absolute right-0 top-full bg-white border border-gray-100 rounded-lg shadow-lg py-1 w-40 hidden group-hover:block z-50">
               <span className="block px-3 py-1.5 text-xs text-gray-400">{usuario?.nombre}</span>
               {usuario?.rol === 'admin' && (
                 <Link to="/admin" className="block px-3 py-1.5 text-sm hover:bg-gray-50">Panel admin</Link>
