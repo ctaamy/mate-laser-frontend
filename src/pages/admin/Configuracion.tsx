@@ -1195,7 +1195,8 @@ export default function AdminConfiguracion() {
             {[
               { key: 'nombre_tienda', label: 'Nombre de la tienda', placeholder: 'Mate Laser Studio' },
               { key: 'email_contacto', label: 'Email de contacto', placeholder: 'hola@matelaser.com' },
-              { key: 'telefono_contacto', label: 'Teléfono / WhatsApp', placeholder: '+54 9 11 1234-5678' },
+              { key: 'telefono_contacto', label: 'Teléfono / WhatsApp (con código de país)', placeholder: '+5491112345678' },
+              { key: 'whatsapp_mensaje', label: 'Mensaje pre-cargado de WhatsApp', placeholder: '¡Hola! Quiero hacer un pedido personalizado 🧉' },
               { key: 'moneda', label: 'Moneda', placeholder: 'ARS' },
               { key: 'envio_gratis_monto', label: 'Monto mínimo para envío gratis ($)', placeholder: '15000' },
             ].map(({ key, label, placeholder }) => (
