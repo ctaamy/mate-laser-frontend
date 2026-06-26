@@ -150,7 +150,7 @@ function HeroSlideContent({ slide, dir }: { slide: HeroSlide; dir: number }) {
           <motion.img
             key={slide.imagen_url}
             src={slide.imagen_url} alt=""
-            className="absolute inset-0 w-full h-full object-cover grayscale"
+            className="absolute inset-0 w-full h-full object-cover"
             initial={{ scale: 1.05 }} animate={{ scale: 1 }}
             transition={{ duration: 1, ease: 'easeOut' }}
           />
@@ -594,7 +594,7 @@ function SeccionBannerImagen({ datos }: { datos: Record<string, any> }) {
   if (!datos.imagen_url) return null;
   const img = (
     <motion.img src={datos.imagen_url} alt=""
-      className="w-full object-cover grayscale"
+      className="w-full object-cover"
       style={{ maxHeight: datos.max_height ? `${datos.max_height}px` : '380px' }}
       initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={VIEWPORT} transition={T} />
   );
