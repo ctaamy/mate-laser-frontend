@@ -214,7 +214,7 @@ function TabBtn({ active, onClick, icon: Icon, label }: {
 // ── Editor visual de la grilla de categorías ─────────────────────────────────
 const ICONOS_DEFAULT = ['☕', '🍃', '✨', '🎁', '⚡', '🪵', '🔥', '💫', '🧉', '🪄', '🎨', '📦'];
 
-interface CatItem { id: number; icono: string }
+interface CatItem { id: number; icono: string; imagen_url?: string }
 
 function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set: (k: string, v: any) => void }) {
   const { data: todasCategorias = [] } = useQuery<Categoria[]>({
@@ -232,12 +232,15 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
       updateItems(items.filter(i => i.id !== cat.id));
     } else {
       const icono = ICONOS_DEFAULT[items.length % ICONOS_DEFAULT.length];
-      updateItems([...items, { id: cat.id, icono }]);
+      updateItems([...items, { id: cat.id, icono, imagen_url: '' }]);
     }
   };
 
   const updateIcono = (id: number, icono: string) =>
     updateItems(items.map(i => i.id === id ? { ...i, icono } : i));
+
+  const updateImagen = (id: number, imagen_url: string) =>
+    updateItems(items.map(i => i.id === id ? { ...i, imagen_url } : i));
 
   const mover = (idx: number, dir: -1 | 1) => {
     const next = [...items];
@@ -269,26 +272,31 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
             Ninguna seleccionada — se mostrarán todas las categorías raíz.
           </p>
         )}
-        <div className="flex flex-col gap-1.5 mt-1">
+        <div className="flex flex-col gap-2 mt-1">
           {items.map((item, idx) => {
             const cat = todasPlanas.find(c => c.id === item.id);
             return (
-              <div key={item.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
-                {/* Ícono editable */}
-                <input
-                  className="w-10 h-9 text-center text-xl bg-white border border-gray-200 rounded-lg cursor-pointer focus:outline-none focus:border-gray-400"
-                  value={item.icono}
-                  onChange={e => updateIcono(item.id, e.target.value)}
-                  maxLength={4}
-                  title="Ícono / emoji"
-                />
-                {/* Nombre categoría */}
-                <span className="flex-1 text-sm font-medium text-gray-800 truncate">
-                  {cat?.nombre ?? `ID ${item.id}`}
-                  {cat?.padre_id && (
-                    <span className="ml-1 text-[10px] text-gray-400 font-normal">subcategoría</span>
-                  )}
-                </span>
+              <div key={item.id} className="bg-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+                {/* Fila principal */}
+                <div className="flex items-center gap-2 px-3 py-2">
+                  {/* Preview: imagen o emoji */}
+                  {item.imagen_url
+                    ? <img src={item.imagen_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-200" />
+                    : <input
+                        className="w-10 h-10 text-center text-xl bg-white border border-gray-200 rounded-lg cursor-pointer focus:outline-none focus:border-gray-400 flex-shrink-0"
+                        value={item.icono}
+                        onChange={e => updateIcono(item.id, e.target.value)}
+                        maxLength={4}
+                        title="Emoji de respaldo (se muestra si no hay imagen)"
+                      />
+                  }
+                  {/* Nombre categoría */}
+                  <span className="flex-1 text-sm font-medium text-gray-800 truncate">
+                    {cat?.nombre ?? `ID ${item.id}`}
+                    {cat?.padre_id && (
+                      <span className="ml-1 text-[10px] text-gray-400 font-normal">subcategoría</span>
+                    )}
+                  </span>
                 {/* Reordenar */}
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => mover(idx, -1)} disabled={idx === 0}
@@ -300,11 +308,27 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
                     <ChevronDown size={13} />
                   </button>
                 </div>
-                {/* Quitar */}
-                <button onClick={() => cat && toggleCat(cat)}
-                  className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
-                  <Trash2 size={12} />
-                </button>
+                  {/* Quitar */}
+                  <button onClick={() => cat && toggleCat(cat)}
+                    className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+
+                {/* Uploader de imagen */}
+                <div className="px-3 pb-3">
+                  <SeccionImageUploader
+                    label={item.imagen_url ? 'Cambiar imagen' : 'Agregar imagen (reemplaza el emoji)'}
+                    value={item.imagen_url || ''}
+                    onChange={url => updateImagen(item.id, url)}
+                  />
+                  {item.imagen_url && (
+                    <button onClick={() => updateImagen(item.id, '')}
+                      className="mt-1.5 text-[11px] text-red-400 hover:text-red-600 transition-colors">
+                      Quitar imagen (vuelve al emoji)
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

@@ -359,7 +359,7 @@ function SeccionStatsBarra({ datos }: { datos: Record<string, any> }) {
 // 4. CATEGORÍAS GRID
 // ─────────────────────────────────────────────────────────────────────────────
 const ICONOS_FALLBACK = ['☕','🍃','✨','🎁','⚡','🪵','🔥','💫','🧉','🪄','🎨','📦'];
-interface CatItem { id: number; icono: string }
+interface CatItem { id: number; icono: string; imagen_url?: string }
 
 function SeccionCategoriasGrid({ datos }: { datos: Record<string, any> }) {
   const { data: todasCategorias = [] } = useQuery<Categoria[]>({
@@ -375,13 +375,14 @@ function SeccionCategoriasGrid({ datos }: { datos: Record<string, any> }) {
 
   const items: CatItem[] = datos.categorias_items ?? [];
   const idsFallback: number[] = datos.categorias_ids ?? [];
-  type Entry = { cat: Categoria; icono: string };
+  type Entry = { cat: Categoria; icono: string; imagen_url?: string };
 
   let entries: Entry[];
   if (items.length > 0) {
     entries = items.map((item, i) => ({
       cat: todasPlanas.find(c => c.id === item.id)!,
       icono: item.icono || ICONOS_FALLBACK[i % ICONOS_FALLBACK.length],
+      imagen_url: item.imagen_url,
     })).filter(e => !!e.cat);
   } else if (idsFallback.length > 0) {
     entries = todasCategorias.filter(c => idsFallback.includes(c.id))
@@ -408,14 +409,24 @@ function SeccionCategoriasGrid({ datos }: { datos: Record<string, any> }) {
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-black/[0.06]">
-            {entries.map(({ cat, icono }, i) => (
+            {entries.map(({ cat, icono, imagen_url }, i) => (
               <motion.div key={cat.id} variants={FADE_UP} transition={{ ...T, delay: i * 0.05 }}>
                 <Link to={`/productos?categoria_id=${cat.id}`}
-                  className="group flex flex-col gap-3 bg-white p-6 transition-colors hover:bg-black hover:text-white">
-                  <span className="text-2xl transition-transform duration-300 group-hover:scale-105 inline-block">
-                    {icono}
-                  </span>
-                  <div>
+                  className="group flex flex-col bg-white transition-colors hover:bg-black hover:text-white overflow-hidden">
+                  {/* Imagen o emoji */}
+                  {imagen_url
+                    ? <div className="relative w-full overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                        <img src={imagen_url} alt={cat.nombre}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+                      </div>
+                    : <div className="w-full flex items-center justify-center py-8" style={{ aspectRatio: '4/3' }}>
+                        <span className="text-4xl transition-transform duration-300 group-hover:scale-110 inline-block">
+                          {icono}
+                        </span>
+                      </div>
+                  }
+                  <div className="p-4 pb-5">
                     <div className="text-sm font-semibold mb-0.5">{cat.nombre}</div>
                     <div className="flex items-center gap-1 text-[11px] text-black/30 group-hover:text-white/50 transition-colors">
                       Ver productos <ArrowRight size={10} />
