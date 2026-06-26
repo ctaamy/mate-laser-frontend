@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Copy, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Copy, Check, Image } from 'lucide-react';
 import api from '../../lib/api';
-import type { Producto, Categoria } from '../../types';
+import type { Producto, Categoria, ImagenProducto } from '../../types';
+import ImageUploader from '../../components/ui/ImageUploader';
+
+interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; datos: Record<string, any>; }
 
 export default function AdminProductos() {
   const queryClient = useQueryClient();
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [tabModal, setTabModal] = useState<'datos' | 'imagenes'>('datos');
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+  const [seccionesSeleccionadas, setSeccionesSeleccionadas] = useState<string[]>([]);
   const [form, setForm] = useState({
     nombre: '', slug: '', descripcion: '', categoria_id: '',
     precio_base: '', precio_tachado: '', stock: '0', stock_alerta: '5',
@@ -19,13 +24,30 @@ export default function AdminProductos() {
 
   const { data: productos } = useQuery<Producto[]>({
     queryKey: ['admin-productos-lista'],
-    queryFn: () => api.get('/productos/admin/todos').then(r => r.data),
+    queryFn: () => api.get('/productos/admin/todos?limit=100').then(r => r.data.data),
   });
 
   const { data: categorias } = useQuery<Categoria[]>({
     queryKey: ['categorias'],
     queryFn: () => api.get('/categorias').then(r => r.data),
   });
+
+  // getHomepage devuelve el array directamente, no { secciones: [...] }
+  const { data: todasSecciones = [] } = useQuery<SeccionHP[]>({
+    queryKey: ['homepage'],
+    queryFn: () => api.get('/configuracion/homepage').then(r => r.data),
+  });
+
+  const { data: imagenesProducto, refetch: refetchImagenes } = useQuery<ImagenProducto[]>({
+    queryKey: ['imagenes-producto', productoEditando?.id],
+    queryFn: () => api.get(`/imagenes/producto/${productoEditando!.id}`).then(r => r.data),
+    enabled: !!productoEditando?.id,
+  });
+
+  // Solo secciones activas de tipo productos_destacados
+  const seccionesProductos = todasSecciones.filter(
+    s => s.tipo === 'productos_destacados' && s.activo !== false
+  );
 
   const crearMutation = useMutation({
     mutationFn: (data: any) => api.post('/productos', data),
@@ -45,6 +67,10 @@ export default function AdminProductos() {
   const abrirModal = (producto?: Producto) => {
     if (producto) {
       setProductoEditando(producto);
+      const enSecciones = seccionesProductos
+        .filter(s => (s.datos.productos_ids ?? []).includes(producto.id))
+        .map(s => s.id);
+      setSeccionesSeleccionadas(enSecciones);
       setForm({
         nombre: producto.nombre,
         slug: producto.slug,
@@ -71,6 +97,7 @@ export default function AdminProductos() {
       });
     } else {
       setProductoEditando(null);
+      setSeccionesSeleccionadas([]);
       setForm({
         nombre: '', slug: '', descripcion: '', categoria_id: '',
         precio_base: '', precio_tachado: '', stock: '0', stock_alerta: '5',
@@ -80,12 +107,30 @@ export default function AdminProductos() {
         personalizado_placeholder: '', activo: true, destacado: false,
       });
     }
+    setTabModal('datos');
     setModalAbierto(true);
   };
 
   const cerrarModal = () => { setModalAbierto(false); setProductoEditando(null); };
 
-  const handleSubmit = () => {
+  const guardarSecciones = async (productoId: string) => {
+    // Siempre fetch fresh para no sobreescribir cambios recientes con datos cacheados
+    const { data: frescas } = await api.get<SeccionHP[]>('/configuracion/homepage');
+    if (!frescas?.length) return;
+    const actualizadas = frescas.map(s => {
+      if (s.tipo !== 'productos_destacados') return s;
+      const ids: string[] = s.datos.productos_ids ?? [];
+      const estaSeleccionada = seccionesSeleccionadas.includes(s.id);
+      const yaEstaba = ids.includes(productoId);
+      if (estaSeleccionada && !yaEstaba) return { ...s, datos: { ...s.datos, productos_ids: [...ids, productoId] } };
+      if (!estaSeleccionada && yaEstaba) return { ...s, datos: { ...s.datos, productos_ids: ids.filter(id => id !== productoId) } };
+      return s;
+    });
+    await api.put('/configuracion/homepage', { secciones: actualizadas });
+    queryClient.invalidateQueries({ queryKey: ['homepage'] });
+  };
+
+  const handleSubmit = async () => {
     const data = {
       ...form,
       categoria_id: form.categoria_id ? parseInt(form.categoria_id) : undefined,
@@ -102,9 +147,15 @@ export default function AdminProductos() {
         : [],
     };
     if (productoEditando) {
-      editarMutation.mutate({ id: productoEditando.id, data });
+      await api.put(`/productos/${productoEditando.id}`, data);
+      await guardarSecciones(productoEditando.id);
+      queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
+      cerrarModal();
     } else {
-      crearMutation.mutate(data);
+      const res = await api.post('/productos', data);
+      await guardarSecciones(res.data.id);
+      queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
+      cerrarModal();
     }
   };
 
@@ -203,12 +254,47 @@ export default function AdminProductos() {
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={cerrarModal}>
           <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-base font-medium">{productoEditando ? 'Editar producto' : 'Nuevo producto'}</h2>
-              <button onClick={cerrarModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-base font-medium">{productoEditando ? 'Editar producto' : 'Nuevo producto'}</h2>
+                <button onClick={cerrarModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+              </div>
+              {/* Tabs Datos / Imágenes — solo cuando hay producto existente */}
+              {productoEditando && (
+                <div className="flex gap-1">
+                  {([['datos', 'Datos'], ['imagenes', 'Imágenes']] as const).map(([key, label]) => (
+                    <button key={key} onClick={() => setTabModal(key)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tabModal === key ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                      {key === 'imagenes' && <Image size={12} />}{label}
+                      {key === 'imagenes' && imagenesProducto && (
+                        <span className="bg-white/30 text-[10px] rounded-full px-1.5">{imagenesProducto.length}/4</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="p-6 flex flex-col gap-4">
+              {/* ── Tab IMÁGENES ── */}
+              {tabModal === 'imagenes' && productoEditando && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-3">
+                    La imagen marcada como <strong>Principal</strong> es la que aparece en el listado y la card. Podés subir hasta 4 imágenes.
+                  </p>
+                  <ImageUploader
+                    productoId={productoEditando.id}
+                    imagenes={imagenesProducto ?? []}
+                    onUpdate={() => {
+                      refetchImagenes();
+                      queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
+                    }}
+                    maxImagenes={4}
+                  />
+                </div>
+              )}
 
+              {/* ── Tab DATOS ── */}
+              {(tabModal === 'datos' || !productoEditando) && <>
               <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">Información básica</div>
               <div className="flex flex-col gap-3">
                 <div>
@@ -337,16 +423,53 @@ export default function AdminProductos() {
                 </div>
               )}
 
+              <>
+                <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">Aparece en secciones del inicio</div>
+                {seccionesProductos.length === 0 ? (
+                  <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
+                    No hay secciones de <strong>Productos destacados</strong> activas en el inicio.
+                    Agregá una desde <strong>Configuración → Inicio</strong>.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {seccionesProductos.map(s => (
+                      <label key={s.id} className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={seccionesSeleccionadas.includes(s.id)}
+                          onChange={e => {
+                            setSeccionesSeleccionadas(prev =>
+                              e.target.checked ? [...prev, s.id] : prev.filter(id => id !== s.id)
+                            );
+                          }}
+                          className="accent-[#1D9E75] w-4 h-4"
+                        />
+                        <div>
+                          <div className="text-sm font-medium">{s.datos.titulo || 'Sección sin título'}</div>
+                          <div className="text-xs text-gray-400">
+                            {(s.datos.productos_ids ?? []).length} producto(s) asignado(s)
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </>
+              </> /* fin tab datos */}
+
             </div>
             <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-              <button onClick={cerrarModal} className="border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
-              <button
-                onClick={handleSubmit}
-                disabled={crearMutation.isPending || editarMutation.isPending}
-                className="bg-[#1D9E75] text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50"
-              >
-                {crearMutation.isPending || editarMutation.isPending ? 'Guardando...' : 'Guardar producto'}
+              <button onClick={cerrarModal} className="border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                {tabModal === 'imagenes' ? 'Cerrar' : 'Cancelar'}
               </button>
+              {(tabModal === 'datos' || !productoEditando) && (
+                <button
+                  onClick={handleSubmit}
+                  className="bg-[#1D9E75] text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50"
+                >
+                  Guardar producto
+                </button>
+              )}
             </div>
           </div>
         </div>

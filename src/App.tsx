@@ -23,6 +23,7 @@ import AdminOrdenes from './pages/admin/Ordenes';
 import AdminCupones from './pages/admin/Cupones';
 import AdminEnvios from './pages/admin/Envios';
 import AdminConfiguracion from './pages/admin/Configuracion';
+import AdminCategorias from './pages/admin/Categorias';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="cupones" element={<AdminCupones />} />
             <Route path="envios" element={<AdminEnvios />} />
             <Route path="configuracion" element={<AdminConfiguracion />} />
+            <Route path="categorias" element={<AdminCategorias />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import {
   LayoutDashboard, Package, ShoppingBag, Tag,
-  Truck, Settings, LogOut, ExternalLink
+  Truck, Settings, LogOut, ExternalLink, Layers
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -17,6 +17,7 @@ export default function AdminLayout() {
   const navItems = [
     { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/admin/productos', label: 'Productos', icon: Package },
+    { to: '/admin/categorias', label: 'Categorías', icon: Layers },
     { to: '/admin/ordenes', label: 'Órdenes', icon: ShoppingBag },
     { to: '/admin/cupones', label: 'Cupones', icon: Tag },
     { to: '/admin/envios', label: 'Envíos', icon: Truck },

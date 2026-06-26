@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ShoppingCart, Heart, Truck, Shield, MessageCircle, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import type { Producto } from '../types';
@@ -68,27 +69,43 @@ export default function ProductoDetalle() {
 
         {/* GALERÍA */}
         <div className="flex flex-col gap-3">
-          <div className="h-80 bg-[#E1F5EE] rounded-2xl flex items-center justify-center overflow-hidden">
-            {producto.imagenes_producto?.[imagenActiva] ? (
-              <img
-                src={producto.imagenes_producto[imagenActiva].url}
-                alt={producto.nombre}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-8xl opacity-30">☕</span>
-            )}
+          {/* Imagen principal con crossfade al cambiar */}
+          <div className="h-80 bg-[#E1F5EE] rounded-2xl overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              {producto.imagenes_producto?.[imagenActiva] ? (
+                <motion.img
+                  key={producto.imagenes_producto[imagenActiva].id}
+                  src={producto.imagenes_producto[imagenActiva].url}
+                  alt={producto.nombre}
+                  className="h-full w-full object-cover absolute inset-0"
+                  initial={{ opacity: 0, scale: 1.04 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                />
+              ) : (
+                <motion.span
+                  key="placeholder"
+                  className="text-8xl opacity-30 flex items-center justify-center h-full w-full"
+                  initial={{ opacity: 0 }} animate={{ opacity: 0.3 }}
+                >☕</motion.span>
+              )}
+            </AnimatePresence>
           </div>
+
+          {/* Thumbnails */}
           {producto.imagenes_producto && producto.imagenes_producto.length > 1 && (
             <div className="flex gap-2">
               {producto.imagenes_producto.map((img, i) => (
-                <button
+                <motion.button
                   key={img.id}
                   onClick={() => setImagenActiva(i)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${i === imagenActiva ? 'border-[#1D9E75]' : 'border-gray-200'}`}
+                  whileHover={{ scale: 1.07 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors flex-shrink-0 ${i === imagenActiva ? 'border-[#1D9E75]' : 'border-gray-200'}`}
                 >
                   <img src={img.url} alt="" className="w-full h-full object-cover" />
-                </button>
+                </motion.button>
               ))}
             </div>
           )}

@@ -5,12 +5,12 @@ import api from '../../lib/api';
 export default function AdminDashboard() {
   const { data: ordenes } = useQuery({
     queryKey: ['admin-ordenes'],
-    queryFn: () => api.get('/ordenes').then(r => r.data),
+    queryFn: () => api.get('/ordenes?limit=100').then(r => r.data.data),
   });
 
   const { data: productos } = useQuery({
     queryKey: ['admin-productos'],
-    queryFn: () => api.get('/productos/admin/todos').then(r => r.data),
+    queryFn: () => api.get('/productos/admin/todos?limit=100').then(r => r.data.data),
   });
 
   const totalVentas = ordenes

@@ -29,8 +29,9 @@ export default function AdminOrdenes() {
   const { data: ordenes } = useQuery({
     queryKey: ['admin-ordenes-lista', filtroEstado],
     queryFn: () => {
-      const params = filtroEstado ? `?estado=${filtroEstado}` : '';
-      return api.get(`/ordenes${params}`).then(r => r.data);
+      const params = new URLSearchParams({ limit: '100' });
+      if (filtroEstado) params.set('estado', filtroEstado);
+      return api.get(`/ordenes?${params}`).then(r => r.data.data);
     },
   });
 

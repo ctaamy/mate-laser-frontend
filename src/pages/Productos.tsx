@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Check, SlidersHorizontal } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { SlidersHorizontal } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import type { Producto, Categoria } from '../types';
+import ProductGrid from '../components/ui/ProductGrid';
 
 export default function Productos() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,7 +27,7 @@ export default function Productos() {
       if (categoria_id) params.append('categoria_id', categoria_id);
       if (apto_grabado) params.append('apto_grabado', apto_grabado);
       if (search) params.append('search', search);
-      return api.get(`/productos?${params.toString()}`).then((r) => r.data);
+      return api.get(`/productos?${params.toString()}`).then((r) => r.data.data);
     },
   });
 
@@ -129,50 +130,7 @@ export default function Productos() {
         ) : productos?.length === 0 ? (
           <div className="text-center py-20 text-gray-400 text-sm">No hay productos</div>
         ) : (
-          <div className="grid grid-cols-3 gap-4">
-            {productos?.map((producto) => (
-              <div key={producto.id} className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:border-gray-200 transition-colors">
-                <Link to={`/productos/${producto.slug}`}>
-                  <div className="h-36 bg-[#E1F5EE] flex items-center justify-center relative">
-                    {producto.imagenes_producto?.[0] ? (
-                      <img src={producto.imagenes_producto[0].url} alt={producto.nombre} className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-5xl opacity-40">☕</span>
-                    )}
-                    {producto.apto_grabado && (
-                      <span className="absolute top-2 right-2 text-[10px] bg-[#E1F5EE] text-[#0F6E56] rounded-full px-2 py-0.5 font-medium flex items-center gap-1">
-                        <Check size={10} /> Apto láser
-                      </span>
-                    )}
-                  </div>
-                </Link>
-                <div className="p-3">
-                  <Link to={`/productos/${producto.slug}`}>
-                    <div className="text-sm font-medium mb-1 hover:text-[#1D9E75] transition-colors">{producto.nombre}</div>
-                  </Link>
-                  <div className="text-xs text-gray-400 mb-2">{producto.material}</div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-sm font-medium text-[#0F6E56]">
-                        ${Number(producto.precio_base).toLocaleString('es-AR')}
-                      </span>
-                      {producto.precio_tachado && (
-                        <span className="text-xs text-gray-400 line-through ml-2">
-                          ${Number(producto.precio_tachado).toLocaleString('es-AR')}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleAgregar(producto)}
-                      className="w-7 h-7 bg-[#1D9E75] text-white rounded-full flex items-center justify-center hover:bg-[#0F6E56] transition-colors"
-                    >
-                      <ShoppingCart size={13} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ProductGrid productos={productos ?? []} onAgregar={handleAgregar} cols={3} />
         )}
       </div>
     </div>
