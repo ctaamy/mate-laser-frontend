@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, X } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
+import { useToastStore } from '../store/toast.store';
 import type { Producto, Categoria } from '../types';
 import ProductGrid from '../components/ui/ProductGrid';
 
@@ -11,6 +12,7 @@ export default function Productos() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const agregar = useCarritoStore((s) => s.agregar);
+  const mostrarToast = useToastStore((s) => s.agregar);
 
   const categoria_id = searchParams.get('categoria_id') || '';
   const apto_grabado = searchParams.get('apto_grabado') || '';
@@ -39,6 +41,7 @@ export default function Productos() {
       cantidad: 1,
       imagen_url: producto.imagenes_producto?.[0]?.url,
     });
+    mostrarToast(producto.nombre, producto.imagenes_producto?.[0]?.url);
   };
 
   const setFiltro = (key: string, value: string) => {
@@ -48,22 +51,24 @@ export default function Productos() {
     setSearchParams(params);
   };
 
+  const hayFiltros = !!(categoria_id || apto_grabado);
+
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8 flex gap-6">
+    <div className="max-w-6xl mx-auto px-6 py-10 flex gap-8">
 
       {/* SIDEBAR FILTROS */}
-      <aside className="w-52 flex-shrink-0">
-        <div className="flex items-center gap-2 mb-5">
-          <SlidersHorizontal size={16} className="text-gray-400" />
-          <span className="text-sm font-medium">Filtros</span>
+      <aside className="w-48 flex-shrink-0">
+        <div className="flex items-center gap-2 mb-6">
+          <SlidersHorizontal size={14} className="text-black/30" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/40">Filtros</span>
         </div>
 
-        <div className="mb-6">
-          <div className="text-xs text-gray-400 uppercase tracking-wider mb-3">Categoría</div>
-          <div className="flex flex-col gap-1">
+        <div className="mb-7">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/30 mb-3">Categoría</div>
+          <div className="flex flex-col gap-0.5">
             <button
               onClick={() => setFiltro('categoria_id', '')}
-              className={`text-left text-sm px-3 py-2 rounded-lg transition-colors ${!categoria_id ? 'bg-[#E1F5EE] text-[#0F6E56] font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+              className={`text-left text-sm px-2.5 py-2 transition-colors ${!categoria_id ? 'bg-black text-white font-medium' : 'text-black/60 hover:text-black hover:bg-black/[0.04]'}`}
             >
               Todos
             </button>
@@ -71,7 +76,7 @@ export default function Productos() {
               <button
                 key={cat.id}
                 onClick={() => setFiltro('categoria_id', cat.id.toString())}
-                className={`text-left text-sm px-3 py-2 rounded-lg transition-colors ${categoria_id === cat.id.toString() ? 'bg-[#E1F5EE] text-[#0F6E56] font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`text-left text-sm px-2.5 py-2 transition-colors ${categoria_id === cat.id.toString() ? 'bg-black text-white font-medium' : 'text-black/60 hover:text-black hover:bg-black/[0.04]'}`}
               >
                 {cat.nombre}
               </button>
@@ -80,44 +85,50 @@ export default function Productos() {
         </div>
 
         <div className="mb-6">
-          <div className="text-xs text-gray-400 uppercase tracking-wider mb-3">Grabado láser</div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={apto_grabado === 'true'}
-              onChange={(e) => setFiltro('apto_grabado', e.target.checked ? 'true' : '')}
-              className="accent-[#1D9E75]"
-            />
+          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/30 mb-3">Grabado láser</div>
+          <label className={`flex items-center gap-2.5 text-sm cursor-pointer group ${apto_grabado === 'true' ? 'text-black' : 'text-black/50'}`}>
+            <div
+              onClick={() => setFiltro('apto_grabado', apto_grabado === 'true' ? '' : 'true')}
+              className={`w-4 h-4 border flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer ${apto_grabado === 'true' ? 'bg-black border-black' : 'border-black/25 group-hover:border-black/50'}`}
+            >
+              {apto_grabado === 'true' && (
+                <svg width="8" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
             Solo aptos para grabar
           </label>
         </div>
 
-        {(categoria_id || apto_grabado) && (
+        {hayFiltros && (
           <button
             onClick={() => setSearchParams({})}
-            className="text-xs text-gray-400 underline"
+            className="flex items-center gap-1.5 text-[11px] text-black/35 hover:text-black transition-colors"
           >
-            Limpiar filtros
+            <X size={11} /> Limpiar filtros
           </button>
         )}
       </aside>
 
       {/* MAIN */}
       <div className="flex-1">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <input
-              type="text"
-              placeholder="Buscar producto..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1D9E75] w-64"
-            />
-            <span className="text-sm text-gray-400">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar producto..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors w-64 bg-white placeholder-black/25"
+              />
+            </div>
+            <span className="text-[11px] text-black/35 font-medium">
               {productos?.length ?? 0} productos
             </span>
           </div>
-          <select className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none">
+          <select className="border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors bg-white text-black/70">
             <option>Más vendidos</option>
             <option>Menor precio</option>
             <option>Mayor precio</option>
@@ -126,9 +137,9 @@ export default function Productos() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-20 text-gray-400 text-sm">Cargando...</div>
+          <div className="text-center py-20 text-black/25 text-sm">Cargando...</div>
         ) : productos?.length === 0 ? (
-          <div className="text-center py-20 text-gray-400 text-sm">No hay productos</div>
+          <div className="text-center py-20 text-black/25 text-sm">No hay productos</div>
         ) : (
           <ProductGrid productos={productos ?? []} onAgregar={handleAgregar} cols={3} />
         )}

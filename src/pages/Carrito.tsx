@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useCarritoStore } from '../store/carrito.store';
 import api from '../lib/api';
 
@@ -32,115 +33,151 @@ export default function Carrito() {
   };
 
   if (items.length === 0) return (
-    <div className="max-w-6xl mx-auto px-6 py-20 flex flex-col items-center gap-4">
-      <ShoppingBag size={48} className="text-gray-200" />
-      <h2 className="text-lg font-medium text-gray-400">Tu carrito está vacío</h2>
-      <Link to="/productos" className="bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#0F6E56] transition-colors">
+    <div className="max-w-6xl mx-auto px-6 py-24 flex flex-col items-center gap-5">
+      <ShoppingBag size={40} className="text-black/10" />
+      <h2 className="text-base font-medium text-black/40">Tu carrito está vacío</h2>
+      <Link
+        to="/productos"
+        className="bg-black text-white px-6 py-2.5 text-sm font-medium hover:bg-black/80 transition-colors"
+      >
         Ver productos
       </Link>
     </div>
   );
 
+  const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
+
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-6xl mx-auto px-6 py-10">
 
       {/* STEPS */}
-      <div className="flex items-center justify-center gap-2 mb-8 text-xs">
-        {['Carrito', 'Datos de envío', 'Pago', 'Confirmación'].map((step, i) => (
+      <div className="flex items-center justify-center gap-2 mb-10 text-xs">
+        {STEPS.map((step, i) => (
           <div key={step} className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 ${i === 0 ? 'text-[#0F6E56] font-medium' : 'text-gray-400'}`}>
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium ${i === 0 ? 'bg-[#1D9E75] text-white' : 'border border-gray-300 text-gray-400'}`}>
+            <div className={`flex items-center gap-1.5 ${i === 0 ? 'text-black font-medium' : 'text-black/25'}`}>
+              <div className={`w-5 h-5 flex items-center justify-center text-[10px] font-medium ${i === 0 ? 'bg-black text-white' : 'border border-black/20 text-black/25'}`}>
                 {i + 1}
               </div>
               {step}
             </div>
-            {i < 3 && <div className="w-8 h-px bg-gray-200" />}
+            {i < 3 && <div className="w-8 h-px bg-black/10" />}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-8">
 
         {/* ITEMS */}
-        <div className="col-span-2 flex flex-col gap-3">
-          <h2 className="text-base font-medium mb-2">Tu carrito ({items.length} {items.length === 1 ? 'producto' : 'productos'})</h2>
-          {items.map((item) => (
-            <div key={`${item.producto_id}-${item.variante_id}`} className="bg-white border border-gray-100 rounded-xl p-4 flex gap-4">
-              <div className="w-16 h-16 bg-[#E1F5EE] rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {item.imagen_url ? (
-                  <img src={item.imagen_url} alt={item.nombre_producto} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-2xl opacity-40">☕</span>
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium">{item.nombre_producto}</div>
-                {item.color && <div className="text-xs text-gray-400">Color: {item.color}</div>}
-                {item.texto_grabado && (
-                  <div className="text-xs text-[#0F6E56] mt-0.5">✏ "{item.texto_grabado}"</div>
-                )}
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+        <div className="col-span-2 flex flex-col gap-2">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 mb-3">
+            Tu carrito · {items.length} {items.length === 1 ? 'producto' : 'productos'}
+          </h2>
+          <AnimatePresence>
+            {items.map((item) => (
+              <motion.div
+                key={`${item.producto_id}-${item.variante_id}-${item.texto_grabado}`}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="border border-black/[0.07] p-4 flex gap-4"
+              >
+                {/* Imagen */}
+                <div className="w-20 h-20 bg-black/[0.03] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {item.imagen_url ? (
+                    <img src={item.imagen_url} alt={item.nombre_producto} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl opacity-20">☕</span>
+                  )}
+                </div>
+
+                {/* Info + controles */}
+                <div className="flex-1 flex flex-col justify-between gap-2 min-w-0">
+                  <div>
+                    <div className="text-sm font-semibold text-black leading-tight">{item.nombre_producto}</div>
+                    {item.color && (
+                      <div className="text-[11px] text-black/40 mt-0.5">Color: {item.color}</div>
+                    )}
+                    {item.con_grabado && (
+                      <div className="mt-2 flex items-center gap-1.5 bg-black text-white px-2.5 py-1 self-start w-fit">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 opacity-70">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.12em]">Grabado láser</span>
+                        {item.texto_grabado && (
+                          <>
+                            <span className="text-[10px] text-white/60 mx-0.5">·</span>
+                            <span className="text-[11px] italic text-white/80">"{item.texto_grabado}"</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center border border-black/15">
+                      <button
+                        onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
+                        className="w-7 h-7 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors"
+                      >
+                        <Minus size={11} />
+                      </button>
+                      <span className="w-8 text-center text-sm font-medium text-black select-none">{item.cantidad}</span>
+                      <button
+                        onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
+                        className="w-7 h-7 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors"
+                      >
+                        <Plus size={11} />
+                      </button>
+                    </div>
                     <button
-                      onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id)}
-                      className="px-2 py-1 hover:bg-gray-50"
+                      onClick={() => quitar(item.producto_id, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
+                      className="text-xs text-black/30 hover:text-black flex items-center gap-1 transition-colors"
                     >
-                      <Minus size={12} />
-                    </button>
-                    <span className="px-3 py-1 text-sm border-x border-gray-200">{item.cantidad}</span>
-                    <button
-                      onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id)}
-                      className="px-2 py-1 hover:bg-gray-50"
-                    >
-                      <Plus size={12} />
+                      <Trash2 size={11} /> Eliminar
                     </button>
                   </div>
-                  <button
-                    onClick={() => quitar(item.producto_id, item.variante_id)}
-                    className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
-                  >
-                    <Trash2 size={12} /> Eliminar
-                  </button>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-medium text-[#0F6E56]">
-                  ${(item.precio_unitario * item.cantidad).toLocaleString('es-AR')}
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-black">
+                    ${(item.precio_unitario * item.cantidad).toLocaleString('es-AR')}
+                  </div>
+                  <div className="text-xs text-black/30 mt-0.5">c/u ${item.precio_unitario.toLocaleString('es-AR')}</div>
                 </div>
-                <div className="text-xs text-gray-400">c/u ${item.precio_unitario.toLocaleString('es-AR')}</div>
-              </div>
-            </div>
-          ))}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
 
         {/* RESUMEN */}
         <div className="flex flex-col gap-4">
-          <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-            <h3 className="text-sm font-medium">Resumen del pedido</h3>
+          <div className="border border-black/[0.07] p-5 flex flex-col gap-4">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35">Resumen del pedido</h3>
 
             <div className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Subtotal</span>
-                <span>${sub.toLocaleString('es-AR')}</span>
+                <span className="text-black/45">Subtotal</span>
+                <span className="font-medium">${sub.toLocaleString('es-AR')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Envío</span>
-                <span className={sub >= ENVIO_GRATIS ? 'text-[#0F6E56] font-medium' : ''}>
+                <span className="text-black/45">Envío</span>
+                <span className={sub >= ENVIO_GRATIS ? 'font-medium text-black' : 'text-black/45'}>
                   {sub >= ENVIO_GRATIS ? 'Gratis' : 'A calcular'}
                 </span>
               </div>
               {descuento > 0 && (
-                <div className="flex justify-between text-[#0F6E56]">
+                <div className="flex justify-between text-black">
                   <span>Descuento</span>
-                  <span>−${descuento.toLocaleString('es-AR')}</span>
+                  <span className="font-medium">−${descuento.toLocaleString('es-AR')}</span>
                 </div>
               )}
             </div>
 
-            <hr className="border-gray-100" />
-            <div className="flex justify-between font-medium">
+            <div className="h-px bg-black/[0.07]" />
+            <div className="flex justify-between font-semibold text-black">
               <span>Total</span>
-              <span className="text-[#0F6E56] text-lg">${total.toLocaleString('es-AR')}</span>
+              <span className="text-lg">${total.toLocaleString('es-AR')}</span>
             </div>
 
             {/* CUPÓN */}
@@ -150,37 +187,37 @@ export default function Carrito() {
                 value={cupon}
                 onChange={(e) => setCupon(e.target.value.toUpperCase())}
                 placeholder="Código de descuento"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1D9E75]"
+                className="flex-1 border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors bg-white placeholder-black/25"
               />
               <button
                 onClick={handleCupon}
-                className="bg-gray-100 hover:bg-gray-200 rounded-lg px-3 py-2 text-sm transition-colors"
+                className="border border-black/15 hover:border-black px-3 py-2 text-sm transition-colors"
               >
                 Aplicar
               </button>
             </div>
             {cuponError && <div className="text-xs text-red-500">{cuponError}</div>}
-            {cuponOk && <div className="text-xs text-[#0F6E56]">{cuponOk}</div>}
+            {cuponOk && <div className="text-xs text-black/60">{cuponOk}</div>}
 
             {/* ENVÍO GRATIS */}
             {faltaParaGratis > 0 && (
-              <div className="bg-[#E1F5EE] rounded-lg p-3 text-xs text-[#0F6E56] flex items-center gap-2">
-                🚚 Te faltan <strong>${faltaParaGratis.toLocaleString('es-AR')}</strong> para envío gratis
+              <div className="border border-black/[0.07] bg-black/[0.02] p-3 text-xs text-black/60">
+                Te faltan <strong className="text-black">${faltaParaGratis.toLocaleString('es-AR')}</strong> para envío gratis
               </div>
             )}
             {sub >= ENVIO_GRATIS && (
-              <div className="bg-[#E1F5EE] rounded-lg p-3 text-xs text-[#0F6E56]">
-                🎉 ¡Tenés envío gratis!
+              <div className="border border-black/[0.07] bg-black/[0.02] p-3 text-xs text-black/60">
+                ¡Tenés envío gratis!
               </div>
             )}
 
             <button
               onClick={() => navigate('/checkout')}
-              className="w-full bg-[#1D9E75] text-white rounded-lg py-3 text-sm font-medium hover:bg-[#0F6E56] transition-colors"
+              className="w-full bg-black text-white py-3 text-sm font-semibold tracking-[0.04em] hover:bg-black/80 transition-colors"
             >
               Continuar con el envío →
             </button>
-            <Link to="/productos" className="text-center text-xs text-gray-400 hover:text-gray-600">
+            <Link to="/productos" className="text-center text-xs text-black/35 hover:text-black transition-colors">
               ← Seguir comprando
             </Link>
           </div>

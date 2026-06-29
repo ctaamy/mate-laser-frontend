@@ -5,6 +5,7 @@ import { motion, useInView, AnimatePresence } from 'motion/react';
 import { ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
+import { useToastStore } from '../store/toast.store';
 import type { Producto, Categoria } from '../types/index';
 import ProductGrid from '../components/ui/ProductGrid';
 
@@ -447,6 +448,7 @@ function SeccionCategoriasGrid({ datos }: { datos: Record<string, any> }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function SeccionProductosDestacados({ datos }: { datos: Record<string, any> }) {
   const agregar = useCarritoStore(s => s.agregar);
+  const mostrarToast = useToastStore(s => s.agregar);
   const cantidad = datos.cantidad || 8;
   const ids: string[] = datos.productos_ids ?? [];
   const { data: productos } = useQuery<Producto[]>({
@@ -456,9 +458,11 @@ function SeccionProductosDestacados({ datos }: { datos: Record<string, any> }) {
       : api.get(`/productos?destacado=true&limit=${cantidad}`).then(r => r.data.data),
   });
 
-  const handleAgregar = (p: Producto) =>
+  const handleAgregar = (p: Producto) => {
     agregar({ producto_id: p.id, nombre_producto: p.nombre, precio_unitario: Number(p.precio_base), cantidad: 1,
       imagen_url: p.imagenes_producto?.[0]?.url });
+    mostrarToast(p.nombre, p.imagenes_producto?.[0]?.url);
+  };
 
   const bg = datos.bg_color || '#ffffff';
 

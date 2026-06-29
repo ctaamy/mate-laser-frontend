@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, Clock, XCircle, Truck, Mail } from 'lucide-react';
 import api from '../lib/api';
@@ -6,11 +6,20 @@ import type { Orden } from '../types';
 
 export default function Confirmacion() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const mpStatus = searchParams.get('mp'); // 'success' | 'failure' | 'pending' | null
 
   const { data: orden, isLoading } = useQuery<Orden>({
     queryKey: ['orden', id],
     queryFn: () => api.get(`/ordenes/${id}`).then((r) => r.data),
     enabled: !!id,
+    // Refetch cada 3s mientras el webhook de MP no haya llegado aún
+    refetchInterval: (query) => {
+      const o = query.state.data as Orden | undefined;
+      if (!o) return false;
+      const sigue_pendiente = o.estado === 'pendiente' && mpStatus === 'success';
+      return sigue_pendiente ? 3000 : false;
+    },
   });
 
   if (isLoading) return (
@@ -29,8 +38,11 @@ export default function Confirmacion() {
   const estadoPago = pago?.estado;
 
   const isAprobado = orden.estado === 'pagado' || estadoPago === 'aprobado';
-  const isPendiente = orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion';
-  const isRechazado = orden.estado === 'rechazado' || estadoPago === 'rechazado';
+  // MP devuelve "success" pero el webhook puede demorar — mostrar como pendiente hasta que llegue
+  const isMPPending = mpStatus === 'success' && orden.estado === 'pendiente';
+  const isPendiente = orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion' || isMPPending;
+  const isRechazado = (orden.estado === 'rechazado' || estadoPago === 'rechazado') && mpStatus !== 'success';
+  const isMPFailure = mpStatus === 'failure';
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
@@ -49,6 +61,21 @@ export default function Confirmacion() {
           </div>
         ))}
       </div>
+
+      {/* BANNER MP FAILURE */}
+      {isMPFailure && (
+        <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-6 text-center">
+          El pago en Mercado Pago no se completó. Tu orden sigue reservada — podés reintentar o elegir otro método.
+        </div>
+      )}
+
+      {/* BANNER MP PENDING → polling */}
+      {isMPPending && (
+        <div className="border border-black/10 bg-black/[0.02] px-4 py-3 text-sm text-black/60 mb-6 text-center flex items-center justify-center gap-2">
+          <div className="w-3 h-3 border-2 border-black/30 border-t-black/70 rounded-full animate-spin" />
+          Confirmando pago con Mercado Pago…
+        </div>
+      )}
 
       {/* HERO ESTADO */}
       <div className="text-center mb-8">

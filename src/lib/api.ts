@@ -20,10 +20,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      useAuthStore.getState().logout();
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      const path = window.location.pathname;
+      // En rutas de checkout/pago/confirmacion no redirigir al login (guests válidos)
+      const esRutaPublica = ['/pago/', '/checkout', '/confirmacion/'].some(r => path.includes(r));
+      if (!esRutaPublica) {
+        localStorage.removeItem('token');
+        useAuthStore.getState().logout();
+        if (path !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

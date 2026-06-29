@@ -61,7 +61,7 @@ function IconBtn({ onClick, active, children, badge, navColor, navBg }: {
 
 export default function Navbar() {
   const { isAuthenticated, usuario, logout } = useAuthStore();
-  const cantidadItems = useCarritoStore(s => s.cantidadItems);
+  const cantidadItems = useCarritoStore(s => s.items.reduce((acc, i) => acc + i.cantidad, 0));
   const navigate = useNavigate();
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
@@ -284,7 +284,7 @@ export default function Navbar() {
 
             {mostrarCarrito && (
               <Link to="/carrito">
-                <IconBtn badge={cantidadItems()} navColor={navColor} navBg={navBg}>
+                <IconBtn badge={cantidadItems} navColor={navColor} navBg={navBg}>
                   <ShoppingCart size={16} />
                 </IconBtn>
               </Link>

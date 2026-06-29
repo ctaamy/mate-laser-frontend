@@ -70,15 +70,19 @@ export default function ProductCard({ producto, onAgregar, index = 0 }: ProductC
         )}
 
         {/* Badges */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10">
-          {tieneDescuento && (
-            <span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded-sm">
-              -{descuentoPct}%
-            </span>
-          )}
+        <div className="absolute top-0 left-0 flex flex-col gap-0 z-10">
           {producto.apto_grabado && (
-            <span className="text-[10px] font-semibold bg-white/90 text-gray-700 px-2 py-0.5 rounded-sm border border-gray-100">
-              ⚡ Grabado
+            <div className="flex items-center gap-1.5 bg-black text-white pl-2.5 pr-3 py-1.5">
+              {/* Ícono de rayo láser */}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 opacity-70">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em]">Grabado láser</span>
+            </div>
+          )}
+          {tieneDescuento && (
+            <span className="text-[10px] font-bold bg-white text-black px-2.5 py-1 border-l-2 border-black">
+              -{descuentoPct}%
             </span>
           )}
         </div>

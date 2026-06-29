@@ -12,6 +12,7 @@ import Productos from './pages/Productos';
 import ProductoDetalle from './pages/ProductoDetalle';
 import Carrito from './pages/Carrito';
 import Checkout from './pages/Checkout';
+import Pago from './pages/Pago';
 import Confirmacion from './pages/Confirmacion';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -61,12 +62,9 @@ export default function App() {
             <Route path="carrito" element={<Carrito />} />
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
-            <Route path="checkout" element={
-              <PrivateRoute><Checkout /></PrivateRoute>
-            } />
-            <Route path="confirmacion/:id" element={
-              <PrivateRoute><Confirmacion /></PrivateRoute>
-            } />
+            <Route path="checkout" element={<Checkout />} />
+            <Route path="pago/:id" element={<Pago />} />
+            <Route path="confirmacion/:id" element={<Confirmacion />} />
           </Route>
 
           {/* Rutas de admin */}

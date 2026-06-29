@@ -11,33 +11,33 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
-  try {
-    await login(email, password);
-    navigate('/');
-  } catch (err: any) {
-    console.log('Error:', err);
-    setError(err.response?.data?.message || 'Credenciales inválidas');
-  } finally {
-    setLoading(false);
-  }
-};
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await login(email, password);
+      navigate('/');
+    } catch (err: any) {
+      console.log('Error:', err);
+      setError(err.response?.data?.message || 'Credenciales inválidas');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="bg-white rounded-xl border border-gray-200 p-8 w-full max-w-sm">
-        <div className="text-center mb-6">
-          <Link to="/" className="text-lg font-medium">
-            mate<span className="text-[#0F6E56]">laser</span> studio
+    <div className="min-h-screen flex items-center justify-center bg-[#f9f9f9] px-4">
+      <div className="bg-white border border-black/[0.07] p-8 w-full max-w-sm">
+        <div className="text-center mb-7">
+          <Link to="/" className="text-lg font-bold tracking-tight text-black">
+            mate<span className="font-light">laser</span> studio
           </Link>
-          <p className="text-sm text-gray-500 mt-1">Iniciá sesión en tu cuenta</p>
+          <p className="text-xs text-black/40 mt-1.5 uppercase tracking-[0.12em]">Iniciá sesión en tu cuenta</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-gray-600 font-medium">Email</label>
+            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Email</label>
             <input
               type="email"
               value={email}
@@ -45,12 +45,12 @@ export default function Login() {
               placeholder="tu@email.com"
               required
               autoComplete="off"
-              className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1D9E75]"
+              className="border border-black/15 px-3 py-2.5 text-sm focus:outline-none focus:border-black transition-colors bg-white placeholder-black/25"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-gray-600 font-medium">Contraseña</label>
+            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Contraseña</label>
             <input
               type="password"
               value={password}
@@ -58,12 +58,12 @@ export default function Login() {
               placeholder="••••••••"
               autoComplete="new-password"
               required
-              className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#1D9E75]"
+              className="border border-black/15 px-3 py-2.5 text-sm focus:outline-none focus:border-black transition-colors bg-white placeholder-black/25"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 text-xs px-3 py-2 rounded-lg">
+            <div className="bg-red-50 text-red-600 text-xs px-3 py-2">
               {error}
             </div>
           )}
@@ -71,15 +71,15 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-[#1D9E75] text-white rounded-lg py-2.5 text-sm font-medium hover:bg-[#0F6E56] transition-colors disabled:opacity-50"
+            className="bg-black text-white py-2.5 text-sm font-semibold tracking-[0.06em] hover:bg-black/80 transition-colors disabled:opacity-50 mt-1"
           >
             {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-500 mt-4">
+        <p className="text-center text-xs text-black/40 mt-5">
           ¿No tenés cuenta?{' '}
-          <Link to="/register" className="text-[#1D9E75] hover:underline">
+          <Link to="/register" className="text-black font-medium hover:underline">
             Registrate
           </Link>
         </p>
