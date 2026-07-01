@@ -40,6 +40,7 @@ export default function Productos() {
       precio_unitario: Number(producto.precio_base),
       cantidad: 1,
       imagen_url: producto.imagenes_producto?.[0]?.url,
+      stock: producto.stock,
     });
     mostrarToast(producto.nombre, producto.imagenes_producto?.[0]?.url);
   };

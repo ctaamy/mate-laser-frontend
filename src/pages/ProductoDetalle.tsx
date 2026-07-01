@@ -57,6 +57,7 @@ export default function ProductoDetalle() {
       color: quierePersonalizar ? (colorSeleccionado || undefined) : undefined,
       texto_grabado: quierePersonalizar ? (textoGrabado || undefined) : undefined,
       imagen_url: producto.imagenes_producto?.[0]?.url,
+      stock: producto.stock,
     });
     setAgregado(true);
     setTimeout(() => setAgregado(false), 2000);

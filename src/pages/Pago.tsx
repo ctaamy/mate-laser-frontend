@@ -55,7 +55,7 @@ export default function Pago() {
 
   // Montar el Brick cuando SDK y preference estén listos
   useEffect(() => {
-    if (!sdkReady || !preferenceId || brickMounted || !orden) return;
+    if (!sdkReady || brickMounted || !orden) return;
 
     const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY as string;
     if (!publicKey || publicKey.startsWith('TEST-XXX')) {
@@ -69,7 +69,6 @@ export default function Pago() {
     bricksBuilder.create('payment', 'mp-brick-container', {
       initialization: {
         amount: Number(orden.total),
-        preferenceId,
       },
       customization: {
         paymentMethods: {
@@ -77,7 +76,6 @@ export default function Pago() {
           debitCard: 'all',
           ticket: 'all',
           bankTransfer: 'all',
-          mercadoPago: 'all',
         },
         visual: {
           style: {
@@ -94,7 +92,9 @@ export default function Pago() {
         onReady: () => setBrickMounted(true),
         onError: (err: any) => {
           console.error('Brick error:', err);
-          setError('Error en el procesador de pagos.');
+          if (err?.type === 'critical') {
+            setError('Error en el procesador de pagos.');
+          }
         },
         onSubmit: ({ formData }: { formData: any }) => {
           // El Brick llama esto cuando el usuario confirma el pago
@@ -112,8 +112,10 @@ export default function Pago() {
               limpiar();
               navigate(`/confirmacion/${id}?mp=pending`);
             }
-          }).catch(() => {
-            setError('Error al procesar el pago. Intentá de nuevo.');
+          }).catch((err: any) => {
+            const msg = err?.response?.data?.message ?? err?.message ?? 'Error desconocido';
+            console.error('Error procesando pago:', msg);
+            setError(`Error al procesar el pago: ${msg}`);
           });
         },
       },

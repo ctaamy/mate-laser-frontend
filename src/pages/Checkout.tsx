@@ -45,6 +45,8 @@ export default function Checkout() {
   const [ciudad, setCiudad] = useState('');
   const [provincia, setProvincia] = useState('');
   const [metodoEnvioId, setMetodoEnvioId] = useState<number | null>(null);
+  const [quienRecibe, setQuienRecibe] = useState('');
+  const [especificaciones, setEspecificaciones] = useState('');
   const [metodoPago, setMetodoPago] = useState('mercadopago');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -59,6 +61,7 @@ export default function Checkout() {
 
   const envioSeleccionado = envios?.find(e => e.id === metodoEnvioId);
   const isRetiro = envioSeleccionado?.proveedor === 'retiro';
+  const isPrivada = !!envioSeleccionado && !['retiro', 'andreani', 'correo'].includes(envioSeleccionado.proveedor);
   const costoEnvio = envioSeleccionado?.costo ?? 0;
   const total = sub + costoEnvio;
 
@@ -83,6 +86,7 @@ export default function Checkout() {
       if (!ciudad) e.ciudad = 'Requerido';
       if (!provincia) e.provincia = 'Requerido';
     }
+    if (isPrivada && !quienRecibe) e.quienRecibe = 'Requerido';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -96,7 +100,10 @@ export default function Checkout() {
     try {
       const direccionEnvio = isRetiro
         ? { tipo: 'retiro' }
-        : { calle, piso, cp, ciudad, provincia, pais: 'Argentina' };
+        : {
+            calle, piso, cp, ciudad, provincia, pais: 'Argentina',
+            ...(isPrivada && { quien_recibe: quienRecibe, especificaciones: especificaciones || undefined }),
+          };
 
       const { data } = await api.post('/ordenes', {
         direccion_envio: direccionEnvio,
@@ -292,6 +299,32 @@ export default function Checkout() {
                       </select>
                       {errors.provincia && <p className="text-xs text-red-500 mt-1">{errors.provincia}</p>}
                     </div>
+
+                    {/* Campos extra para logística privada */}
+                    {isPrivada && (
+                      <>
+                        <div className="col-span-2">
+                          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Quién recibe *</label>
+                          <input
+                            value={quienRecibe}
+                            onChange={e => setQuienRecibe(e.target.value)}
+                            className={inputClass('quienRecibe')}
+                            placeholder="Nombre completo de quien recibe el paquete"
+                          />
+                          {errors.quienRecibe && <p className="text-xs text-red-500 mt-1">{errors.quienRecibe}</p>}
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Especificaciones de entrega</label>
+                          <textarea
+                            value={especificaciones}
+                            onChange={e => setEspecificaciones(e.target.value)}
+                            className={`${inputClass('especificaciones')} resize-none`}
+                            rows={3}
+                            placeholder="Ej: no tiene timbre, llamar al portero, dejar con el vecino del 2B, horario preferido…"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

@@ -11,6 +11,7 @@ interface ItemCarrito {
   precio_unitario: number;
   cantidad: number;
   imagen_url?: string;
+  stock?: number;
 }
 
 interface CarritoState {
@@ -24,6 +25,13 @@ interface CarritoState {
   cantidadItems: () => number;
 }
 
+const mismoItem = (a: ItemCarrito, b: Partial<ItemCarrito>) =>
+  a.producto_id === b.producto_id &&
+  a.variante_id === b.variante_id &&
+  a.con_grabado === b.con_grabado &&
+  a.texto_grabado === b.texto_grabado &&
+  a.color === b.color;
+
 export const useCarritoStore = create<CarritoState>()(
   persist(
     (set, get) => ({
@@ -31,22 +39,14 @@ export const useCarritoStore = create<CarritoState>()(
 
       agregar: (item) => {
         const items = get().items;
-        const existe = items.find(
-          (i) =>
-            i.producto_id === item.producto_id &&
-            i.variante_id === item.variante_id &&
-            i.con_grabado === item.con_grabado &&
-            i.texto_grabado === item.texto_grabado &&
-            i.color === item.color
-        );
+        const existe = items.find(i => mismoItem(i, item));
         if (existe) {
+          const nuevaCantidad = existe.cantidad + item.cantidad;
+          const max = existe.stock ?? item.stock ?? Infinity;
           set({
-            items: items.map((i) =>
-              i.producto_id === item.producto_id &&
-              i.variante_id === item.variante_id &&
-              i.texto_grabado === item.texto_grabado &&
-              i.color === item.color
-                ? { ...i, cantidad: i.cantidad + item.cantidad }
+            items: items.map(i =>
+              mismoItem(i, item)
+                ? { ...i, cantidad: Math.min(nuevaCantidad, max), stock: item.stock ?? i.stock }
                 : i
             ),
           });
@@ -57,13 +57,7 @@ export const useCarritoStore = create<CarritoState>()(
 
       quitar: (producto_id, variante_id, con_grabado, texto_grabado, color) => {
         set({
-          items: get().items.filter((i) => !(
-            i.producto_id === producto_id &&
-            i.variante_id === variante_id &&
-            i.con_grabado === con_grabado &&
-            i.texto_grabado === texto_grabado &&
-            i.color === color
-          )),
+          items: get().items.filter(i => !mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color })),
         });
       },
 
@@ -73,15 +67,11 @@ export const useCarritoStore = create<CarritoState>()(
           return;
         }
         set({
-          items: get().items.map((i) =>
-            i.producto_id === producto_id &&
-            i.variante_id === variante_id &&
-            i.con_grabado === con_grabado &&
-            i.texto_grabado === texto_grabado &&
-            i.color === color
-              ? { ...i, cantidad }
-              : i
-          ),
+          items: get().items.map(i => {
+            if (!mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color })) return i;
+            const max = i.stock ?? Infinity;
+            return { ...i, cantidad: Math.min(cantidad, max) };
+          }),
         });
       },
 
@@ -95,8 +85,6 @@ export const useCarritoStore = create<CarritoState>()(
       cantidadItems: () =>
         get().items.reduce((acc, i) => acc + i.cantidad, 0),
     }),
-    {
-      name: 'carrito-storage',
-    }
+    { name: 'carrito-storage' }
   )
 );

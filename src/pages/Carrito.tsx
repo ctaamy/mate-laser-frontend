@@ -126,7 +126,8 @@ export default function Carrito() {
                       <span className="w-8 text-center text-sm font-medium text-black select-none">{item.cantidad}</span>
                       <button
                         onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
-                        className="w-7 h-7 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors"
+                        disabled={item.stock !== undefined && item.cantidad >= item.stock}
+                        className="w-7 h-7 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
                       >
                         <Plus size={11} />
                       </button>
