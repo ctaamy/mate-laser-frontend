@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Upload, X, Star, Loader2 } from 'lucide-react';
 import api from '../../lib/api';
+import { useSubirImagen } from '../../hooks/useSubirImagen';
 import type { ImagenProducto } from '../../types';
 
 interface ImageUploaderProps {
@@ -18,33 +19,15 @@ export default function ImageUploader({
   maxImagenes = 4,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [subiendo, setSubiendo] = useState(false);
-  const [error, setError] = useState('');
+  const { subir: subirArchivo, subiendo, error } = useSubirImagen(
+    `/imagenes/producto/${productoId}`,
+    () => onUpdate(),
+  );
 
-  const subir = async (file: File) => {
-    if (imagenes.length >= maxImagenes) {
-      setError(`Máximo ${maxImagenes} imágenes por producto.`);
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('El archivo supera 5 MB.');
-      return;
-    }
-    setError('');
-    setSubiendo(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      await api.post(`/imagenes/producto/${productoId}`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      onUpdate();
-    } catch {
-      setError('Error al subir la imagen. Intentá de nuevo.');
-    } finally {
-      setSubiendo(false);
-    }
-  };
+  const subir = (file: File) =>
+    subirArchivo(file, () =>
+      imagenes.length >= maxImagenes ? `Máximo ${maxImagenes} imágenes por producto.` : null,
+    );
 
   const eliminar = async (id: string) => {
     await api.delete(`/imagenes/${id}`);

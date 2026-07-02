@@ -33,16 +33,6 @@ export default function Pago() {
     enabled: !!id,
   });
 
-  const [preferenceId, setPreferenceId] = useState<string | null>(null);
-
-  // Obtener preference_id del backend
-  useEffect(() => {
-    if (!id || preferenceId) return;
-    api.post(`/pagos/${id}/preferencia-mp`)
-      .then(r => setPreferenceId(r.data.preference_id))
-      .catch(() => setError('No se pudo iniciar el pago. Intentá de nuevo.'));
-  }, [id, preferenceId]);
-
   // Cargar SDK de MP
   useEffect(() => {
     if (document.getElementById('mp-sdk')) { setSdkReady(true); return; }
@@ -125,7 +115,7 @@ export default function Pago() {
 
     setBrickMounted(true);
     return () => { brickRef.current?.unmount(); };
-  }, [sdkReady, preferenceId, brickMounted, orden, id, navigate]);
+  }, [sdkReady, brickMounted, orden, id, navigate]);
 
   const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
 

@@ -2,10 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingCart, User, Search, X, Menu, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'motion/react';
-import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth.store';
 import { useCarritoStore } from '../../store/carrito.store';
-import api from '../../lib/api';
+import { useConfiguracion } from '../../hooks/useConfiguracion';
 
 interface NavLink { label: string; href: string }
 
@@ -72,11 +71,7 @@ export default function Navbar() {
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
 
-  const { data: config } = useQuery<Record<string, any>>({
-    queryKey: ['configuracion'],
-    queryFn: () => api.get('/configuracion').then(r => r.data),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: config } = useConfiguracion();
 
   const nombreTienda: string = config?.nombre_tienda || 'matelaser studio';
   const navLinks: NavLink[] = (() => {

@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { motion } from 'motion/react';
 import { Upload, Loader2, X } from 'lucide-react';
-import api from '../../lib/api';
+import { useSubirImagen } from '../../hooks/useSubirImagen';
 
 interface SeccionImageUploaderProps {
   value: string;           // URL actual guardada en datos.imagen_url
@@ -11,26 +11,12 @@ interface SeccionImageUploaderProps {
 
 export default function SeccionImageUploader({ value, onChange, label = 'Imagen' }: SeccionImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [subiendo, setSubiendo] = useState(false);
-  const [error, setError] = useState('');
-
-  const subir = async (file: File) => {
-    if (file.size > 5 * 1024 * 1024) { setError('Máximo 5 MB'); return; }
-    setError('');
-    setSubiendo(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await api.post('/configuracion/imagen', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      onChange(res.data.url);
-    } catch {
-      setError('Error al subir. Intentá de nuevo.');
-    } finally {
-      setSubiendo(false);
-    }
-  };
+  const { subir, subiendo, error } = useSubirImagen(
+    '/configuracion/imagen',
+    (data) => onChange(data.url),
+    'Máximo 5 MB',
+    'Error al subir. Intentá de nuevo.',
+  );
 
   return (
     <div className="flex flex-col gap-2">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
+import FormError from '../components/ui/FormError';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -62,11 +63,7 @@ export default function Login() {
             />
           </div>
 
-          {error && (
-            <div className="bg-red-50 text-red-600 text-xs px-3 py-2">
-              {error}
-            </div>
-          )}
+          <FormError mensaje={error} />
 
           <button
             type="submit"

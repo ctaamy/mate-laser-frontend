@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { ShoppingBag, DollarSign, Package, Clock } from 'lucide-react';
 import api from '../../lib/api';
+import EstadoBadge from '../../components/ui/EstadoBadge';
 
 export default function AdminDashboard() {
   const { data: ordenes } = useQuery({
@@ -29,19 +30,6 @@ export default function AdminDashboard() {
     { label: 'Pendientes de pago', value: ordenesPendientes, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
     { label: 'Stock crítico', value: stockCritico, icon: Package, color: 'text-red-500', bg: 'bg-red-50' },
   ];
-
-  const estadoColor: Record<string, string> = {
-    pendiente: 'bg-gray-100 text-gray-600',
-    reservado: 'bg-amber-100 text-amber-700',
-    esperando_confirmacion: 'bg-amber-100 text-amber-700',
-    pagado: 'bg-[#E1F5EE] text-[#0F6E56]',
-    en_preparacion: 'bg-blue-100 text-blue-700',
-    listo_para_retirar: 'bg-blue-100 text-blue-700',
-    enviado: 'bg-purple-100 text-purple-700',
-    entregado: 'bg-[#E1F5EE] text-[#0F6E56]',
-    cancelado: 'bg-red-100 text-red-600',
-    rechazado: 'bg-red-100 text-red-600',
-  };
 
   return (
     <div className="p-6 flex flex-col gap-6">
@@ -89,9 +77,7 @@ export default function AdminDashboard() {
                 </td>
                 <td className="px-5 py-3 text-sm font-medium">${Number(orden.total).toLocaleString('es-AR')}</td>
                 <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${estadoColor[orden.estado] || 'bg-gray-100 text-gray-600'}`}>
-                    {orden.estado.replace(/_/g, ' ')}
-                  </span>
+                  <EstadoBadge estado={orden.estado} />
                 </td>
                 <td className="px-5 py-3 text-xs text-gray-400">
                   {new Date(orden.creado_en).toLocaleDateString('es-AR')}

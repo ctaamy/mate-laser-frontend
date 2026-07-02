@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
+import ActivoBadge from '../../components/ui/ActivoBadge';
+import BotonEliminar from '../../components/ui/BotonEliminar';
+import BotonNuevo from '../../components/ui/BotonNuevo';
 
 export default function AdminCupones() {
   const queryClient = useQueryClient();
@@ -49,12 +51,7 @@ export default function AdminCupones() {
           <h1 className="text-xl font-medium">Cupones</h1>
           <p className="text-sm text-gray-400 mt-0.5">{cupones?.length || 0} cupones</p>
         </div>
-        <button
-          onClick={() => setModalAbierto(true)}
-          className="bg-[#1D9E75] text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#0F6E56] transition-colors"
-        >
-          <Plus size={16} /> Nuevo cupón
-        </button>
+        <BotonNuevo label="Nuevo cupón" onClick={() => setModalAbierto(true)} />
       </div>
 
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
@@ -85,17 +82,10 @@ export default function AdminCupones() {
                   {c.vence_en ? new Date(c.vence_en).toLocaleDateString('es-AR') : 'Sin vencimiento'}
                 </td>
                 <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${c.activo ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-gray-100 text-gray-500'}`}>
-                    {c.activo ? 'Activo' : 'Inactivo'}
-                  </span>
+                  <ActivoBadge activo={c.activo} />
                 </td>
                 <td className="px-5 py-3">
-                  <button
-                    onClick={() => eliminarMutation.mutate(c.id)}
-                    className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-300"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <BotonEliminar onClick={() => eliminarMutation.mutate(c.id)} />
                 </td>
               </tr>
             ))}

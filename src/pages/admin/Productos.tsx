@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Copy, Check, Image } from 'lucide-react';
+import { Pencil, Copy, Check, Image } from 'lucide-react';
 import api from '../../lib/api';
 import type { Producto, Categoria, ImagenProducto } from '../../types';
 import ImageUploader from '../../components/ui/ImageUploader';
+import ActivoBadge from '../../components/ui/ActivoBadge';
+import BotonEliminar from '../../components/ui/BotonEliminar';
+import BotonNuevo from '../../components/ui/BotonNuevo';
 
 interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; datos: Record<string, any>; }
 
@@ -171,12 +174,7 @@ export default function AdminProductos() {
           <h1 className="text-xl font-medium">Productos</h1>
           <p className="text-sm text-gray-400 mt-0.5">{productos?.length || 0} productos en total</p>
         </div>
-        <button
-          onClick={() => abrirModal()}
-          className="bg-[#1D9E75] text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#0F6E56] transition-colors"
-        >
-          <Plus size={16} /> Nuevo producto
-        </button>
+        <BotonNuevo label="Nuevo producto" onClick={() => abrirModal()} />
       </div>
 
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
@@ -222,9 +220,7 @@ export default function AdminProductos() {
                   ) : <span className="text-xs text-gray-300">—</span>}
                 </td>
                 <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${p.activo ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-gray-100 text-gray-500'}`}>
-                    {p.activo ? 'Activo' : 'Inactivo'}
-                  </span>
+                  <ActivoBadge activo={p.activo} />
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-1">
@@ -234,9 +230,7 @@ export default function AdminProductos() {
                     <button className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors">
                       <Copy size={13} />
                     </button>
-                    <button onClick={() => eliminarMutation.mutate(p.id)} className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-300 transition-colors">
-                      <Trash2 size={13} />
-                    </button>
+                    <BotonEliminar onClick={() => eliminarMutation.mutate(p.id)} />
                   </div>
                 </td>
               </tr>

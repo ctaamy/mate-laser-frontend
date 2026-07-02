@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useQuery } from '@tanstack/react-query';
 import { X, ArrowRight } from 'lucide-react';
-import api from '../../lib/api';
+import { useConfiguracion } from '../../hooks/useConfiguracion';
 
 const WA_ICON = (
   <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -14,11 +13,7 @@ const WA_ICON = (
 export default function WhatsAppButton() {
   const [open, setOpen] = useState(false);
 
-  const { data: config } = useQuery<Record<string, any>>({
-    queryKey: ['configuracion'],
-    queryFn: () => api.get('/configuracion').then(r => r.data),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: config } = useConfiguracion();
 
   const telefono = (config?.telefono_contacto || '').replace(/\D/g, '');
   const mensaje = encodeURIComponent(
