@@ -427,6 +427,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-black truncate">{item.nombre_producto}</div>
+                    {item.variante_descripcion && <div className="text-[10px] text-black/40 truncate">{item.variante_descripcion}</div>}
                     {item.texto_grabado && <div className="text-xs text-black/40 truncate italic">"{item.texto_grabado}"</div>}
                     <div className="text-[10px] text-black/30">x{item.cantidad}</div>
                   </div>

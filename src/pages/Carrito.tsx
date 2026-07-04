@@ -96,6 +96,9 @@ export default function Carrito() {
                 <div className="flex-1 flex flex-col justify-between gap-2 min-w-0">
                   <div>
                     <div className="text-sm font-semibold text-black leading-tight">{item.nombre_producto}</div>
+                    {item.variante_descripcion && (
+                      <div className="text-[11px] text-black/40 mt-0.5">{item.variante_descripcion}</div>
+                    )}
                     {item.color && (
                       <div className="text-[11px] text-black/40 mt-0.5">Color: {item.color}</div>
                     )}

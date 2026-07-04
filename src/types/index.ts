@@ -24,6 +24,7 @@ export interface Producto {
   categorias?: Categoria;
   imagenes_producto?: ImagenProducto[];
   variantes_producto?: VarianteProducto[];
+  tipos_opcion?: TipoOpcion[];
   resenas_producto?: Resena[];
 }
 
@@ -50,11 +51,37 @@ export interface ImagenProducto {
 export interface VarianteProducto {
   id: string;
   producto_id: string;
+  /** @deprecated reemplazado por variante_valores */
   color?: string;
+  /** @deprecated reemplazado por variante_valores */
   atributos: Record<string, any>;
   precio_override?: number;
   stock: number;
+  imagen_id?: string;
+  imagenes_producto?: ImagenProducto;
   activo: boolean;
+  variante_valores?: VarianteValor[];
+}
+
+export interface TipoOpcion {
+  id: string;
+  producto_id: string;
+  nombre: string;
+  orden: number;
+  valores: ValorOpcion[];
+}
+
+export interface ValorOpcion {
+  id: string;
+  tipo_opcion_id: string;
+  valor: string;
+  orden: number;
+}
+
+export interface VarianteValor {
+  variante_id: string;
+  valor_opcion_id: string;
+  valores_opcion: ValorOpcion & { tipos_opcion: TipoOpcion };
 }
 
 export interface Resena {

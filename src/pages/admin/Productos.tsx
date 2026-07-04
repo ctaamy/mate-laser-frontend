@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Copy, Check, Image } from 'lucide-react';
+import { Pencil, Copy, Check, Image, Shapes } from 'lucide-react';
 import api from '../../lib/api';
 import type { Producto, Categoria, ImagenProducto } from '../../types';
 import ImageUploader from '../../components/ui/ImageUploader';
+import VariantesTab from '../../components/admin/VariantesTab';
 import ActivoBadge from '../../components/ui/ActivoBadge';
 import BotonEliminar from '../../components/ui/BotonEliminar';
 import BotonNuevo from '../../components/ui/BotonNuevo';
@@ -13,7 +14,7 @@ interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; 
 export default function AdminProductos() {
   const queryClient = useQueryClient();
   const [modalAbierto, setModalAbierto] = useState(false);
-  const [tabModal, setTabModal] = useState<'datos' | 'imagenes'>('datos');
+  const [tabModal, setTabModal] = useState<'datos' | 'imagenes' | 'variantes'>('datos');
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [seccionesSeleccionadas, setSeccionesSeleccionadas] = useState<string[]>([]);
   const [form, setForm] = useState({
@@ -256,10 +257,12 @@ export default function AdminProductos() {
               {/* Tabs Datos / Imágenes — solo cuando hay producto existente */}
               {productoEditando && (
                 <div className="flex gap-1">
-                  {([['datos', 'Datos'], ['imagenes', 'Imágenes']] as const).map(([key, label]) => (
+                  {([['datos', 'Datos'], ['imagenes', 'Imágenes'], ['variantes', 'Variantes']] as const).map(([key, label]) => (
                     <button key={key} onClick={() => setTabModal(key)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tabModal === key ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
-                      {key === 'imagenes' && <Image size={12} />}{label}
+                      {key === 'imagenes' && <Image size={12} />}
+                      {key === 'variantes' && <Shapes size={12} />}
+                      {label}
                       {key === 'imagenes' && imagenesProducto && (
                         <span className="bg-white/30 text-[10px] rounded-full px-1.5">{imagenesProducto.length}/4</span>
                       )}
@@ -285,6 +288,11 @@ export default function AdminProductos() {
                     maxImagenes={4}
                   />
                 </div>
+              )}
+
+              {/* ── Tab VARIANTES ── */}
+              {tabModal === 'variantes' && productoEditando && (
+                <VariantesTab productoId={productoEditando.id} imagenesProducto={imagenesProducto ?? []} />
               )}
 
               {/* ── Tab DATOS ── */}
@@ -454,7 +462,7 @@ export default function AdminProductos() {
             </div>
             <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={cerrarModal} className="border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                {tabModal === 'imagenes' ? 'Cerrar' : 'Cancelar'}
+                {tabModal === 'imagenes' || tabModal === 'variantes' ? 'Cerrar' : 'Cancelar'}
               </button>
               {(tabModal === 'datos' || !productoEditando) && (
                 <button

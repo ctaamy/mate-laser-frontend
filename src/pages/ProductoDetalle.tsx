@@ -13,6 +13,7 @@ const T = { duration: 0.4, ease: 'easeOut' as const };
 export default function ProductoDetalle() {
   const { slug } = useParams<{ slug: string }>();
   const [colorSeleccionado, setColorSeleccionado] = useState('');
+  const [valoresSeleccionados, setValoresSeleccionados] = useState<Record<string, string>>({});
   const [quierePersonalizar, setQuierePersonalizar] = useState(false);
   const [textoGrabado, setTextoGrabado] = useState('');
   const [cantidad, setCantidad] = useState(1);
@@ -47,25 +48,50 @@ export default function ProductoDetalle() {
     ? Math.round((1 - Number(producto.precio_base) / Number(producto.precio_tachado!)) * 100)
     : 0;
 
+  const colores = Array.isArray(producto.colores_disponibles) ? producto.colores_disponibles : [];
+  const imagenes = producto.imagenes_producto ?? [];
+  const tiposOpcion = producto.tipos_opcion ?? [];
+  const variantes = producto.variantes_producto ?? [];
+  const tieneVariantes = tiposOpcion.length > 0;
+
+  const combinacionCompleta = tieneVariantes && tiposOpcion.every((t) => valoresSeleccionados[t.id]);
+  const varianteSeleccionada = combinacionCompleta
+    ? variantes.find((v) => {
+        const idsVariante = new Set((v.variante_valores ?? []).map((vv) => vv.valor_opcion_id));
+        const idsElegidos = Object.values(valoresSeleccionados);
+        return idsElegidos.length === idsVariante.size && idsElegidos.every((id) => idsVariante.has(id));
+      })
+    : undefined;
+
+  const stockDisponible = varianteSeleccionada ? varianteSeleccionada.stock : producto.stock;
+  const imagenVariante = varianteSeleccionada?.imagenes_producto;
+  const puedeAgregar = stockDisponible > 0 && (!tieneVariantes || !!varianteSeleccionada);
+
+  const varianteDescripcion = varianteSeleccionada
+    ? tiposOpcion
+        .map((t) => `${t.nombre}: ${t.valores.find((v) => v.id === valoresSeleccionados[t.id])?.valor}`)
+        .join(' / ')
+    : undefined;
+
   const handleAgregar = () => {
+    if (!puedeAgregar) return;
     agregar({
       producto_id: producto.id,
+      variante_id: varianteSeleccionada?.id,
+      variante_descripcion: varianteDescripcion,
       nombre_producto: producto.nombre,
       precio_unitario: precioFinal,
       cantidad,
       con_grabado: quierePersonalizar || undefined,
       color: quierePersonalizar ? (colorSeleccionado || undefined) : undefined,
       texto_grabado: quierePersonalizar ? (textoGrabado || undefined) : undefined,
-      imagen_url: producto.imagenes_producto?.[0]?.url,
-      stock: producto.stock,
+      imagen_url: imagenVariante?.url ?? producto.imagenes_producto?.[0]?.url,
+      stock: stockDisponible,
     });
     setAgregado(true);
     setTimeout(() => setAgregado(false), 2000);
-    mostrarToast(producto.nombre, producto.imagenes_producto?.[0]?.url);
+    mostrarToast(producto.nombre, imagenVariante?.url ?? producto.imagenes_producto?.[0]?.url);
   };
-
-  const colores = Array.isArray(producto.colores_disponibles) ? producto.colores_disponibles : [];
-  const imagenes = producto.imagenes_producto ?? [];
 
   return (
     <div className="min-h-screen bg-white">
@@ -88,10 +114,10 @@ export default function ProductoDetalle() {
             {/* Imagen principal */}
             <div className="relative bg-[#f5f5f5] overflow-hidden" style={{ aspectRatio: '4/5' }}>
               <AnimatePresence mode="wait">
-                {imagenes[imagenActiva] ? (
+                {imagenVariante || imagenes[imagenActiva] ? (
                   <motion.img
-                    key={imagenes[imagenActiva].id}
-                    src={imagenes[imagenActiva].url}
+                    key={imagenVariante?.id ?? imagenes[imagenActiva].id}
+                    src={imagenVariante?.url ?? imagenes[imagenActiva].url}
                     alt={producto.nombre}
                     className="absolute inset-0 w-full h-full object-cover"
                     initial={{ opacity: 0, scale: 1.03 }}
@@ -182,6 +208,48 @@ export default function ProductoDetalle() {
               </div>
             )}
 
+            {/* Selector de opciones (variantes) */}
+            {tieneVariantes && (
+              <div className="flex flex-col gap-4">
+                {tiposOpcion.map((tipo) => (
+                  <div key={tipo.id}>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35 mb-2">
+                      {tipo.nombre}
+                      {valoresSeleccionados[tipo.id] && (
+                        <span className="text-black">
+                          {' '}
+                          · {tipo.valores.find((v) => v.id === valoresSeleccionados[tipo.id])?.valor}
+                        </span>
+                      )}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {tipo.valores.map((valor) => (
+                        <button
+                          key={valor.id}
+                          onClick={() =>
+                            setValoresSeleccionados((prev) => ({ ...prev, [tipo.id]: valor.id }))
+                          }
+                          className={`px-3 py-1.5 text-xs font-medium border transition-colors ${
+                            valoresSeleccionados[tipo.id] === valor.id
+                              ? 'border-black bg-black text-white'
+                              : 'border-black/15 text-black/60 hover:border-black/40'
+                          }`}
+                        >
+                          {valor.valor}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {!combinacionCompleta && (
+                  <p className="text-[11px] text-black/40">Elegí una opción de cada tipo para ver el stock disponible.</p>
+                )}
+                {combinacionCompleta && !varianteSeleccionada && (
+                  <p className="text-[11px] text-black/40">Esa combinación todavía no está disponible.</p>
+                )}
+              </div>
+            )}
+
             {/* Toggle personalización */}
             {producto.apto_grabado && producto.personalizado_habilitado && (
               <div className={`border transition-colors ${quierePersonalizar ? 'border-black' : 'border-black/10'}`}>
@@ -264,9 +332,13 @@ export default function ProductoDetalle() {
 
             {/* Stock */}
             <div className="flex items-center gap-2 text-[11px] font-medium">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${producto.stock > 0 ? 'bg-black' : 'bg-black/20'}`} />
-              <span className={producto.stock > 0 ? 'text-black/60' : 'text-black/25'}>
-                {producto.stock > 0 ? 'Stock disponible · Entrega en 3–5 días hábiles' : 'Sin stock disponible'}
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${stockDisponible > 0 ? 'bg-black' : 'bg-black/20'}`} />
+              <span className={stockDisponible > 0 ? 'text-black/60' : 'text-black/25'}>
+                {!tieneVariantes || varianteSeleccionada
+                  ? stockDisponible > 0
+                    ? 'Stock disponible · Entrega en 3–5 días hábiles'
+                    : 'Sin stock disponible'
+                  : 'Seleccioná una opción para ver el stock'}
               </span>
             </div>
 
@@ -279,7 +351,7 @@ export default function ProductoDetalle() {
                   <Minus size={12} />
                 </button>
                 <span className="w-8 text-center text-sm font-semibold text-black select-none">{cantidad}</span>
-                <button onClick={() => setCantidad(Math.min(producto.stock, cantidad + 1))}
+                <button onClick={() => setCantidad(Math.min(stockDisponible, cantidad + 1))}
                   className="w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
                   <Plus size={12} />
                 </button>
@@ -288,7 +360,7 @@ export default function ProductoDetalle() {
               {/* Botón agregar */}
               <motion.button
                 onClick={handleAgregar}
-                disabled={producto.stock === 0}
+                disabled={!puedeAgregar}
                 className="flex-1 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-[0.08em] transition-colors disabled:opacity-30"
                 style={{ backgroundColor: agregado ? '#111' : '#111', color: '#fff' }}
                 whileTap={{ scale: 0.98 }}

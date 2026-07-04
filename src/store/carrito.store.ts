@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 interface ItemCarrito {
   producto_id: string;
   variante_id?: string;
+  variante_descripcion?: string;
   nombre_producto: string;
   color?: string;
   texto_grabado?: string;
