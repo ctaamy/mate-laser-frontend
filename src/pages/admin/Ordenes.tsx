@@ -45,6 +45,7 @@ export default function AdminOrdenes() {
   };
 
   const handleActualizar = () => {
+    if (!confirm(`¿Confirmás el cambio de estado a "${nuevoEstado.replace(/_/g, ' ')}"? El cliente puede ver este estado desde su cuenta.`)) return;
     actualizarMutation.mutate({
       id: ordenSeleccionada.id,
       data: {
@@ -56,11 +57,16 @@ export default function AdminOrdenes() {
     });
   };
 
+  const handleConfirmarPago = (orden: any) => {
+    if (!confirm(`¿Confirmás el pago de la orden #${orden.id.slice(0, 8).toUpperCase()}? Esto la marca como pagada.`)) return;
+    confirmarPagoMutation.mutate(orden.id);
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-xl font-medium">Órdenes</h1>
+          <h1 className="text-xl font-medium text-gray-900">Órdenes</h1>
           <p className="text-sm text-gray-400 mt-0.5">{ordenes?.length || 0} órdenes</p>
         </div>
         <select
@@ -76,7 +82,7 @@ export default function AdminOrdenes() {
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="bg-gray-50 text-xs text-gray-400 font-medium">
+            <tr className="bg-gray-50 text-xs text-gray-500 font-medium">
               <th className="text-left px-5 py-3">Orden</th>
               <th className="text-left px-5 py-3">Cliente</th>
               <th className="text-left px-5 py-3">Total</th>
@@ -90,10 +96,10 @@ export default function AdminOrdenes() {
             {ordenes?.map((orden: any) => (
               <tr key={orden.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                 <td className="px-5 py-3 text-xs text-gray-400 font-mono">#{orden.id.slice(0, 8).toUpperCase()}</td>
-                <td className="px-5 py-3 text-sm">
+                <td className="px-5 py-3 text-sm text-gray-900">
                   {orden.usuarios ? `${orden.usuarios.nombre} ${orden.usuarios.apellido}` : 'Invitado'}
                 </td>
-                <td className="px-5 py-3 text-sm font-medium">${Number(orden.total).toLocaleString('es-AR')}</td>
+                <td className="px-5 py-3 text-sm font-medium text-gray-900">${Number(orden.total).toLocaleString('es-AR')}</td>
                 <td className="px-5 py-3 text-xs text-gray-500 capitalize">{orden.metodo_pago || '—'}</td>
                 <td className="px-5 py-3">
                   <EstadoBadge estado={orden.estado} />
@@ -111,10 +117,11 @@ export default function AdminOrdenes() {
                     </button>
                     {(orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion') && (
                       <button
-                        onClick={() => confirmarPagoMutation.mutate(orden.id)}
-                        className="text-xs text-blue-500 hover:underline"
+                        onClick={() => handleConfirmarPago(orden)}
+                        disabled={confirmarPagoMutation.isPending && confirmarPagoMutation.variables === orden.id}
+                        className="text-xs text-blue-500 hover:underline disabled:opacity-50 disabled:no-underline"
                       >
-                        Confirmar pago
+                        {confirmarPagoMutation.isPending && confirmarPagoMutation.variables === orden.id ? 'Confirmando...' : 'Confirmar pago'}
                       </button>
                     )}
                   </div>
@@ -133,10 +140,40 @@ export default function AdminOrdenes() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setOrdenSeleccionada(null)}>
           <div className="bg-white rounded-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-base font-medium">Orden #{ordenSeleccionada.id.slice(0, 8).toUpperCase()}</h2>
+              <h2 className="text-base font-medium text-gray-900">Orden #{ordenSeleccionada.id.slice(0, 8).toUpperCase()}</h2>
               <button onClick={() => setOrdenSeleccionada(null)} className="text-gray-400 text-xl">×</button>
             </div>
-            <div className="p-6 flex flex-col gap-4">
+            <div className="p-6 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
+              {/* Productos — antes no se veía qué se compró desde acá, había
+                  que ir a buscarlo por otro lado para poder operar el pedido. */}
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Productos</div>
+                <div className="flex flex-col gap-2">
+                  {(ordenSeleccionada.items_orden ?? []).map((item: any) => (
+                    <div key={item.id} className="flex items-start justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">{item.nombre_producto}</div>
+                        <div className="text-xs text-gray-400">
+                          {item.cantidad} × ${Number(item.precio_unitario).toLocaleString('es-AR')}
+                          {item.color && ` · ${item.color}`}
+                        </div>
+                        {item.texto_grabado && (
+                          <div className="text-xs text-gray-500 italic mt-0.5">"{item.texto_grabado}"</div>
+                        )}
+                      </div>
+                      <div className="text-sm font-medium text-gray-900 flex-shrink-0">
+                        ${Number(item.subtotal).toLocaleString('es-AR')}
+                      </div>
+                    </div>
+                  ))}
+                  {(!ordenSeleccionada.items_orden || ordenSeleccionada.items_orden.length === 0) && (
+                    <div className="text-xs text-gray-400">Sin ítems.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider -mb-2 pt-2 border-t border-gray-100">Gestión</div>
+
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Estado</label>
                 <select
