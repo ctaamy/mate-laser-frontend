@@ -46,6 +46,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 // Guard para rutas de admin
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, usuario } = useAuthStore();
+  // Bypass solo en dev server (import.meta.env.DEV es false en el build de producción)
+  if (import.meta.env.DEV) return <>{children}</>;
   if (!isAuthenticated) return <Navigate to="/login" />;
   if (usuario?.rol !== 'admin') return <Navigate to="/" />;
   return <>{children}</>;
