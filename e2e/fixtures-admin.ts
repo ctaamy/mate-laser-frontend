@@ -65,7 +65,7 @@ export async function mockBackendAdminProductos(
   await page.route('**/api/v1/categorias', (route) =>
     route.fulfill({ json: [{ id: 1, nombre: 'Mates' }] }),
   );
-  await page.route('**/api/v1/configuracion/homepage', (route) => {
+  await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => {
     if (route.request().method() !== 'GET') return route.continue();
     return route.fulfill({ json: [] });
   });

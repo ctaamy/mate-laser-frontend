@@ -120,7 +120,7 @@ export default function Pago() {
   const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-2xl mx-auto px-6 py-10">
 
       {/* STEPS */}
       <div className="flex items-center justify-center gap-2 mb-10 text-xs">

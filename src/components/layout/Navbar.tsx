@@ -1,10 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Search, X, Menu, ArrowRight } from 'lucide-react';
+import { ShoppingCart, User, Search, X, Menu, ArrowRight, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'motion/react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth.store';
 import { useCarritoStore } from '../../store/carrito.store';
 import { useConfiguracion } from '../../hooks/useConfiguracion';
+import { useHomepageSecciones } from '../../hooks/useHomepageSecciones';
+import { useTemaGlobalData, cargarGoogleFont } from '../../hooks/useThemeGlobal';
+import api from '../../lib/api';
+import type { Categoria } from '../../types';
+
+// Resuelve un valor booleano priorizando el bloque navbar (Fase 1) sobre
+// las claves legacy sueltas de /configuracion (Fase 0 y anteriores).
+function boolFrom(seccionVal: any, legacyVal: any, def = true): boolean {
+  if (seccionVal !== undefined) return !!seccionVal;
+  if (legacyVal !== undefined) return legacyVal !== 'false';
+  return def;
+}
 
 interface NavLink { label: string; href: string }
 
@@ -15,13 +28,14 @@ const DEFAULT_LINKS: NavLink[] = [
 ];
 
 // ── Ícono de acción con animación ─────────────────────────────────────────────
-function IconBtn({ onClick, active, children, badge, navColor, navBg }: {
+function IconBtn({ onClick, active, children, badge, navColor, navBg, ariaLabel }: {
   onClick?: () => void; active?: boolean; children: React.ReactNode;
-  badge?: number; navColor: string; navBg: string;
+  badge?: number; navColor: string; navBg: string; ariaLabel?: string;
 }) {
   return (
     <motion.button
       onClick={onClick}
+      aria-label={ariaLabel}
       className="relative w-9 h-9 flex items-center justify-center rounded-xl overflow-hidden"
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.92 }}
@@ -72,23 +86,56 @@ export default function Navbar() {
   const userRef = useRef<HTMLDivElement>(null);
 
   const { data: config } = useConfiguracion();
+  const { data: secciones } = useHomepageSecciones();
+  const tema = useTemaGlobalData();
+  const { data: categorias } = useQuery<Categoria[]>({
+    queryKey: ['categorias'],
+    queryFn: () => api.get('/categorias').then((r) => r.data),
+  });
+  const raices = categorias?.filter(c => !c.padre_id) ?? [];
+
+  // El navbar es un bloque más (tipo 'navbar') dentro de homepage_sections,
+  // igual que el resto de las secciones. Mientras conviva con instalaciones
+  // que aún no lo migraron, cae a las claves sueltas legacy (navbar_* en
+  // /configuracion) y, si tampoco existen, al tema global.
+  const navbarSec = secciones?.find(s => s.tipo === 'navbar');
+  const navDatos: Record<string, any> = navbarSec?.datos ?? {};
 
   const nombreTienda: string = config?.nombre_tienda || 'matelaser studio';
+  // Los links viven en datos.links del bloque navbar (editables con
+  // agregar/quitar/reordenar); mientras conviva con instalaciones que aún no
+  // migraron, cae a la clave suelta legacy nav_links.
   const navLinks: NavLink[] = (() => {
+    if (Array.isArray(navDatos.links)) return navDatos.links;
     const raw = config?.nav_links;
     if (!raw) return DEFAULT_LINKS;
     try { return typeof raw === 'string' ? JSON.parse(raw) : raw; }
     catch { return DEFAULT_LINKS; }
   })();
+  // Tipo de menú (Fase 3): 'tradicional' muestra los links inline en
+  // desktop/tablet; 'hamburguesa' los agrupa en el mismo menú desplegable
+  // que mobile. En mobile SIEMPRE es hamburguesa sin importar esta opción
+  // (patrón estándar de ecommerce — evita que muchos links rompan el layout).
+  const tipoMenu: 'tradicional' | 'hamburguesa' = navDatos.tipo_menu === 'hamburguesa' ? 'hamburguesa' : 'tradicional';
+  // Posición del ícono hamburguesa (Fase 4): aplica siempre en mobile y
+  // también en desktop/tablet si tipoMenu es 'hamburguesa'. El menú
+  // desplegable se alinea al mismo lado que el ícono — es lo que el usuario
+  // espera (el menú "sale" del botón que tocó).
+  const menuPosicion: 'izquierda' | 'derecha' = navDatos.menu_posicion === 'izquierda' ? 'izquierda' : 'derecha';
 
-  const navBg: string = config?.navbar_bg_color || '#ffffff';
-  const navColor: string = config?.navbar_texto_color || '#111111';
-  const navBorder: string = config?.navbar_border_color || '#f3f4f6';
-  const logoUrl: string = config?.navbar_logo_url || '';
-  const logoAlto: number = parseInt(config?.navbar_logo_alto || '32') || 32;
-  const mostrarBuscar: boolean = (config?.navbar_mostrar_buscar ?? 'true') !== 'false';
-  const mostrarUsuario: boolean = (config?.navbar_mostrar_usuario ?? 'true') !== 'false';
-  const mostrarCarrito: boolean = (config?.navbar_mostrar_carrito ?? 'true') !== 'false';
+  const navBg: string = navDatos.bg_color || config?.navbar_bg_color || tema.bg_color;
+  const navColor: string = navDatos.texto_color || config?.navbar_texto_color || tema.texto_color;
+  const navFontFamily: string | undefined = navDatos.font_family || tema.font_family || undefined;
+  const navBorder: string = navDatos.border_color || config?.navbar_border_color || '#f3f4f6';
+  const logoUrl: string = navDatos.logo_url || config?.navbar_logo_url || '';
+  const logoAlto: number = parseInt(navDatos.logo_alto ?? config?.navbar_logo_alto ?? '32') || 32;
+  const mostrarBuscar: boolean = boolFrom(navDatos.mostrar_buscar, config?.navbar_mostrar_buscar);
+  const mostrarUsuario: boolean = boolFrom(navDatos.mostrar_usuario, config?.navbar_mostrar_usuario);
+  const mostrarCarrito: boolean = boolFrom(navDatos.mostrar_carrito, config?.navbar_mostrar_carrito);
+
+  useEffect(() => {
+    if (navFontFamily) cargarGoogleFont(navFontFamily);
+  }, [navFontFamily]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -122,6 +169,26 @@ export default function Navbar() {
   const palabraClave = partes[1];
   const resto = partes[2];
 
+  // Hamburguesa — siempre visible en mobile; en desktop/tablet solo si el
+  // admin eligió el tipo de menú Hamburguesa. Se ubica junto al logo (a la
+  // izquierda) o entre las acciones (a la derecha) según menuPosicion.
+  const botonHamburguesa = (
+    <motion.button
+      onClick={() => setMenuOpen(s => !s)}
+      aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+      className={`w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
+      style={{ color: navColor }}
+      whileTap={{ scale: 0.9 }}
+    >
+      <AnimatePresence mode="wait">
+        {menuOpen
+          ? <motion.span key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}><X size={18} /></motion.span>
+          : <motion.span key="menu" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}><Menu size={18} /></motion.span>
+        }
+      </AnimatePresence>
+    </motion.button>
+  );
+
   return (
     <>
       <motion.nav
@@ -135,11 +202,15 @@ export default function Navbar() {
           backgroundColor: scrolled ? `${navBg}e8` : navBg,
           borderBottom: `1px solid ${scrolled ? 'transparent' : navBorder}`,
           color: navColor,
+          fontFamily: navFontFamily,
         }}
       >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-6">
 
-          {/* Logo */}
+          {/* Logo — agrupado con la hamburguesa cuando su posición es
+              "izquierda", para que no se desancle del borde izquierdo. */}
+          <div className="flex items-center gap-3">
+          {menuPosicion === 'izquierda' && botonHamburguesa}
           <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
             {logoUrl
               ? <motion.img
@@ -168,8 +239,11 @@ export default function Navbar() {
                 </motion.div>
             }
           </Link>
+          </div>
 
-          {/* Links — desktop con pill hover */}
+          {/* Links — desktop con pill hover (solo en modo Tradicional; en
+              Hamburguesa se agrupan en el mismo menú desplegable que mobile) */}
+          {tipoMenu === 'tradicional' && (
           <div className="hidden md:flex items-center gap-0.5" onMouseLeave={() => setHoveredLink(null)}>
             {navLinks.map(link => {
               const active = location.pathname === link.href ||
@@ -214,6 +288,7 @@ export default function Navbar() {
               );
             })}
           </div>
+          )}
 
           {/* Acciones */}
           <div className="flex items-center gap-0.5">
@@ -236,6 +311,7 @@ export default function Navbar() {
                     active={userOpen}
                     navColor={navColor}
                     navBg={navBg}
+                    ariaLabel="Cuenta"
                   >
                     <User size={16} />
                   </IconBtn>
@@ -285,20 +361,7 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Hamburguesa — mobile */}
-            <motion.button
-              onClick={() => setMenuOpen(s => !s)}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl"
-              style={{ color: navColor }}
-              whileTap={{ scale: 0.9 }}
-            >
-              <AnimatePresence mode="wait">
-                {menuOpen
-                  ? <motion.span key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}><X size={18} /></motion.span>
-                  : <motion.span key="menu" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}><Menu size={18} /></motion.span>
-                }
-              </AnimatePresence>
-            </motion.button>
+            {menuPosicion === 'derecha' && botonHamburguesa}
           </div>
         </div>
 
@@ -344,26 +407,31 @@ export default function Navbar() {
         </AnimatePresence>
       </motion.nav>
 
-      {/* Menú mobile */}
+      {/* Menú desplegable — siempre disponible en mobile; en desktop/tablet
+          solo se monta si el tipo de menú es Hamburguesa (ver tipoMenu).
+          Dropdown angosto anclado al mismo lado del ícono (menuPosicion) —
+          no es un overlay completo ni un drawer lateral: no cubre el resto
+          de la pantalla, por eso el "overlay" de click-afuera es invisible
+          (solo cierra el menú, no oscurece nada). */}
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* Overlay */}
+            {/* Capa invisible para cerrar al clickear afuera */}
             <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 top-16 z-30 bg-black/20 md:hidden"
+              className={`fixed inset-0 top-16 z-30 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
               onClick={() => setMenuOpen(false)}
             />
 
             {/* Panel */}
             <motion.div
-              initial={{ opacity: 0, y: -12 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed inset-x-0 top-16 z-40 md:hidden shadow-2xl"
-              style={{ backgroundColor: navBg, borderBottom: `1px solid ${navBorder}` }}
+              className={`fixed top-16 z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)]
+                ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}
+                ${menuPosicion === 'izquierda' ? 'left-3' : 'right-3'}`}
+              style={{ backgroundColor: navBg, borderColor: navBorder, fontFamily: navFontFamily }}
             >
               <nav className="px-4 py-3 flex flex-col gap-1">
                 {navLinks.map((link, i) => {
@@ -390,6 +458,44 @@ export default function Navbar() {
                     </motion.div>
                   );
                 })}
+
+                {raices.length > 0 && (
+                  <>
+                    <div className="my-1 mx-4 h-px" style={{ backgroundColor: `${navColor}15` }} />
+                    {raices.map((cat, i) => {
+                      const hijos = categorias?.filter(c => c.padre_id === cat.id) ?? [];
+                      return (
+                        <motion.div
+                          key={cat.id}
+                          initial={{ opacity: 0, x: -12 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: (navLinks.length + i) * 0.05, duration: 0.2 }}
+                        >
+                          <Link
+                            to={`/productos?categoria_id=${cat.id}`}
+                            className="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-colors"
+                            style={{ color: navColor, opacity: 0.8 }}
+                          >
+                            {cat.nombre}
+                            {hijos.length > 0 && (
+                              <ChevronRight size={13} style={{ opacity: 0.35 }} />
+                            )}
+                          </Link>
+                          {hijos.map(hijo => (
+                            <Link
+                              key={hijo.id}
+                              to={`/productos?categoria_id=${hijo.id}`}
+                              className="flex items-center px-4 py-2 rounded-xl text-sm transition-colors"
+                              style={{ color: navColor, opacity: 0.45, paddingLeft: '2rem' }}
+                            >
+                              {hijo.nombre}
+                            </Link>
+                          ))}
+                        </motion.div>
+                      );
+                    })}
+                  </>
+                )}
               </nav>
 
               {/* Acciones rápidas mobile */}

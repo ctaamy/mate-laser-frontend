@@ -23,13 +23,13 @@ export default function Confirmacion() {
   });
 
   if (isLoading) return (
-    <div className="flex items-center justify-center min-h-64 text-gray-400 text-sm">
+    <div className="flujo-compra flex items-center justify-center min-h-64 text-gray-400 text-sm">
       Cargando...
     </div>
   );
 
   if (!orden) return (
-    <div className="flex items-center justify-center min-h-64 text-gray-400 text-sm">
+    <div className="flujo-compra flex items-center justify-center min-h-64 text-gray-400 text-sm">
       Orden no encontrada
     </div>
   );
@@ -45,7 +45,7 @@ export default function Confirmacion() {
   const isMPFailure = mpStatus === 'failure';
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-4xl mx-auto px-6 py-10">
 
       {/* STEPS */}
       <div className="flex items-center justify-center gap-2 mb-8 text-xs">

@@ -12,6 +12,13 @@ test.describe('Visual — personalización de producto', () => {
     await page.route(`**/api/v1/productos/${PRODUCTO_MOCK.slug}`, (route) =>
       route.fulfill({ json: PRODUCTO_MOCK }),
     );
+    // Tema global y navbar (montados globalmente vía Layout/App): sin esto el
+    // test queda acoplado al backend real de desarrollo.
+    await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => route.fulfill({ json: [] }));
+    await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: {} });
+    });
   });
 
   // Screenshots acotados al panel de info del producto (no la página

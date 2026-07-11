@@ -11,6 +11,13 @@ async function mockProducto(page: import('@playwright/test').Page, overrides: Re
   await page.route(`**/api/v1/productos/${producto.slug}`, (route) =>
     route.fulfill({ json: producto }),
   );
+  // Tema global y navbar (montados globalmente vía Layout/App): sin esto el
+  // test queda acoplado al backend real de desarrollo.
+  await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => route.fulfill({ json: [] }));
+  await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    return route.fulfill({ json: {} });
+  });
   return producto;
 }
 

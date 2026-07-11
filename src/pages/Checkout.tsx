@@ -147,7 +147,7 @@ export default function Checkout() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-5xl mx-auto px-6 py-10">
 
       {/* STEPPER */}
       <div className="flex items-center justify-center gap-2 mb-10 text-xs">

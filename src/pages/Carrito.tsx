@@ -33,7 +33,7 @@ export default function Carrito() {
   };
 
   if (items.length === 0) return (
-    <div className="max-w-6xl mx-auto px-6 py-24 flex flex-col items-center gap-5">
+    <div className="flujo-compra max-w-6xl mx-auto px-6 py-24 flex flex-col items-center gap-5">
       <ShoppingBag size={40} className="text-black/10" />
       <h2 className="text-base font-medium text-black/40">Tu carrito está vacío</h2>
       <Link
@@ -48,7 +48,7 @@ export default function Carrito() {
   const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-6xl mx-auto px-6 py-10">
 
       {/* STEPS */}
       <div className="flex items-center justify-center gap-2 mb-10 text-xs">

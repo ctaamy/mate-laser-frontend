@@ -121,6 +121,17 @@ export async function mockBackendYMercadoPago(
     route.fulfill({ json: PRODUCTO_MOCK }),
   );
 
+  // Tema global y navbar (Navbar/useThemeGlobal se montan en todas las
+  // páginas vía Layout/App) — sin esto, el test queda acoplado al backend
+  // real de desarrollo en vez de ser hermético.
+  await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    return route.fulfill({ json: {} });
+  });
+
   // Cotización de envío
   await page.route('**/api/v1/envios/calcular', (route) =>
     route.fulfill({ json: [METODO_ENVIO_MOCK] }),

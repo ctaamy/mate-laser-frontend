@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store/auth.store';
+import { useThemeGlobal } from './hooks/useThemeGlobal';
 
 // Layout
 import Layout from './components/layout/Layout';
@@ -53,9 +54,16 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Aplica el tema global (colores/tipografía por defecto) como CSS variables.
+function ThemeGlobalMount() {
+  useThemeGlobal();
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeGlobalMount />
       <BrowserRouter>
         <Routes>
           {/* Rutas públicas con layout de tienda */}

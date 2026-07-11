@@ -1,1 +1,33 @@
 @import "tailwindcss";
+
+:root {
+  --color-bg: #ffffff;
+  --color-texto: #111111;
+  --font-family-base: inherit;
+}
+
+/* El tema del sitio público (personalizable por el admin desde el tab
+   "Tema") se aplica SOLO acá, no en el body global — así el panel admin
+   nunca depende de cómo el admin haya configurado los colores/tipografía
+   de sus propios clientes. Ver Layout.tsx (clase "tema-publico" en la raíz
+   del layout público) y AdminLayout.tsx (sin esta clase, usa sus propios
+   colores explícitos de Tailwind). */
+.tema-publico {
+  background-color: var(--color-bg);
+  color: var(--color-texto);
+  font-family: var(--font-family-base);
+}
+
+/* Flujo de compra (Carrito, Checkout, Pago, Confirmación): decisión de
+   producto — paleta fija y neutra, sin importar el tema que el admin
+   configure para el resto del sitio (confianza/reconocimiento en el
+   momento transaccional). Mismo mecanismo que ".tema-publico" pero
+   invertido: declara sus propios valores fijos en vez de leer las CSS
+   variables del tema, así nunca hereda nada de él. El Navbar y el Footer
+   compartidos NO llevan esta clase — siguen mostrando el tema del admin
+   (son elementos globales de todo el sitio, no parte de estas 4 páginas). */
+.flujo-compra {
+  background-color: #ffffff;
+  color: #171717;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
