@@ -16,6 +16,7 @@ import Pago from './pages/Pago';
 import Confirmacion from './pages/Confirmacion';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import DisenaTuMate from './pages/DisenaTuMate';
 
 // Páginas admin
 import AdminDashboard from './pages/admin/Dashboard';
@@ -25,6 +26,7 @@ import AdminCupones from './pages/admin/Cupones';
 import AdminEnvios from './pages/admin/Envios';
 import AdminConfiguracion from './pages/admin/Configuracion';
 import AdminCategorias from './pages/admin/Categorias';
+import AdminConfigurador from './pages/admin/Configurador';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +67,7 @@ export default function App() {
             <Route path="checkout" element={<Checkout />} />
             <Route path="pago/:id" element={<Pago />} />
             <Route path="confirmacion/:id" element={<Confirmacion />} />
+            <Route path="disena-tu-mate" element={<DisenaTuMate />} />
           </Route>
 
           {/* Rutas de admin */}
@@ -78,6 +81,7 @@ export default function App() {
             <Route path="envios" element={<AdminEnvios />} />
             <Route path="configuracion" element={<AdminConfiguracion />} />
             <Route path="categorias" element={<AdminCategorias />} />
+            <Route path="configurador" element={<AdminConfigurador />} />
           </Route>
         </Routes>
       </BrowserRouter>

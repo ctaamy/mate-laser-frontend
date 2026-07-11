@@ -127,6 +127,9 @@ export default function Checkout() {
           precio_unitario: item.precio_unitario,
           cantidad: item.cantidad,
           subtotal: item.precio_unitario * item.cantidad,
+          atributos: item.selecciones_configurador
+            ? { selecciones_configurador: item.selecciones_configurador }
+            : undefined,
         })),
       });
 

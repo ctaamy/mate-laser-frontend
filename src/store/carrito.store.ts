@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export interface SeleccionConfigurador {
+  paso_slug: string;
+  opcion_id?: string;
+  variante_id?: string;
+  nombre: string;
+  precio: number;
+  imagen_referencia_url?: string;
+}
+
 interface ItemCarrito {
   producto_id: string;
   variante_id?: string;
@@ -13,25 +22,36 @@ interface ItemCarrito {
   cantidad: number;
   imagen_url?: string;
   stock?: number;
+  selecciones_configurador?: SeleccionConfigurador[];
 }
 
 interface CarritoState {
   items: ItemCarrito[];
   agregar: (item: ItemCarrito) => void;
-  quitar: (producto_id: string, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string) => void;
-  actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string) => void;
+  quitar: (producto_id: string, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
+  actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
   limpiar: () => void;
   total: () => number;
   subtotal: () => number;
   cantidadItems: () => number;
 }
 
+/** Hash estable de las selecciones del configurador, usado para no mezclar items con selecciones distintas. */
+const hashSelecciones = (selecciones?: SeleccionConfigurador[]) =>
+  selecciones && selecciones.length > 0
+    ? selecciones
+        .map(s => `${s.paso_slug}:${s.opcion_id ?? ''}:${s.variante_id ?? ''}`)
+        .sort()
+        .join('|')
+    : undefined;
+
 const mismoItem = (a: ItemCarrito, b: Partial<ItemCarrito>) =>
   a.producto_id === b.producto_id &&
   a.variante_id === b.variante_id &&
   a.con_grabado === b.con_grabado &&
   a.texto_grabado === b.texto_grabado &&
-  a.color === b.color;
+  a.color === b.color &&
+  hashSelecciones(a.selecciones_configurador) === hashSelecciones(b.selecciones_configurador);
 
 export const useCarritoStore = create<CarritoState>()(
   persist(
@@ -56,20 +76,20 @@ export const useCarritoStore = create<CarritoState>()(
         }
       },
 
-      quitar: (producto_id, variante_id, con_grabado, texto_grabado, color) => {
+      quitar: (producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador) => {
         set({
-          items: get().items.filter(i => !mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color })),
+          items: get().items.filter(i => !mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador })),
         });
       },
 
-      actualizarCantidad: (producto_id, cantidad, variante_id, con_grabado, texto_grabado, color) => {
+      actualizarCantidad: (producto_id, cantidad, variante_id, con_grabado, texto_grabado, color, selecciones_configurador) => {
         if (cantidad <= 0) {
-          get().quitar(producto_id, variante_id, con_grabado, texto_grabado, color);
+          get().quitar(producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador);
           return;
         }
         set({
           items: get().items.map(i => {
-            if (!mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color })) return i;
+            if (!mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador })) return i;
             const max = i.stock ?? Infinity;
             return { ...i, cantidad: Math.min(cantidad, max) };
           }),
