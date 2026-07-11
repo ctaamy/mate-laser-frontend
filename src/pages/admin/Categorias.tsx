@@ -77,7 +77,7 @@ function CategoriaModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-sm">{editando ? 'Editar categoría' : 'Nueva categoría'}</h2>
+          <h2 className="font-semibold text-sm text-gray-900">{editando ? 'Editar categoría' : 'Nueva categoría'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={16} /></button>
         </div>
 
@@ -160,7 +160,11 @@ function SubcategoriaRow({
         <span className="text-sm text-gray-700">{cat.nombre}</span>
         <span className="ml-2 text-[10px] text-gray-400 font-mono">{cat.slug}</span>
       </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Antes solo visibles con hover (opacity-0 group-hover:opacity-100) —
+          en tablet/touch no hay hover real, así que las acciones quedaban
+          sin forma de descubrirlas. Ahora siempre visibles, igual que en
+          la fila de categoría padre (CategoriaRow, arriba). */}
+      <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => onEdit(cat)}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
           <Pencil size={13} />
@@ -280,7 +284,7 @@ export default function AdminCategorias() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Categorías</h1>
+          <h1 className="text-xl font-semibold text-gray-900">Categorías</h1>
           <p className="text-sm text-gray-400 mt-0.5">Organizá tus productos en categorías y subcategorías</p>
         </div>
         <button onClick={handleNueva}

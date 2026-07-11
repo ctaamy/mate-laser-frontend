@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal, X, ChevronRight } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
@@ -73,15 +73,31 @@ export default function Productos() {
             >
               Todos
             </button>
-            {categorias?.filter(c => !c.padre_id).map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setFiltro('categoria_id', cat.id.toString())}
-                className={`text-left text-sm px-2.5 py-2 transition-colors ${categoria_id === cat.id.toString() ? 'bg-black text-white font-medium' : 'text-black/60 hover:text-black hover:bg-black/[0.04]'}`}
-              >
-                {cat.nombre}
-              </button>
-            ))}
+            {categorias?.filter(c => !c.padre_id).map((cat) => {
+              const hijos = categorias.filter(c => c.padre_id === cat.id);
+              return (
+                <div key={cat.id}>
+                  <button
+                    onClick={() => setFiltro('categoria_id', cat.id.toString())}
+                    className={`w-full text-left text-sm px-2.5 py-2 transition-colors flex items-center justify-between ${categoria_id === cat.id.toString() ? 'bg-black text-white font-medium' : 'text-black/60 hover:text-black hover:bg-black/[0.04]'}`}
+                  >
+                    {cat.nombre}
+                    {hijos.length > 0 && (
+                      <ChevronRight size={12} className={`flex-shrink-0 transition-transform ${hijos.some(h => h.id.toString() === categoria_id) ? 'rotate-90' : ''}`} />
+                    )}
+                  </button>
+                  {hijos.map((hijo) => (
+                    <button
+                      key={hijo.id}
+                      onClick={() => setFiltro('categoria_id', hijo.id.toString())}
+                      className={`w-full text-left text-sm pl-6 pr-2.5 py-1.5 transition-colors ${categoria_id === hijo.id.toString() ? 'bg-black text-white font-medium' : 'text-black/45 hover:text-black hover:bg-black/[0.04]'}`}
+                    >
+                      {hijo.nombre}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
 

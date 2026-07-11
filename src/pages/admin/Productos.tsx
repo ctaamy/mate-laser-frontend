@@ -17,6 +17,12 @@ export default function AdminProductos() {
   const [tabModal, setTabModal] = useState<'datos' | 'imagenes' | 'variantes'>('datos');
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [seccionesSeleccionadas, setSeccionesSeleccionadas] = useState<string[]>([]);
+  const [guardando, setGuardando] = useState(false);
+  // Aviso cuando guardarSecciones tocó el homepage — el guardado queda en
+  // BORRADOR (mismo mecanismo que el resto del homepage builder), no se
+  // publica solo, así que sin este aviso el producto "desaparece" en
+  // silencio hasta que alguien publique desde Configuración → Inicio.
+  const [avisoPublicar, setAvisoPublicar] = useState(false);
   const [form, setForm] = useState({
     nombre: '', slug: '', descripcion: '', categoria_id: '',
     precio_base: '', precio_tachado: '', stock: '0', stock_alerta: '5',
@@ -36,10 +42,15 @@ export default function AdminProductos() {
     queryFn: () => api.get('/categorias').then(r => r.data),
   });
 
-  // getHomepage devuelve el array directamente, no { secciones: [...] }
+  // Bugfix: leía /configuracion/homepage (PUBLICADO). El checkbox "Aparece en
+  // secciones del inicio" debe reflejar y editar el BORRADOR — mismo estado
+  // que edita el resto del homepage builder — para no pisar cambios sin
+  // publicar de otras secciones al guardar, y para que el checklist muestre
+  // lo que de verdad va a pasar (recién visible en el sitio tras publicar).
+  // getHomepageBorrador devuelve el array directamente, no { secciones: [...] }
   const { data: todasSecciones = [] } = useQuery<SeccionHP[]>({
-    queryKey: ['homepage'],
-    queryFn: () => api.get('/configuracion/homepage').then(r => r.data),
+    queryKey: ['homepage-borrador'],
+    queryFn: () => api.get('/configuracion/homepage/borrador').then(r => r.data),
   });
 
   const { data: imagenesProducto, refetch: refetchImagenes } = useQuery<ImagenProducto[]>({
@@ -118,20 +129,27 @@ export default function AdminProductos() {
   const cerrarModal = () => { setModalAbierto(false); setProductoEditando(null); };
 
   const guardarSecciones = async (productoId: string) => {
-    // Siempre fetch fresh para no sobreescribir cambios recientes con datos cacheados
-    const { data: frescas } = await api.get<SeccionHP[]>('/configuracion/homepage');
+    // Siempre fetch fresh para no sobreescribir cambios recientes con datos
+    // cacheados — pero del BORRADOR, no de lo publicado (ver comentario en
+    // el useQuery de arriba): el PUT de este endpoint siempre escribe
+    // borrador, así que si la base fuera lo publicado se pisarían cambios
+    // pendientes de otras secciones que todavía no se publicaron.
+    const { data: frescas } = await api.get<SeccionHP[]>('/configuracion/homepage/borrador');
     if (!frescas?.length) return;
+    let cambio = false;
     const actualizadas = frescas.map(s => {
       if (s.tipo !== 'productos_destacados') return s;
       const ids: string[] = s.datos.productos_ids ?? [];
       const estaSeleccionada = seccionesSeleccionadas.includes(s.id);
       const yaEstaba = ids.includes(productoId);
-      if (estaSeleccionada && !yaEstaba) return { ...s, datos: { ...s.datos, productos_ids: [...ids, productoId] } };
-      if (!estaSeleccionada && yaEstaba) return { ...s, datos: { ...s.datos, productos_ids: ids.filter(id => id !== productoId) } };
+      if (estaSeleccionada && !yaEstaba) { cambio = true; return { ...s, datos: { ...s.datos, productos_ids: [...ids, productoId] } }; }
+      if (!estaSeleccionada && yaEstaba) { cambio = true; return { ...s, datos: { ...s.datos, productos_ids: ids.filter(id => id !== productoId) } }; }
       return s;
     });
+    if (!cambio) return;
     await api.put('/configuracion/homepage', { secciones: actualizadas });
-    queryClient.invalidateQueries({ queryKey: ['homepage'] });
+    queryClient.invalidateQueries({ queryKey: ['homepage-borrador'] });
+    setAvisoPublicar(true);
   };
 
   const handleSubmit = async () => {
@@ -150,16 +168,21 @@ export default function AdminProductos() {
         ? form.colores_disponibles.split(',').map(c => c.trim()).filter(Boolean)
         : [],
     };
-    if (productoEditando) {
-      await api.put(`/productos/${productoEditando.id}`, data);
-      await guardarSecciones(productoEditando.id);
-      queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
-      cerrarModal();
-    } else {
-      const res = await api.post('/productos', data);
-      await guardarSecciones(res.data.id);
-      queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
-      cerrarModal();
+    setGuardando(true);
+    try {
+      if (productoEditando) {
+        await api.put(`/productos/${productoEditando.id}`, data);
+        await guardarSecciones(productoEditando.id);
+        queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
+        cerrarModal();
+      } else {
+        const res = await api.post('/productos', data);
+        await guardarSecciones(res.data.id);
+        queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
+        cerrarModal();
+      }
+    } finally {
+      setGuardando(false);
     }
   };
 
@@ -170,9 +193,17 @@ export default function AdminProductos() {
 
   return (
     <div className="p-6">
+      {avisoPublicar && (
+        <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <p className="text-sm text-amber-800">
+            Guardado — el cambio en <strong>secciones del inicio</strong> queda en borrador. Para que se vea en el sitio, publicá los cambios desde <strong>Configuración → Inicio</strong>.
+          </p>
+          <button onClick={() => setAvisoPublicar(false)} className="text-xs text-amber-700 hover:underline flex-shrink-0">Cerrar</button>
+        </div>
+      )}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-xl font-medium">Productos</h1>
+          <h1 className="text-xl font-medium text-gray-900">Productos</h1>
           <p className="text-sm text-gray-400 mt-0.5">{productos?.length || 0} productos en total</p>
         </div>
         <BotonNuevo label="Nuevo producto" onClick={() => abrirModal()} />
@@ -181,7 +212,7 @@ export default function AdminProductos() {
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="bg-gray-50 text-xs text-gray-400 font-medium">
+            <tr className="bg-gray-50 text-xs text-gray-500 font-medium">
               <th className="text-left px-5 py-3">Producto</th>
               <th className="text-left px-5 py-3">Categoría</th>
               <th className="text-left px-5 py-3">Precio</th>
@@ -195,12 +226,12 @@ export default function AdminProductos() {
             {productos?.map((p) => (
               <tr key={p.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                 <td className="px-5 py-3">
-                  <div className="text-sm font-medium">{p.nombre}</div>
+                  <div className="text-sm font-medium text-gray-900">{p.nombre}</div>
                   <div className="text-xs text-gray-400">{p.sku || p.slug}</div>
                 </td>
                 <td className="px-5 py-3 text-sm text-gray-500">{(p as any).categorias?.nombre || '—'}</td>
                 <td className="px-5 py-3">
-                  <div className="text-sm font-medium">${Number(p.precio_base).toLocaleString('es-AR')}</div>
+                  <div className="text-sm font-medium text-gray-900">${Number(p.precio_base).toLocaleString('es-AR')}</div>
                   {p.precio_tachado && <div className="text-xs text-gray-400 line-through">${Number(p.precio_tachado).toLocaleString('es-AR')}</div>}
                 </td>
                 <td className="px-5 py-3">
@@ -231,7 +262,12 @@ export default function AdminProductos() {
                     <button className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors">
                       <Copy size={13} />
                     </button>
-                    <BotonEliminar onClick={() => eliminarMutation.mutate(p.id)} />
+                    <BotonEliminar
+                      disabled={eliminarMutation.isPending && eliminarMutation.variables === p.id}
+                      onClick={() => {
+                        if (confirm(`¿Eliminar "${p.nombre}"? Esta acción no se puede deshacer.`)) eliminarMutation.mutate(p.id);
+                      }}
+                    />
                   </div>
                 </td>
               </tr>
@@ -251,7 +287,7 @@ export default function AdminProductos() {
           <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100">
               <div className="flex justify-between items-center mb-3">
-                <h2 className="text-base font-medium">{productoEditando ? 'Editar producto' : 'Nuevo producto'}</h2>
+                <h2 className="text-base font-medium text-gray-900">{productoEditando ? 'Editar producto' : 'Nuevo producto'}</h2>
                 <button onClick={cerrarModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
               </div>
               {/* Tabs Datos / Imágenes — solo cuando hay producto existente */}
@@ -367,7 +403,7 @@ export default function AdminProductos() {
                 {/* APTO GRABADO LÁSER — controla personalizado_habilitado automáticamente */}
                 <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
                   <div>
-                    <div className="text-sm font-medium">Apto grabado láser</div>
+                    <div className="text-sm font-medium text-gray-900">Apto grabado láser</div>
                     <div className="text-xs text-gray-400">Habilita la personalización y muestra el badge en la tienda</div>
                   </div>
                   <button
@@ -401,11 +437,10 @@ export default function AdminProductos() {
 
                 {[
                   { key: 'activo', label: 'Producto activo', sub: 'Visible en la tienda' },
-                  { key: 'destacado', label: 'Destacado en home', sub: 'Aparece en "Más vendidos"' },
                 ].map(({ key, label, sub }) => (
                   <div key={key} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
                     <div>
-                      <div className="text-sm font-medium">{label}</div>
+                      <div className="text-sm font-medium text-gray-900">{label}</div>
                       <div className="text-xs text-gray-400">{sub}</div>
                     </div>
                     <button
@@ -447,7 +482,7 @@ export default function AdminProductos() {
                           className="accent-[#1D9E75] w-4 h-4"
                         />
                         <div>
-                          <div className="text-sm font-medium">{s.datos.titulo || 'Sección sin título'}</div>
+                          <div className="text-sm font-medium text-gray-900">{s.datos.titulo || 'Sección sin título'}</div>
                           <div className="text-xs text-gray-400">
                             {(s.datos.productos_ids ?? []).length} producto(s) asignado(s)
                           </div>
@@ -467,9 +502,10 @@ export default function AdminProductos() {
               {(tabModal === 'datos' || !productoEditando) && (
                 <button
                   onClick={handleSubmit}
+                  disabled={guardando}
                   className="bg-[#1D9E75] text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50"
                 >
-                  Guardar producto
+                  {guardando ? 'Guardando...' : 'Guardar producto'}
                 </button>
               )}
             </div>
