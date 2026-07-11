@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Save, Plug, PlugZap, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../lib/api';
@@ -21,11 +22,18 @@ const PROVEEDOR_INFO: Record<string, {
 }> = {
   andreani: {
     icono: '📦',
-    descripcionApi: 'Cotización de precios en tiempo real vía API de Andreani.',
+    descripcionApi: 'Cotización en tiempo real y generación de órdenes de envío vía API de Andreani Empresas.',
     campos: [
       { key: 'contrato', label: 'Número de contrato', placeholder: 'Ej: 12345', ayuda: 'Lo obtés en tu cuenta de Andreani Empresas' },
       { key: 'usuario', label: 'Usuario', placeholder: 'usuario@empresa.com' },
       { key: 'password', label: 'Contraseña', placeholder: '••••••••', type: 'password' },
+      { key: 'sender_nombre', label: 'Nombre del remitente', placeholder: 'Mate Laser Studio', ayuda: 'Aparece en la etiqueta de envío' },
+      { key: 'sender_email', label: 'Email del remitente', placeholder: 'envios@tutienda.com' },
+      { key: 'sender_telefono', label: 'Teléfono del remitente', placeholder: 'Ej: 1122334455' },
+      { key: 'sender_calle', label: 'Calle (remitente)', placeholder: 'Av. Corrientes' },
+      { key: 'sender_numero', label: 'Número (remitente)', placeholder: '1234' },
+      { key: 'sender_ciudad', label: 'Ciudad (remitente)', placeholder: 'CABA' },
+      { key: 'sender_cp', label: 'CP origen (tu local)', placeholder: 'Ej: 1043', ayuda: 'Código postal desde donde despachás' },
     ],
   },
   correo: {
@@ -86,11 +94,14 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
 
   const [verificando, setVerificando] = useState(false);
   const [verificacionResult, setVerificacionResult] = useState<{ ok: boolean; mensaje: string } | null>(null);
-  const verificarCorreo = async () => {
+  const verificarConexion = async () => {
     setVerificando(true);
     setVerificacionResult(null);
+    const ruta = metodo.proveedor === 'correo'
+      ? `/envios/${metodo.id}/correo/validar`
+      : `/envios/${metodo.id}/andreani/validar`;
     try {
-      const r = await api.get(`/envios/${metodo.id}/correo/validar`);
+      const r = await api.get(ruta);
       setVerificacionResult(r.data);
     } catch {
       setVerificacionResult({ ok: false, mensaje: 'Error de conexión' });
@@ -106,7 +117,7 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
         <span className="text-xl">{info.icono}</span>
         <div className="flex-1">
           <div className="font-semibold text-sm text-black">{metodo.nombre}</div>
-          <div className="text-[11px] text-black/35 uppercase tracking-[0.1em]">{metodo.proveedor}</div>
+          <div className="text-[11px] text-black/45 uppercase tracking-[0.1em]">{metodo.proveedor}</div>
         </div>
         <div className="flex items-center gap-3">
           {metodo.api_conectada && (
@@ -128,7 +139,7 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
       <div className="px-5 py-4 flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">Nombre visible</label>
+            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Nombre visible</label>
             <input
               value={form.nombre}
               onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
@@ -136,7 +147,7 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">
+            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">
               Costo fijo ($) {metodo.proveedor === 'retiro' ? '— siempre gratis' : info.campos ? '— fallback si API falla' : ''}
             </label>
             <input
@@ -148,7 +159,7 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
             />
           </div>
           <div className="col-span-2 flex flex-col gap-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">Descripción</label>
+            <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Descripción</label>
             <input
               value={form.descripcion}
               onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
@@ -182,7 +193,12 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
         </div>
 
         {/* Panel de credenciales API */}
+        <AnimatePresence initial={false}>
         {showApi && info.campos && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }} className="overflow-hidden"
+          >
           <div className="border border-black/[0.07] bg-black/[0.02] p-4 flex flex-col gap-3">
             {info.descripcionApi && (
               <p className="text-[11px] text-black/50 leading-relaxed">{info.descripcionApi}</p>
@@ -194,7 +210,7 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
             </p>
             {info.campos.map(campo => (
               <div key={campo.key} className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35">{campo.label}</label>
+                <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/45">{campo.label}</label>
                 <input
                   type={campo.type ?? 'text'}
                   value={creds[campo.key] ?? ''}
@@ -202,7 +218,7 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
                   placeholder={campo.placeholder}
                   className="border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors bg-white placeholder-black/20"
                 />
-                {campo.ayuda && <p className="text-[10px] text-black/30">{campo.ayuda}</p>}
+                {campo.ayuda && <p className="text-[10px] text-black/40">{campo.ayuda}</p>}
               </div>
             ))}
             <div className="flex flex-wrap gap-2 mt-1">
@@ -214,9 +230,9 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
                 <PlugZap size={11} />
                 {conectarMut.isPending ? 'Guardando...' : 'Guardar credenciales'}
               </button>
-              {metodo.api_conectada && metodo.proveedor === 'correo' && (
+              {metodo.api_conectada && (metodo.proveedor === 'correo' || metodo.proveedor === 'andreani') && (
                 <button
-                  onClick={verificarCorreo}
+                  onClick={verificarConexion}
                   disabled={verificando}
                   className="px-4 py-2 text-xs border border-black/15 hover:border-black text-black/60 hover:text-black transition-colors disabled:opacity-50"
                 >
@@ -225,9 +241,11 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
               )}
               {metodo.api_conectada && (
                 <button
-                  onClick={() => desconectarMut.mutate()}
+                  onClick={() => {
+                    if (confirm(`¿Desconectar la API de ${metodo.nombre}? El cálculo de envío en tiempo real deja de funcionar y se usa el costo fijo configurado.`)) desconectarMut.mutate();
+                  }}
                   disabled={desconectarMut.isPending}
-                  className="px-4 py-2 text-xs text-black/30 border border-black/10 hover:border-red-300 hover:text-red-500 transition-colors"
+                  className="px-4 py-2 text-xs text-black/40 border border-black/10 hover:border-red-300 hover:text-red-500 transition-colors"
                 >
                   Desconectar
                 </button>
@@ -239,7 +257,9 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
               </div>
             )}
           </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -283,7 +303,7 @@ export default function AdminEnvios() {
 
       {/* Envío gratis */}
       <div className="border border-black/[0.07] p-5 mb-6">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 mb-4">Envío gratis automático</h2>
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/45 mb-4">Envío gratis automático</h2>
         <div className="flex items-center gap-6 flex-wrap">
           <label className="flex items-center gap-2.5 cursor-pointer">
             <button
@@ -318,7 +338,7 @@ export default function AdminEnvios() {
 
       {/* Métodos */}
       {isLoading ? (
-        <div className="text-sm text-black/30 py-8 text-center">Cargando...</div>
+        <div className="text-sm text-black/40 py-8 text-center">Cargando...</div>
       ) : (
         <div className="flex flex-col gap-3">
           {metodos?.map(m => <MetodoCard key={m.id} metodo={m} />)}
