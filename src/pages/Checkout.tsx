@@ -130,6 +130,7 @@ export default function Checkout() {
           atributos: item.selecciones_configurador
             ? { selecciones_configurador: item.selecciones_configurador }
             : undefined,
+          combo_id: item.combo_id,
         })),
       });
 

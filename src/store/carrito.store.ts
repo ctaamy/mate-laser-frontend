@@ -23,6 +23,8 @@ interface ItemCarrito {
   imagen_url?: string;
   stock?: number;
   selecciones_configurador?: SeleccionConfigurador[];
+  // Vincula items del mismo armado del configurador (mate + bombilla + grabado). Ausente en items sueltos.
+  combo_id?: string;
 }
 
 interface CarritoState {

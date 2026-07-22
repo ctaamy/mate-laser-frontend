@@ -6,6 +6,14 @@ interface ProductGridProps {
   productos: Producto[];
   onAgregar: (producto: Producto) => void;
   cols?: 2 | 3 | 4;
+  // variant="overlay" — mismo lenguaje visual que categorias_grid (texto
+  // superpuesto sobre la imagen con degradé, acento en el CTA). Solo lo usa
+  // productos_destacados; el catálogo público (Productos.tsx) no pasa estas
+  // props y sigue viendo el layout de siempre (texto debajo de la imagen).
+  variant?: 'catalogo' | 'overlay';
+  accentColor?: string;
+  tituloFontSize?: string;
+  linkFontSize?: string;
 }
 
 // El contenedor orquesta la cascada: staggerChildren hace que cada hijo
@@ -26,7 +34,7 @@ const colClass: Record<number, string> = {
   4: 'grid-cols-4',
 };
 
-export default function ProductGrid({ productos, onAgregar, cols = 3 }: ProductGridProps) {
+export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, tituloFontSize, linkFontSize }: ProductGridProps) {
   return (
     // variants="gridVariants" propaga el estado (hidden/visible) a los hijos
     // que también tengan variants — así el stagger funciona automáticamente.
@@ -45,6 +53,10 @@ export default function ProductGrid({ productos, onAgregar, cols = 3 }: ProductG
           producto={producto}
           onAgregar={onAgregar}
           index={i}
+          variant={variant}
+          accentColor={accentColor}
+          tituloFontSize={tituloFontSize}
+          linkFontSize={linkFontSize}
         />
       ))}
     </motion.div>

@@ -95,7 +95,12 @@ export default function AdminOrdenes() {
           <tbody>
             {ordenes?.map((orden: any) => (
               <tr key={orden.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
-                <td className="px-5 py-3 text-xs text-gray-400 font-mono">#{orden.id.slice(0, 8).toUpperCase()}</td>
+                <td className="px-5 py-3 text-xs text-gray-400 font-mono">
+                  #{orden.id.slice(0, 8).toUpperCase()}
+                  {(orden.items_orden ?? []).some((i: any) => i.combo_id) && (
+                    <span className="ml-1.5 text-[10px] font-sans font-medium text-[#1D9E75] bg-[#E1F5EE] px-1.5 py-0.5 rounded">Combo</span>
+                  )}
+                </td>
                 <td className="px-5 py-3 text-sm text-gray-900">
                   {orden.usuarios ? `${orden.usuarios.nombre} ${orden.usuarios.apellido}` : 'Invitado'}
                 </td>
@@ -150,9 +155,12 @@ export default function AdminOrdenes() {
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Productos</div>
                 <div className="flex flex-col gap-2">
                   {(ordenSeleccionada.items_orden ?? []).map((item: any) => (
-                    <div key={item.id} className="flex items-start justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                    <div key={item.id} className={`flex items-start justify-between gap-3 rounded-lg px-3 py-2 ${item.combo_id ? 'bg-[#E1F5EE]/60 border border-[#5DCAA5]/40' : 'bg-gray-50'}`}>
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-900 truncate">{item.nombre_producto}</div>
+                        <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                          {item.nombre_producto}
+                          {item.combo_id && <span className="text-[10px] font-medium text-[#1D9E75]">· combo</span>}
+                        </div>
                         <div className="text-xs text-gray-400">
                           {item.cantidad} × ${Number(item.precio_unitario).toLocaleString('es-AR')}
                           {item.color && ` · ${item.color}`}

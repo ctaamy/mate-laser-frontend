@@ -14,7 +14,7 @@ function toSlug(s: string) {
 }
 
 // ── Modal crear/editar categoría ──────────────────────────────────────────────
-interface FormData { nombre: string; slug: string; descripcion: string; padre_id: string; orden: string }
+interface FormData { nombre: string; slug: string; descripcion: string; padre_id: string; orden: string; imagen_configurador_url: string }
 
 function CategoriaModal({
   categoria, categoriasPadre, onClose,
@@ -32,6 +32,7 @@ function CategoriaModal({
     descripcion: categoria?.descripcion ?? '',
     padre_id: categoria?.padre_id?.toString() ?? '',
     orden: categoria?.orden?.toString() ?? '0',
+    imagen_configurador_url: categoria?.imagen_configurador_url ?? '',
   });
   const [slugManual, setSlugManual] = useState(editando);
 
@@ -61,6 +62,7 @@ function CategoriaModal({
       slug: form.slug.trim(),
       descripcion: form.descripcion.trim() || undefined,
       orden: parseInt(form.orden) || 0,
+      imagen_configurador_url: form.imagen_configurador_url.trim() || undefined,
     };
     if (form.padre_id) payload.padre_id = parseInt(form.padre_id);
     mutation.mutate(payload);
@@ -121,6 +123,18 @@ function CategoriaModal({
             <label className={labelCls}>Orden de aparición</label>
             <input className={inputCls} type="number" min={0} value={form.orden}
               onChange={e => set('orden', e.target.value)} />
+          </div>
+
+          {/* Imagen del configurador (solo relevante para subcategorías de "Mates", Paso 1) */}
+          <div>
+            <label className={labelCls}>Imagen para "Diseñá tu mate" (URL, opcional)</label>
+            <input className={inputCls} value={form.imagen_configurador_url}
+              onChange={e => set('imagen_configurador_url', e.target.value)}
+              placeholder="https://..." />
+            <p className="text-[10px] text-gray-400 mt-1">Se muestra en el Paso 1 del configurador si esta categoría es subcategoría de "Mates".</p>
+            {form.imagen_configurador_url.trim() && (
+              <img src={form.imagen_configurador_url.trim()} alt="" className="mt-2 w-16 h-16 object-cover rounded-lg border border-gray-100" />
+            )}
           </div>
 
           {mutation.isError && (

@@ -56,7 +56,7 @@ test.describe('Personalización de producto', () => {
 
     await expect(page.getByRole('heading', { name: PRODUCTO_MOCK.nombre })).toBeVisible();
     await expect(page.getByText('Grabado personalizado')).not.toBeVisible();
-    await expect(page.getByText('Grabado láser', { exact: true })).not.toBeVisible(); // badge de la imagen
+    await expect(page.getByText('Apto grabado', { exact: true })).not.toBeVisible(); // badge de la imagen
   });
 
   test('producto apto_grabado pero sin colores configurados: oculta el selector de color', async ({ page }) => {

@@ -8,6 +8,9 @@ import { useCarritoStore } from '../../store/carrito.store';
 import { useToastStore } from '../../store/toast.store';
 import type { Producto, Categoria } from '../../types/index';
 import ProductGrid from '../ui/ProductGrid';
+import { SIZE_REM, fontSizeClampItem, ImagenConOverlay, LinkAcentoConSubrayado } from '../ui/CardOverlay';
+import TransicionInferior from '../ui/TransicionInferior';
+import { STAT_ICONS, STAT_ICON_FALLBACK } from '../ui/StatIcons';
 import type { TemaGlobal } from '../../hooks/useThemeGlobal';
 
 // Todo el motor de renderizado de las secciones del homepage (hero, banners,
@@ -41,10 +44,10 @@ function escalaTamano(valor: string | undefined, opcionBase = 'lg'): number {
   return (ESCALA_TAMANO[valor] ?? 1) / (ESCALA_TAMANO[opcionBase] ?? 1);
 }
 
-const SIZE_REM: Record<string, string> = {
-  xs: '0.75rem', sm: '0.875rem', base: '1rem', lg: '1.125rem', xl: '1.25rem',
-  '2xl': '1.5rem', '3xl': '1.875rem', '4xl': '2.25rem',
-};
+// SIZE_REM, fontSizeClampItem, ImagenConOverlay, LinkAcentoConSubrayado
+// viven en components/ui/CardOverlay.tsx (compartidas con ProductCard.tsx,
+// que este archivo importa indirectamente vía ProductGrid — así se evita
+// un import circular).
 
 const PESO_NUM: Record<string, number> = { normal: 400, medium: 500, semibold: 600, bold: 700 };
 
@@ -57,7 +60,7 @@ function paddingVertical(padding: string | undefined, remBase: [number, number],
 
 // Clases literales (no template dinámico) para que Tailwind las genere.
 const COL_CLASS: Record<number, string> = {
-  2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-5',
+  1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-5', 6: 'md:grid-cols-6',
 };
 
 function justifyDeAlineacion(alineacion?: string): string | undefined {
@@ -511,30 +514,43 @@ function SeccionBannerTexto({ datos, tema }: { datos: Record<string, any>; tema:
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. STATS
 // ─────────────────────────────────────────────────────────────────────────────
-function StatItem({ valor, label, tc, borderClass }: { valor: string; label: string; tc: string; borderClass: string }) {
+function StatItem({ valor, label, icono, tc, iconColor, borderClass, escala }: {
+  valor: string; label: string; icono?: string; tc: string; iconColor: string; borderClass: string; escala: number;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true });
   const display = useCountUp(valor, inView);
+  const Icon = icono ? STAT_ICONS[icono] : undefined;
+  // Escala general: multiplica tamaño de número/label/ícono y el padding
+  // del item, todo junto y proporcional — no hay mínimo hardcodeado que
+  // bloquee achicar más allá de lo que permitía antes (escala < 1).
+  const valorFontSize = `clamp(${(2.25 * escala).toFixed(3)}rem, ${(5 * escala).toFixed(2)}vw, ${(3 * escala).toFixed(3)}rem)`;
+  const labelFontSize = `${(0.625 * escala).toFixed(3)}rem`;
+  const iconSize = 28 * escala;
   return (
-    <div ref={ref} className={`flex flex-col items-start px-8 py-8 border-b border-r last:border-r-0 md:border-b-0 ${borderClass}`}>
-      <motion.span className="text-4xl md:text-5xl font-bold tracking-tight mb-2"
-        style={{ color: tc }}
+    <div ref={ref}
+      className={`flex flex-col items-start border-b border-r last:border-r-0 md:border-b-0 ${borderClass}`}
+      style={{ paddingLeft: `${2 * escala}rem`, paddingRight: `${2 * escala}rem`, paddingTop: `${2 * escala}rem`, paddingBottom: `${2 * escala}rem` }}>
+      {Icon && <Icon size={iconSize} style={{ color: iconColor, marginBottom: `${0.5 * escala}rem` }} />}
+      <motion.span className="font-bold tracking-tight"
+        style={{ color: tc, fontSize: valorFontSize, marginBottom: `${0.5 * escala}rem` }}
         initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }} transition={T}>
         {display}
       </motion.span>
-      <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: `${tc}66` }}>{label}</span>
+      <span className="uppercase tracking-widest font-medium" style={{ color: `${tc}66`, fontSize: labelFontSize }}>{label}</span>
     </div>
   );
 }
 
 function SeccionStatsBarra({ datos, tema }: { datos: Record<string, any>; tema: TemaGlobal }) {
-  const stats: { valor: string; label: string }[] = datos.stats ?? [
-    { valor: '1200+', label: 'Mates entregados' },
-    { valor: '98%', label: 'Clientes satisfechos' },
-    { valor: '48hs', label: 'Tiempo de entrega' },
-    { valor: '5★', label: 'Calificación' },
+  const stats: { valor: string; label: string; icono?: string }[] = datos.stats ?? [
+    { valor: '1200+', label: 'Mates entregados', icono: 'Truck' },
+    { valor: '98%', label: 'Clientes satisfechos', icono: 'BadgeCheck' },
+    { valor: '48hs', label: 'Tiempo de entrega', icono: 'Clock' },
+    { valor: '5★', label: 'Calificación', icono: 'Star' },
   ];
+  if (stats.length === 0) return null;
 
   const { bg, tc, fontFamily, minHeight } = estiloHeredado(datos, tema);
   // El fondo determina si el borde/línea divisoria queda clara u oscura
@@ -545,12 +561,29 @@ function SeccionStatsBarra({ datos, tema }: { datos: Record<string, any>; tema: 
   // No tenía padding de sección históricamente (el alto venía solo del
   // padding de cada item) — se aplica solo si el admin lo configuró.
   const padding = paddingVertical(datos.padding, [2, 2], 'md');
+  // Ícono: color propio configurable (datos.icon_color), default heredado
+  // de texto_color del bloque — mismo mecanismo que accent_color en
+  // categorias_grid/productos_destacados (campo escalar simple).
+  const iconColor = datos.icon_color || tc;
+  // Escala general del bloque completo: multiplicador proporcional sobre
+  // número/label/ícono/padding — sin mínimo hardcodeado, default 1
+  // reproduce exacto el tamaño histórico.
+  const escala = datos.escala ?? 1;
+  // Grid adaptable a la cantidad real de items (2, 3, 4, 5+) — mismo
+  // criterio que categorias_grid: en mobile 1 columna si hay un solo item,
+  // si no 2; en desktop tantas columnas como estadísticas haya.
+  const colsMobile = stats.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
+  const colsDesktop = COL_CLASS[stats.length] ?? 'md:grid-cols-4';
 
   return (
     <section className={`w-full border-y ${bgEsClaro ? 'border-black/[0.05]' : 'border-white/10'} flex items-center`}
       style={{ backgroundColor: bg, fontFamily, minHeight, ...padding }}>
-      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 w-full">
-        {stats.map((s, i) => <StatItem key={i} valor={s.valor} label={s.label} tc={tc} borderClass={borderClass} />)}
+      <div className={`max-w-6xl mx-auto grid ${colsMobile} ${colsDesktop} w-full`}>
+        {stats.map((s, i) => (
+          <StatItem key={i} valor={s.valor} label={s.label}
+            icono={s.icono || STAT_ICON_FALLBACK[i % STAT_ICON_FALLBACK.length]}
+            tc={tc} iconColor={iconColor} borderClass={borderClass} escala={escala} />
+        ))}
       </div>
     </section>
   );
@@ -604,12 +637,11 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
   // Nunca existió antes; default 'sm' reproduce el text-sm fijo de siempre.
   // Bugfix: a tamaños grandes en la columna angosta de 4 columnas, el título
   // wrappeaba a 2-3 líneas y se recortaba contra el overflow-hidden de la
-  // card. Se resuelve con clamp() (mismo patrón que tituloFontSize del <h2>
-  // del bloque) para que se achique en pantallas/columnas angostas sin
-  // perder el tamaño elegido en desktop, más line-clamp-2 como red de
+  // card. Se resuelve con clamp() (fontSizeClampItem, compartida con
+  // productos_destacados) para que se achique en pantallas/columnas angostas
+  // sin perder el tamaño elegido en desktop, más line-clamp-2 como red de
   // seguridad final para nombres extremadamente largos.
-  const itemTituloRem = parseFloat(SIZE_REM[datos.item_titulo_size || 'sm']);
-  const itemTituloFontSize = `clamp(${(itemTituloRem * 0.8).toFixed(3)}rem, ${(itemTituloRem * 1.6).toFixed(2)}vw, ${itemTituloRem}rem)`;
+  const itemTituloFontSize = fontSizeClampItem(datos.item_titulo_size, 'sm');
   // Tamaño del link "Ver productos" — antes fijo en 11px sin ningún control.
   // Mismo mecanismo heredable; default 'xs' (12px) es apenas más grande que
   // el histórico 11px pero sigue siendo claramente secundario frente al título.
@@ -655,12 +687,7 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
                   className="group relative block w-full overflow-hidden rounded-xl"
                   style={{ aspectRatio: '4 / 5' }}>
                   {imagen_url ? (
-                    <>
-                      <img src={imagen_url} alt={cat.nombre}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
-                      {/* Degradé para legibilidad del texto superpuesto, sin importar la imagen de fondo */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                    </>
+                    <ImagenConOverlay src={imagen_url} alt={cat.nombre} />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/[0.04]">
                       <span className="text-5xl transition-transform duration-500 ease-out group-hover:scale-105 inline-block">
@@ -672,13 +699,9 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
                   {/* Overlay de texto — nombre + link, superpuestos abajo */}
                   <div className="absolute inset-x-0 bottom-0 p-4">
                     <div className="font-semibold text-[#FAF7F3] mb-0.5 leading-tight line-clamp-2" style={{ fontSize: itemTituloFontSize }}>{cat.nombre}</div>
-                    <div className="relative inline-flex items-center gap-1 font-medium transition-opacity group-hover:opacity-80"
-                      style={{ color: accentColor, fontSize: itemLinkFontSize }}>
+                    <LinkAcentoConSubrayado color={accentColor} fontSize={itemLinkFontSize}>
                       Ver productos <ArrowRight size={10} />
-                      {/* Subrayado que se dibuja de izquierda a derecha al hover — CSS puro, reusa el acento ya usado en el link. */}
-                      <span className="absolute left-0 right-0 -bottom-0.5 h-px origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100"
-                        style={{ backgroundColor: accentColor }} />
-                    </div>
+                    </LinkAcentoConSubrayado>
                   </div>
                 </Link>
               </motion.div>
@@ -719,6 +742,12 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
   const padding = paddingVertical(datos.padding, [4, 5], 'md');
   // Herencia: Subtítulo → Bloque → Tema (mismo mecanismo en toda la cadena).
   const subtitulo = heredaDeBloque({ texto_color: datos.subtitulo_color, font_family: datos.subtitulo_font_family }, { bg, tc, fontFamily });
+  // Mismo lenguaje visual que categorias_grid: overlay + acento + tamaños
+  // configurables por elemento (nombre del producto / precio-CTA), para no
+  // repetir el bug de texto sin control de tamaño.
+  const accentColor = datos.accent_color || tema.accent_color;
+  const itemTituloFontSize = fontSizeClampItem(datos.item_titulo_size, 'sm');
+  const itemLinkFontSize = SIZE_REM[datos.item_link_size || 'xs'];
 
   return (
     <section className="w-full px-8 py-16 md:py-20 flex items-center" style={{ backgroundColor: bg, fontFamily, minHeight, ...padding }}>
@@ -752,6 +781,10 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
           productos={(productos ?? []).slice(0, cantidad)}
           onAgregar={handleAgregar}
           cols={(datos.columnas ?? 3) as 2 | 3 | 4}
+          variant="overlay"
+          accentColor={accentColor}
+          tituloFontSize={itemTituloFontSize}
+          linkFontSize={itemLinkFontSize}
         />
       </div>
     </section>
@@ -1039,12 +1072,21 @@ export function HomeSecciones({ secciones, tema }: { secciones: Seccion[]; tema:
   useFonts(secciones);
   return (
     <div className="flex flex-col">
-      {secciones.map(sec => (
-        <div key={sec.id} className="relative">
-          {renderSeccion(sec, tema)}
-          <ImagenesLibres imagenes={sec.datos.imagenes} />
-        </div>
-      ))}
+      {secciones.map((sec, i) => {
+        // Transición inferior: se pinta con el color propio del bloque
+        // (mismo estiloHeredado que ya resuelve bg/tc para el bloque),
+        // extendida sobre el bloque siguiente — por eso el z-index
+        // explícito y descendente: sin esto, el bloque siguiente (más
+        // abajo en el DOM) pintaría encima y la transición quedaría oculta.
+        const { bg } = estiloHeredado(sec.datos, tema);
+        return (
+          <div key={sec.id} className="relative" style={{ zIndex: secciones.length - i }}>
+            {renderSeccion(sec, tema)}
+            <ImagenesLibres imagenes={sec.datos.imagenes} />
+            <TransicionInferior tipo={sec.datos.transicion_inferior} color={bg} />
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -22,6 +22,7 @@ export interface TemaGlobal {
   texto_secundario_color: string;
   font_family: string;
   accent_color: string;
+  badge_color: string;
 }
 
 // accent_color por defecto: el único accent de marca que existe hoy en el
@@ -30,12 +31,18 @@ export interface TemaGlobal {
 // texto_secundario_color por defecto: texto_color con opacidad simulada en
 // gris medio, para que un bloque que lo herede sin haberlo configurado nunca
 // tenga menos contraste que el mínimo razonable.
+// badge_color por defecto: el mismo negro que ya usaba el badge "Grabado
+// láser" hardcodeado — así la migración a color de tema no cambia nada por
+// defecto. Deliberadamente NO es accent_color: el badge es informativo
+// ("Apto grabado"), no un llamado a la acción, y confundirlo con el acento
+// de los CTAs le restaría jerarquía a ambos.
 const TEMA_DEFAULT: TemaGlobal = {
   bg_color: '#ffffff',
   texto_color: '#111111',
   texto_secundario_color: '#6b7280',
   font_family: '',
   accent_color: '#1D9E75',
+  badge_color: '#111111',
 };
 
 // Resuelve los valores efectivos del tema global (con sus defaults), para
@@ -54,6 +61,7 @@ export function useTemaGlobalData(estado: 'publicado' | 'borrador' = 'publicado'
     texto_secundario_color: config?.tema_texto_secundario_color || TEMA_DEFAULT.texto_secundario_color,
     font_family: config?.tema_font_family || TEMA_DEFAULT.font_family,
     accent_color: config?.tema_accent_color || TEMA_DEFAULT.accent_color,
+    badge_color: config?.tema_badge_color || TEMA_DEFAULT.badge_color,
   };
 }
 
@@ -71,6 +79,7 @@ export function useThemeGlobal() {
     root.setProperty('--color-texto-secundario', tema.texto_secundario_color);
     root.setProperty('--font-family-base', tema.font_family || 'inherit');
     root.setProperty('--color-accent', tema.accent_color);
+    root.setProperty('--color-badge', tema.badge_color);
     if (tema.font_family) cargarGoogleFont(tema.font_family);
-  }, [tema.bg_color, tema.texto_color, tema.texto_secundario_color, tema.font_family, tema.accent_color]);
+  }, [tema.bg_color, tema.texto_color, tema.texto_secundario_color, tema.font_family, tema.accent_color, tema.badge_color]);
 }

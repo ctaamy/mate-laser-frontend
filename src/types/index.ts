@@ -36,6 +36,7 @@ export interface Categoria {
   padre_id?: number;
   orden: number;
   activo: boolean;
+  imagen_configurador_url?: string | null;
   other_categorias?: Categoria[];
 }
 

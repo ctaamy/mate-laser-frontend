@@ -45,7 +45,7 @@ export default function DisenaTuMate() {
   const [pasoActivo, setPasoActivo] = useState(0);
   // slug -> selección (undefined si fue salteado explícitamente pero registrado como skip)
   const [selecciones, setSelecciones] = useState<Record<string, OpcionConfigurador | 'saltado' | undefined>>({});
-  const [disponibilidad, setDisponibilidad] = useState<Record<string, boolean>>({}); // opcion_id -> sinStock
+  const [disponibilidad, setDisponibilidad] = useState<Record<string, { visible: boolean; sinStock: boolean }>>({});
   const [subiendo, setSubiendo] = useState(false);
   const [errorUpload, setErrorUpload] = useState('');
   const [diseñoUrl, setDiseñoUrl] = useState<string | null>(null);
@@ -63,8 +63,8 @@ export default function DisenaTuMate() {
     api
       .post(`/configurador/pasos/${paso.id}/disponibilidad`, { variante_ids })
       .then((r) => {
-        const map: Record<string, boolean> = {};
-        for (const item of r.data) map[item.id] = item.sinStock;
+        const map: Record<string, { visible: boolean; sinStock: boolean }> = {};
+        for (const item of r.data) map[item.id] = { visible: item.visible, sinStock: item.sinStock };
         setDisponibilidad(map);
       })
       .catch(() => setDisponibilidad({}));
@@ -219,8 +219,8 @@ export default function DisenaTuMate() {
           <h2 className="text-lg font-medium mb-4">{paso.nombre}</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {opcionesPaso.map((op) => {
-              const sinStock = op.sinStock || disponibilidad[op.id];
+            {opcionesPaso.filter((op) => disponibilidad[op.id]?.visible ?? true).map((op) => {
+              const sinStock = op.sinStock || (disponibilidad[op.id]?.sinStock ?? false);
               const seleccionada = seleccionActual !== 'saltado' && (seleccionActual as OpcionConfigurador)?.id === op.id;
               const diferenciaPrecio = op.precio - op.precio_base_producto;
               return (

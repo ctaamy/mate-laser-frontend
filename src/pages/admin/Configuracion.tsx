@@ -8,6 +8,7 @@ import type { Categoria } from '../../types/index';
 import { useTemaGlobalData, type TemaGlobal } from '../../hooks/useThemeGlobal';
 import { HomeSecciones } from '../../components/home/HomeSecciones';
 import ScaledPreview from '../../components/admin/ScaledPreview';
+import { STAT_ICONS, STAT_ICON_NAMES, STAT_ICON_FALLBACK } from '../../components/ui/StatIcons';
 
 // ── tipos ────────────────────────────────────────────────────────────────────
 type TipoSeccion = 'hero' | 'banner_texto' | 'productos_destacados' | 'categorias_grid' | 'texto_libre' | 'banner_imagen' | 'stats_barra' | 'como_funciona' | 'cta_banner' | 'filtros_rapidos';
@@ -100,10 +101,10 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
   },
   stats_barra: {
     stats: [
-      { valor: '1200+', label: 'Mates entregados' },
-      { valor: '98%', label: 'Clientes satisfechos' },
-      { valor: '48hs', label: 'Tiempo de entrega' },
-      { valor: '5★', label: 'Calificación' },
+      { valor: '1200+', label: 'Mates entregados', icono: 'Truck' },
+      { valor: '98%', label: 'Clientes satisfechos', icono: 'BadgeCheck' },
+      { valor: '48hs', label: 'Tiempo de entrega', icono: 'Clock' },
+      { valor: '5★', label: 'Calificación', icono: 'Star' },
     ],
     bg_color: '#1D9E75', texto_color: '#ffffff',
   },
@@ -200,6 +201,14 @@ const IMAGE_POSITIONS = [
   { value: 'bleed', label: 'Bleed — sin marco, sangra al borde' },
   { value: 'contained', label: 'Contenida — bloque con borde definido' },
   { value: 'background', label: 'Fondo — foto completa con overlay' },
+];
+
+const TRANSICIONES = [
+  { value: 'ninguna', label: 'Ninguna (corte plano)' },
+  { value: 'degradado', label: 'Degradado — fundido suave' },
+  { value: 'curva', label: 'Curva' },
+  { value: 'diagonal', label: 'Diagonal' },
+  { value: 'ondulada', label: 'Ondulada' },
 ];
 
 const OVERLAY_DIRECTIONS = [
@@ -407,6 +416,92 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Editor de la barra de estadísticas (stats_barra) ─────────────────────────
+// Cantidad de items configurable (agregar/quitar/reordenar), mismo patrón
+// que CategoriasGridEditor/FiltrosRapidosEditor — cada item tiene valor,
+// etiqueta e ícono (lucide-react, elegido de una lista curada en vez de
+// subir imágenes sueltas).
+interface StatItemEditable { valor: string; label: string; icono?: string }
+
+function StatsBarraEditor({ datos, set }: { datos: Record<string, any>; set: (k: string, v: any) => void }) {
+  const stats: StatItemEditable[] = datos.stats ?? [];
+  const [pickerAbierto, setPickerAbierto] = useState<number | null>(null);
+
+  const update = (next: StatItemEditable[]) => set('stats', next);
+  const agregar = () => update([...stats, {
+    valor: '', label: '',
+    icono: STAT_ICON_FALLBACK[stats.length % STAT_ICON_FALLBACK.length],
+  }]);
+  const eliminar = (i: number) => update(stats.filter((_, idx) => idx !== i));
+  const mover = (i: number, dir: -1 | 1) => {
+    const next = [...stats];
+    [next[i], next[i + dir]] = [next[i + dir], next[i]];
+    update(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-400">Estadísticas ({stats.length}) — valor, etiqueta e ícono por cada una.</p>
+        <button onClick={agregar} className="flex items-center gap-1 text-xs font-medium text-[#1D9E75] hover:underline">
+          <Plus size={12} /> Agregar estadística
+        </button>
+      </div>
+      {stats.map((s, i) => {
+        const IconoActual = s.icono ? STAT_ICONS[s.icono] : undefined;
+        return (
+          <div key={i} className="border border-gray-100 rounded-xl p-3 flex flex-col gap-2 bg-gray-50">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPickerAbierto(pickerAbierto === i ? null : i)}
+                className="w-9 h-9 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:border-[#1D9E75] transition-colors"
+                title="Elegir ícono">
+                {IconoActual ? <IconoActual size={16} className="text-gray-600" /> : <span className="text-gray-300 text-xs">?</span>}
+              </button>
+              <input className={inputCls} value={s.valor} placeholder="1200+"
+                onChange={e => { const ns = [...stats]; ns[i] = { ...ns[i], valor: e.target.value }; update(ns); }} />
+              <input className={inputCls} value={s.label} placeholder="Mates entregados"
+                onChange={e => { const ns = [...stats]; ns[i] = { ...ns[i], label: e.target.value }; update(ns); }} />
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button onClick={() => mover(i, -1)} disabled={i === 0}
+                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                  <ChevronUp size={13} />
+                </button>
+                <button onClick={() => mover(i, 1)} disabled={i === stats.length - 1}
+                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                  <ChevronDown size={13} />
+                </button>
+                <button onClick={() => eliminar(i)}
+                  className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+            {pickerAbierto === i && (
+              <div className="grid grid-cols-10 gap-1 bg-white border border-gray-100 rounded-lg p-2">
+                {STAT_ICON_NAMES.map(nombre => {
+                  const IconoOpcion = STAT_ICONS[nombre];
+                  return (
+                    <button key={nombre} title={nombre}
+                      onClick={() => { const ns = [...stats]; ns[i] = { ...ns[i], icono: nombre }; update(ns); setPickerAbierto(null); }}
+                      className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${s.icono === nombre ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                      <IconoOpcion size={14} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {stats.length === 0 && (
+        <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
+          Sin estadísticas — el bloque no se muestra en el sitio hasta agregar al menos una.
+        </p>
       )}
     </div>
   );
@@ -824,30 +919,7 @@ function EditorContenido({ tipo, datos, set }: {
     </div>
   );
 
-  if (tipo === 'stats_barra') {
-    const stats: { valor: string; label: string }[] = datos.stats ?? [];
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-xs text-gray-400">Cada métrica tiene un valor (ej: "1200+") y una etiqueta.</p>
-        {stats.map((s, i) => (
-          <div key={i} className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls}>Valor {i + 1}</label>
-              <input className={inputCls} value={s.valor} onChange={e => {
-                const ns = [...stats]; ns[i] = { ...ns[i], valor: e.target.value }; set('stats', ns);
-              }} placeholder="1200+" />
-            </div>
-            <div>
-              <label className={labelCls}>Etiqueta {i + 1}</label>
-              <input className={inputCls} value={s.label} onChange={e => {
-                const ns = [...stats]; ns[i] = { ...ns[i], label: e.target.value }; set('stats', ns);
-              }} placeholder="Mates entregados" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  if (tipo === 'stats_barra') return <StatsBarraEditor datos={datos} set={set} />;
 
   if (tipo === 'como_funciona') {
     const pasos: { icono: string; titulo: string; desc: string }[] = datos.pasos ?? [];
@@ -957,6 +1029,12 @@ function EditorEstilo({ tipo, datos, set }: {
           {tipo === 'categorias_grid' && (
             <ColorField label="Color de acento (link 'Ver productos')" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />
           )}
+          {tipo === 'productos_destacados' && (
+            <ColorField label="Color de acento (link 'Ver producto')" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />
+          )}
+          {tipo === 'stats_barra' && (
+            <ColorField label="Color del ícono (default: hereda el texto)" value={datos.icon_color || ''} onChange={v => set('icon_color', v)} />
+          )}
         </div>
         <p className="text-[10px] text-gray-400 mt-2">
           Por defecto, título y subtítulo usan el color de texto primario del tema (alto contraste). Para un look más sutil, elegí acá el color secundario del tema en vez de dejarlo en blanco.
@@ -1017,6 +1095,12 @@ function EditorEstilo({ tipo, datos, set }: {
             {tipo === 'categorias_grid' && (
               <SelectField label='Tamaño link "Ver productos"' value={datos.item_link_size || 'xs'} onChange={v => set('item_link_size', v)} options={SIZES} />
             )}
+            {tipo === 'productos_destacados' && (
+              <SelectField label="Tamaño nombre de producto (dentro de cada card)" value={datos.item_titulo_size || 'sm'} onChange={v => set('item_titulo_size', v)} options={SIZES} />
+            )}
+            {tipo === 'productos_destacados' && (
+              <SelectField label='Tamaño precio / link "Ver producto"' value={datos.item_link_size || 'xs'} onChange={v => set('item_link_size', v)} options={SIZES} />
+            )}
             {tipo === 'hero' && (
               <SelectField label="Peso título" value={datos.titulo_font_weight || 'bold'} onChange={v => set('titulo_font_weight', v)} options={PESOS} />
             )}
@@ -1056,6 +1140,7 @@ function EditorEstilo({ tipo, datos, set }: {
         <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Layout</div>
         <div className="grid grid-cols-2 gap-3">
           <SelectField label="Espaciado vertical" value={datos.padding || 'md'} onChange={v => set('padding', v)} options={PADDINGS} />
+          <SelectField label="Transición al bloque siguiente" value={datos.transicion_inferior || 'ninguna'} onChange={v => set('transicion_inferior', v)} options={TRANSICIONES} />
           {tipo !== 'banner_imagen' && tipo !== 'texto_libre' && (
             <SelectField label="Alineación" value={datos.alineacion || 'left'} onChange={v => set('alineacion', v)} options={ALINEACIONES} />
           )}
@@ -1067,6 +1152,15 @@ function EditorEstilo({ tipo, datos, set }: {
               <label className={labelCls}>Alto mínimo del bloque (px, vacío = automático)</label>
               <input className={inputCls} type="number" min={100} step={50} value={datos.min_height === 'auto' ? '' : datos.min_height || ''}
                 onChange={e => set('min_height', e.target.value || 'auto')} placeholder={tipo === 'hero' ? '400' : 'auto'} />
+            </div>
+          )}
+          {tipo === 'stats_barra' && (
+            <div className="col-span-2">
+              <label className={labelCls}>Escala general: {Math.round((datos.escala ?? 1) * 100)}%</label>
+              <input type="range" min={0.4} max={2} step={0.05} value={datos.escala ?? 1}
+                onChange={e => set('escala', parseFloat(e.target.value))}
+                className="w-full accent-[#1D9E75]" />
+              <p className="text-[10px] text-gray-400 mt-1">Achica o agranda números, ícono, etiqueta y espaciado juntos, en proporción — sin tope mínimo fijo.</p>
             </div>
           )}
           {tipo === 'banner_imagen' && (
@@ -1381,10 +1475,12 @@ function TemaEditor({ form, setForm, onAplicarATodo, onAplicar, aplicando, aplic
           <ColorField label="Color de letra" value={form.tema_texto_color ?? '#111111'} onChange={v => set('tema_texto_color', v)} />
           <ColorField label="Color de letra secundario" value={form.tema_texto_secundario_color ?? '#6b7280'} onChange={v => set('tema_texto_secundario_color', v)} />
           <ColorField label="Color de acento" value={form.tema_accent_color ?? '#1D9E75'} onChange={v => set('tema_accent_color', v)} />
+          <ColorField label='Color de badge (ej. "Apto grabado")' value={form.tema_badge_color ?? '#111111'} onChange={v => set('tema_badge_color', v)} />
         </div>
         <p className="text-[10px] text-gray-400 -mt-2">
           El acento se usa en links y detalles que necesitan destacar (ej. "Ver productos" de Categorías) — no reemplaza el color de letra.
           El color secundario es para texto de menor jerarquía (elegido explícitamente por elemento, no aplicado por opacidad).
+          El color de badge es para etiquetas informativas sobre imágenes — deliberadamente distinto del acento, para no confundirse con un llamado a la acción.
         </p>
       </div>
 
@@ -2075,6 +2171,7 @@ export default function AdminConfiguracion() {
     texto_secundario_color: configForm.tema_texto_secundario_color || '#6b7280',
     font_family: configForm.tema_font_family || '',
     accent_color: configForm.tema_accent_color || '#1D9E75',
+    badge_color: configForm.tema_badge_color || '#111111',
   };
   const seccionesPreview = secciones.filter(s => s.activo && s.tipo !== 'navbar' && s.tipo !== 'footer');
   const mostrarPreview = tab === 'homepage' || tab === 'tema';

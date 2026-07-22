@@ -7,6 +7,7 @@ import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
 import type { Producto } from '../types';
+import BadgeAptoGrabado from '../components/ui/BadgeAptoGrabado';
 
 const T = { duration: 0.4, ease: 'easeOut' as const };
 
@@ -132,9 +133,8 @@ export default function ProductoDetalle() {
 
               {/* Badge grabado — sobre la imagen */}
               {producto.apto_grabado && (
-                <div className="absolute top-0 left-0 flex items-center gap-1.5 bg-black text-white px-3 py-1.5">
-                  <Zap size={10} className="opacity-70" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em]">Grabado láser</span>
+                <div className="absolute top-0 left-0">
+                  <BadgeAptoGrabado />
                 </div>
               )}
 
