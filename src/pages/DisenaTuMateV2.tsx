@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, MessageCircle, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Image, MessageCircle, ShoppingCart } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
@@ -187,8 +187,9 @@ export default function DisenaTuMateV2() {
       return;
     }
     if (pasoActivo === 1) {
+      // No resetear categoriaElegida: al volver al Paso 1 el tipo de mate
+      // elegido queda marcado como seleccionado en vez de forzar a re-elegir.
       setSeleccionMate(null);
-      setCategoriaElegida(null);
       setPasoActivo(0);
       return;
     }
@@ -226,8 +227,12 @@ export default function DisenaTuMateV2() {
   const precioActual = precioMate + precioBombilla + precioGrabado;
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-10 pb-32 md:pb-10 grid grid-cols-1 md:grid-cols-[1fr_300px] gap-10">
-      <div>
+    // flex-col + min-h-full (no min-h-screen: el alto ya lo da <main flex-1> del
+    // Layout global) para que el bloque de contenido siempre llene el espacio
+    // entre header y footer, sin importar cuánto contenido tenga el step activo.
+    <div className="max-w-6xl mx-auto px-6 py-10 pb-32 md:pb-10 flex flex-col min-h-full">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_300px] gap-10">
+        <div className="flex flex-col">
         <h1 className="text-2xl font-semibold mb-1">Diseñá tu mate</h1>
         <p className="text-sm text-black/50 mb-8">Armá tu mate a medida paso a paso.</p>
 
@@ -260,10 +265,12 @@ export default function DisenaTuMateV2() {
           </div>
         </div>
 
+        <div className="flex-1">
         {pasoActivo === 0 && (
           <Paso1TipoMate
             cargando={cargandoCategorias}
             subcategorias={subcategorias}
+            seleccionActual={categoriaElegida}
             onElegir={elegirCategoria}
           />
         )}
@@ -315,6 +322,7 @@ export default function DisenaTuMateV2() {
             onAtras={irAtras}
           />
         )}
+        </div>
       </div>
 
       {/* RESUMEN LATERAL (desktop persistente / mobile sticky abajo) */}
@@ -367,6 +375,7 @@ export default function DisenaTuMateV2() {
           <span className="text-lg font-semibold">${precioActual.toLocaleString('es-AR')}</span>
         </div>
       </aside>
+      </div>
 
       <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white border-t border-black/10 p-4 flex items-center justify-between gap-4 z-40">
         <div>
@@ -385,10 +394,12 @@ export default function DisenaTuMateV2() {
 function Paso1TipoMate({
   cargando,
   subcategorias,
+  seleccionActual,
   onElegir,
 }: {
   cargando: boolean;
   subcategorias: Categoria[];
+  seleccionActual: Categoria | null;
   onElegir: (c: Categoria) => void;
 }) {
   if (cargando) {
@@ -406,24 +417,32 @@ function Paso1TipoMate({
   return (
     <div>
       <h2 className="text-lg font-medium mb-4">Elegí el tipo de mate</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {subcategorias.map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            onClick={() => onElegir(cat)}
-            className="text-left border border-black/15 hover:border-black/40 p-4 min-h-[44px] transition-colors"
-          >
-            {cat.imagen_configurador_url && (
-              <img
-                src={cat.imagen_configurador_url}
-                alt={cat.nombre}
-                className="w-full h-32 object-cover mb-3"
-              />
-            )}
-            <span className="font-medium text-sm">{cat.nombre}</span>
-          </button>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {subcategorias.map((cat) => {
+          const seleccionada = seleccionActual?.id === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => onElegir(cat)}
+              className={`text-left border overflow-hidden transition-colors ${
+                seleccionada ? 'border-black bg-black/[0.03]' : 'border-black/15 hover:border-black/40'
+              }`}
+            >
+              <div className="aspect-[4/3] bg-black/5 flex items-center justify-center overflow-hidden">
+                {cat.imagen_configurador_url ? (
+                  <img src={cat.imagen_configurador_url} alt={cat.nombre} className="w-full h-full object-cover" />
+                ) : (
+                  <Image size={28} className="text-black/20" />
+                )}
+              </div>
+              <div className="p-4 flex items-center justify-center gap-2">
+                <span className="font-medium text-sm text-center">{cat.nombre}</span>
+                {seleccionada && <Check size={16} className="shrink-0" />}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
