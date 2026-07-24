@@ -377,9 +377,154 @@ function TabDisenos() {
   );
 }
 
+// ── Tab: Combos de ejemplo (galeria_combos, home builder) ──────────────────────
+// El configurador recién arranca y todavía no hay combos reales de clientes
+// (combo_id en items_orden) — acá el admin puede armar combos "de ejemplo" a
+// mano, sin pasar por el carrito ni generar una orden real, para no lanzar
+// la galería del home vacía. Quedan en una tabla separada (combos_ejemplo) a
+// propósito: nunca se cuentan como uso real del configurador.
+interface ProductoBuscable { id: string; nombre: string; imagenes_producto?: { url: string }[] }
+
+function BuscadorProducto({ label, onElegir }: { label: string; onElegir: (p: ProductoBuscable) => void }) {
+  const [q, setQ] = useState('');
+  const { data: productos = [] } = useQuery<ProductoBuscable[]>({
+    queryKey: ['productos-buscador', q],
+    queryFn: () => api.get('/productos', { params: { search: q } }).then((r) => r.data.data ?? r.data),
+    enabled: q.length > 1,
+  });
+
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      <input className={inputCls} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre..." />
+      {q.length > 1 && (
+        <div className="mt-1 border border-gray-100 rounded-lg max-h-48 overflow-y-auto">
+          {productos.length === 0 && <p className="text-xs text-gray-400 px-3 py-2">Sin resultados.</p>}
+          {productos.map((p) => (
+            <button key={p.id} type="button" onClick={() => { onElegir(p); setQ(''); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
+              {p.imagenes_producto?.[0]?.url && <img src={p.imagenes_producto[0].url} alt="" className="w-6 h-6 object-cover rounded" />}
+              <span>{p.nombre}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ComboEjemplo {
+  id: string;
+  producto_id: string;
+  variante_id: string | null;
+  bombilla_producto_id: string | null;
+  grabado_texto: string | null;
+  producto: { nombre: string };
+  variante: { imagenes_producto?: { url: string } | null } | null;
+  bombilla: { nombre: string } | null;
+}
+
+function TabCombosEjemplo() {
+  const queryClient = useQueryClient();
+  const [mate, setMate] = useState<(VarianteSelector & { producto_id: string }) | null>(null);
+  const [bombilla, setBombilla] = useState<ProductoBuscable | null>(null);
+  const [grabadoTexto, setGrabadoTexto] = useState('');
+
+  const { data: combos = [], isLoading } = useQuery<ComboEjemplo[]>({
+    queryKey: ['configurador-admin-combos-ejemplo'],
+    queryFn: () => api.get('/configurador/admin/combos-ejemplo').then((r) => r.data),
+  });
+
+  const crear = useMutation({
+    mutationFn: () => api.post('/configurador/admin/combos-ejemplo', {
+      producto_id: mate!.producto_id,
+      variante_id: mate!.id,
+      bombilla_producto_id: bombilla?.id,
+      grabado_texto: grabadoTexto.trim() || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['configurador-admin-combos-ejemplo'] });
+      setMate(null); setBombilla(null); setGrabadoTexto('');
+    },
+  });
+
+  const eliminar = useMutation({
+    mutationFn: (id: string) => api.delete(`/configurador/admin/combos-ejemplo/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['configurador-admin-combos-ejemplo'] }),
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col gap-4 max-w-lg">
+        <p className="text-sm font-semibold text-gray-900">Nuevo combo de ejemplo</p>
+        <p className="text-xs text-gray-400">
+          Se muestra en la galería del home igual que un combo real, pero queda marcado internamente como ejemplo — nunca cuenta como uso real del configurador. La galería prioriza siempre los combos reales; estos solo completan lo que falte.
+        </p>
+
+        <BuscadorVariante label="Mate (con variante)" onElegir={(v) => setMate(v as any)} />
+        {mate && (
+          <p className="text-xs flex items-center gap-2">
+            <Check size={12} className="text-green-600" /> {mate.productos.nombre}
+            {mate.imagenes_producto?.url && <img src={mate.imagenes_producto.url} alt="" className="w-8 h-8 object-cover rounded" />}
+          </p>
+        )}
+
+        <BuscadorProducto label="Bombilla (opcional)" onElegir={setBombilla} />
+        {bombilla && (
+          <p className="text-xs flex items-center gap-2">
+            <Check size={12} className="text-green-600" /> {bombilla.nombre}
+            <button type="button" onClick={() => setBombilla(null)} className="text-gray-400 hover:text-red-500">Quitar</button>
+          </p>
+        )}
+
+        <div>
+          <label className={labelCls}>Idea de grabado (opcional)</label>
+          <input className={inputCls} value={grabadoTexto} onChange={(e) => setGrabadoTexto(e.target.value)} placeholder='Ej: "Para Juan"' />
+        </div>
+
+        <button type="button" onClick={() => crear.mutate()} disabled={!mate || crear.isPending}
+          className="self-start px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium disabled:opacity-40">
+          {crear.isPending ? 'Guardando...' : 'Guardar como ejemplo'}
+        </button>
+        {crear.isError && <p className="text-xs text-red-500">Error al guardar el combo.</p>}
+      </div>
+
+      <div>
+        <p className="text-sm font-semibold text-gray-900 mb-3">Combos de ejemplo cargados ({combos.length})</p>
+        {isLoading ? (
+          <div className="text-sm text-gray-400 py-8 text-center">Cargando...</div>
+        ) : combos.length === 0 ? (
+          <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-14 text-center">
+            <p className="text-sm text-gray-400">Sin combos de ejemplo todavía</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {combos.map((c) => (
+              <div key={c.id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                {c.variante?.imagenes_producto?.url && (
+                  <img src={c.variante.imagenes_producto.url} alt={c.producto.nombre} className="w-full h-28 object-cover" />
+                )}
+                <div className="p-3">
+                  <p className="text-sm font-medium truncate">{c.producto.nombre}</p>
+                  {c.bombilla && <p className="text-[11px] text-gray-400 truncate">+ {c.bombilla.nombre}</p>}
+                  {c.grabado_texto && <p className="text-[11px] text-gray-400 italic truncate">"{c.grabado_texto}"</p>}
+                  <button onClick={() => eliminar.mutate(c.id)}
+                    className="mt-2 text-[11px] font-medium text-red-400 hover:text-red-600 flex items-center gap-1">
+                    <Trash2 size={11} /> Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ─────────────────────────────────────────────────────────
 export default function AdminConfiguradorV2() {
-  const [tab, setTab] = useState<'sugerencias' | 'anclajes' | 'disenos'>('sugerencias');
+  const [tab, setTab] = useState<'sugerencias' | 'anclajes' | 'disenos' | 'combos'>('sugerencias');
 
   return (
     <div className="p-6 flex flex-col gap-5 max-w-4xl">
@@ -394,11 +539,13 @@ export default function AdminConfiguradorV2() {
         <button className={tabCls(tab === 'sugerencias')} onClick={() => setTab('sugerencias')}>Sugerencias de bombilla</button>
         <button className={tabCls(tab === 'anclajes')} onClick={() => setTab('anclajes')}>Anclajes (preview)</button>
         <button className={tabCls(tab === 'disenos')} onClick={() => setTab('disenos')}>Diseños de grabado</button>
+        <button className={tabCls(tab === 'combos')} onClick={() => setTab('combos')}>Combos de ejemplo</button>
       </div>
 
       {tab === 'sugerencias' && <TabSugerencias />}
       {tab === 'anclajes' && <TabAnclajes />}
       {tab === 'disenos' && <TabDisenos />}
+      {tab === 'combos' && <TabCombosEjemplo />}
     </div>
   );
 }

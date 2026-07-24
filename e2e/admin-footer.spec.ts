@@ -55,7 +55,9 @@ test.describe('Admin — Footer como bloque', () => {
     expect(footerSec.datos.texto_color).toBe('#ffffff');
     expect(footerSec.datos.tagline).toBe('Grabado láser personalizado · Todo Argentina');
     expect(footerSec.datos.copyright).toBe('© 2025 Mate Laser Studio');
-    expect(footerSec.datos.links).toHaveLength(3);
+    expect(footerSec.datos.grupo_tienda).toHaveLength(2);
+    expect(footerSec.datos.grupo_ayuda).toHaveLength(3);
+    expect(footerSec.datos.grupo_legal).toHaveLength(2);
     expect(footerSec.datos.redes).toHaveLength(1);
     // La sección de contenido existente no se pierde en la migración
     expect(secciones.find((s) => s.tipo === 'hero')).toBeTruthy();
@@ -98,8 +100,8 @@ test.describe('Admin — Footer como bloque', () => {
     const copyrightInput = page.getByText('Copyright', { exact: true }).locator('..').locator('input');
     await copyrightInput.fill('© 2026 Nueva Marca');
 
-    // Agrega un link secundario nuevo
-    await page.getByText('Links secundarios', { exact: true }).locator('..')
+    // Agrega un link nuevo al grupo Tienda
+    await page.getByText('Grupo: Tienda', { exact: true }).locator('..')
       .getByRole('button', { name: 'Agregar' }).click();
 
     // Agrega una red social nueva
@@ -113,7 +115,7 @@ test.describe('Admin — Footer como bloque', () => {
     expect(footerSec.datos.bg_color).toBe('#112233');
     expect(footerSec.datos.tagline).toBe('Nuevo tagline');
     expect(footerSec.datos.copyright).toBe('© 2026 Nueva Marca');
-    expect(footerSec.datos.links).toHaveLength(4);
+    expect(footerSec.datos.grupo_tienda).toHaveLength(3);
     expect(footerSec.datos.redes).toHaveLength(2);
   });
 });

@@ -36,6 +36,36 @@ export function ImagenConOverlay({ src, alt, gradiente = 'from-black/75 via-blac
   );
 }
 
+// Anclaje CSS para componer bombilla sobre mate — mismo shape que devuelve
+// el backend (configurador_anclajes) y usa DisenaTuMateV2.tsx (ComboPreview).
+export interface Anclaje { anclaje_x: number; anclaje_y: number; rotacion: number; escala: number }
+
+// Igual que ImagenConOverlay, pero para galeria_combos: si hay imagen de
+// bombilla Y un anclaje configurado para esa variante de mate, compone la
+// bombilla sobre el mate vía CSS (mismo mecanismo que el preview del
+// configurador) — si falta cualquiera de los dos, muestra solo la imagen
+// del mate (nunca las dos imágenes sueltas superpuestas al azar).
+export function ComboImagenConOverlay({ mateImg, bombillaImg, anclaje, alt, gradiente = 'from-black/75 via-black/10 to-transparent' }: {
+  mateImg: string; bombillaImg?: string | null; anclaje?: Anclaje | null; alt: string; gradiente?: string;
+}) {
+  const puedeComponer = !!bombillaImg && !!anclaje;
+  return (
+    <>
+      <div className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-105">
+        <img src={mateImg} alt={alt} className="absolute inset-0 w-full h-full object-cover" />
+        {puedeComponer && (
+          <img src={bombillaImg!} alt="" className="absolute w-1/4"
+            style={{
+              left: `${anclaje!.anclaje_x}%`, top: `${anclaje!.anclaje_y}%`,
+              transform: `translate(-50%, -50%) rotate(${anclaje!.rotacion}deg) scale(${anclaje!.escala})`,
+            }} />
+        )}
+      </div>
+      <div className={`absolute inset-0 bg-gradient-to-t ${gradiente} pointer-events-none`} />
+    </>
+  );
+}
+
 // Link de acento con subrayado que se dibuja de izquierda a derecha al
 // hover — CSS puro, reusa el color de acento ya usado en el link.
 export function LinkAcentoConSubrayado({ children, color, fontSize }: {

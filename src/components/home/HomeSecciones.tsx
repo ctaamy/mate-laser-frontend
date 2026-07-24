@@ -8,9 +8,9 @@ import { useCarritoStore } from '../../store/carrito.store';
 import { useToastStore } from '../../store/toast.store';
 import type { Producto, Categoria } from '../../types/index';
 import ProductGrid from '../ui/ProductGrid';
-import { SIZE_REM, fontSizeClampItem, ImagenConOverlay, LinkAcentoConSubrayado } from '../ui/CardOverlay';
+import { SIZE_REM, fontSizeClampItem, ImagenConOverlay, LinkAcentoConSubrayado, ComboImagenConOverlay, type Anclaje } from '../ui/CardOverlay';
 import TransicionInferior from '../ui/TransicionInferior';
-import { STAT_ICONS, STAT_ICON_FALLBACK } from '../ui/StatIcons';
+import { STAT_ICONS, STAT_ICON_FALLBACK, PASO_ICON_FALLBACK } from '../ui/StatIcons';
 import type { TemaGlobal } from '../../hooks/useThemeGlobal';
 
 // Todo el motor de renderizado de las secciones del homepage (hero, banners,
@@ -56,6 +56,15 @@ function paddingVertical(padding: string | undefined, remBase: [number, number],
   if (!padding) return {};
   const factor = (ESCALA_PADDING[padding] ?? 1) / (ESCALA_PADDING[opcionBase] ?? 1);
   return { paddingTop: `${remBase[0] * factor}rem`, paddingBottom: `${remBase[1] * factor}rem` };
+}
+
+// Espaciado vertical simple (un solo margen, no un par top/bottom) — mismo
+// mecanismo de escala que paddingVertical, reusado para separaciones como
+// título → subtítulo. opcionBase = la opción que reproduce el valor
+// histórico hardcodeado, así "sin configurar" no cambia nada.
+function gapVertical(valor: string | undefined, remBase: number, opcionBase = 'md'): string {
+  const factor = (ESCALA_PADDING[valor || opcionBase] ?? 1) / (ESCALA_PADDING[opcionBase] ?? 1);
+  return `${remBase * factor}rem`;
 }
 
 // Clases literales (no template dinámico) para que Tailwind las genere.
@@ -795,30 +804,44 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
 // 6. CÓMO FUNCIONA
 // ─────────────────────────────────────────────────────────────────────────────
 const PASOS_DEFAULT = [
-  { icono: '01', titulo: 'Elegís el diseño', desc: 'Subís tu logo, texto o imagen desde el sitio o por WhatsApp.' },
-  { icono: '02', titulo: 'Aprobás el arte', desc: 'Te enviamos una previsualización del grabado para tu visto bueno.' },
-  { icono: '03', titulo: 'Grabamos tu pieza', desc: 'Láser de precisión sobre acero inoxidable, madera o acrílico.' },
-  { icono: '04', titulo: 'Lo recibís en casa', desc: 'Enviamos a todo el país con seguimiento en tiempo real.' },
+  { icono: 'Palette', titulo: 'Elegís el diseño', desc: 'Subís tu logo, texto o imagen desde el sitio o por WhatsApp.' },
+  { icono: 'CheckCircle2', titulo: 'Aprobás el arte', desc: 'Te enviamos una previsualización del grabado para tu visto bueno.' },
+  { icono: 'Zap', titulo: 'Grabamos tu pieza', desc: 'Láser de precisión sobre acero inoxidable, madera o acrílico.' },
+  { icono: 'Package', titulo: 'Lo recibís en casa', desc: 'Enviamos a todo el país con seguimiento en tiempo real.' },
 ];
 
 function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema: TemaGlobal }) {
   const { bg, tc, fontFamily, minHeight } = estiloHeredado(datos, tema);
-  const pasos: { icono: string; titulo: string; desc: string }[] = datos.pasos ?? PASOS_DEFAULT;
+  const pasos: { icono?: string; titulo: string; desc: string }[] = datos.pasos ?? PASOS_DEFAULT;
   // Bugfix: padding/alineación se guardaban pero nunca se leían.
   const padding = paddingVertical(datos.padding, [5, 7], 'md');
   // Bugfix: el subtítulo ya existía en TIPO_DEFAULTS y en el editor, pero
   // nunca se renderizaba. Su color/tipografía heredan del bloque (Subtítulo
   // → Bloque → Tema) con el mismo mecanismo que el resto de la cadena.
   const subtitulo = heredaDeBloque({ texto_color: datos.subtitulo_color, font_family: datos.subtitulo_font_family }, { bg, tc, fontFamily });
+  // Acento del ícono/línea conectora: Bloque (datos.accent_color) → Tema —
+  // mismo mecanismo escalar simple que categorias_grid/productos_destacados.
+  const accentColor = datos.accent_color || tema.accent_color;
+  // Bugfix: el eyebrow "Proceso" estaba hardcodeado en el JSX, sin ningún
+  // campo detrás. Mismo campo/mecanismo que el eyebrow del Hero: opcional,
+  // si no se configura no se renderiza nada (nunca un valor por defecto
+  // inventado).
+  const eyebrow = datos.eyebrow;
+  // Bugfix: la separación título → subtítulo estaba fija en "mb-2" (0.5rem)
+  // sin ningún control — mismo mecanismo de escala que el resto de los
+  // espaciados verticales del sitio (paddingVertical/gapVertical), default
+  // reproduce ese 0.5rem histórico.
+  const gapTituloSubtitulo = gapVertical(datos.titulo_subtitulo_gap, 0.5, 'sm');
 
   return (
     <section className="w-full px-8 py-20 md:py-28 flex items-center" style={{ backgroundColor: bg, color: tc, fontFamily, minHeight, ...padding }}>
       <div className="max-w-6xl mx-auto w-full">
         <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER} style={{ textAlign: datos.alineacion || undefined }}>
-          <SectionLabel light>Proceso</SectionLabel>
+          {eyebrow && <SectionLabel light>{eyebrow}</SectionLabel>}
           <div className="mb-16">
             <motion.h2 variants={FADE_UP} transition={T}
-              className={`text-2xl md:text-3xl font-bold tracking-tight ${datos.subtitulo ? 'mb-2' : ''}`}>
+              className="text-2xl md:text-3xl font-bold tracking-tight"
+              style={{ marginBottom: datos.subtitulo ? gapTituloSubtitulo : undefined }}>
               {datos.titulo || '¿Cómo funciona?'}
             </motion.h2>
             {datos.subtitulo && (
@@ -830,18 +853,122 @@ function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-0 border-t" style={{ borderColor: `${tc}10` }}>
-            {pasos.map((paso, i) => (
-              <motion.div key={i} variants={FADE_UP} transition={{ ...T, delay: i * 0.1 }}
-                className="relative pt-8 pr-8 pb-8 border-b md:border-b-0 md:border-r last:border-r-0"
-                style={{ borderColor: `${tc}10` }}>
-                {/* Número grande decorativo */}
-                <span className="block text-[3.5rem] font-black leading-none mb-6 tracking-tight"
-                  style={{ color: `${tc}08` }}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <div className="text-sm font-bold mb-2" style={{ color: tc }}>{paso.titulo}</div>
-                <div className="text-xs leading-relaxed" style={{ color: `${tc}45` }}>{paso.desc}</div>
+          {/* Bugfix: el ícono de cada paso se guardaba (emoji, editable en
+              el admin) pero nunca se renderizaba. Ahora usa la misma
+              librería lucide-react que stats_barra (STAT_ICONS), con
+              fallback por posición si el paso no tiene ícono propio. */}
+          <div className="relative">
+            {/* Línea conectora sutil en acento — solo desktop, detrás de las burbujas de ícono */}
+            <div className="hidden md:block absolute left-0 right-0 h-px" style={{ top: '1.375rem', backgroundColor: `${accentColor}30` }} />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+              {pasos.map((paso, i) => {
+                const Icon = STAT_ICONS[paso.icono || ''] ?? STAT_ICONS[PASO_ICON_FALLBACK[i % PASO_ICON_FALLBACK.length]];
+                return (
+                  <motion.div key={i} variants={FADE_UP} transition={{ ...T, delay: i * 0.1 }}
+                    className="group relative rounded-xl p-6 border transition-transform duration-300 ease-out hover:-translate-y-1"
+                    style={{ backgroundColor: `${tc}08`, borderColor: `${tc}12` }}>
+                    <span className="absolute top-4 right-4 text-[11px] font-bold tracking-wide" style={{ color: `${tc}35` }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div className="relative z-10 w-11 h-11 rounded-full flex items-center justify-center mb-4"
+                      style={{ backgroundColor: accentColor }}>
+                      <Icon size={20} color="#fff" className="transition-transform duration-300 ease-out group-hover:scale-110" />
+                    </div>
+                    <div className="text-sm font-bold mb-2" style={{ color: tc }}>{paso.titulo}</div>
+                    <div className="text-xs leading-relaxed" style={{ color: `${tc}70` }}>{paso.desc}</div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GALERÍA DE COMBOS — combos armados a través del configurador "Diseñá tu
+// mate" v2 (combo_id, Fase 5), agrupados por el backend en
+// GET /configurador/galeria-combos. Reusa el mismo lenguaje visual y los
+// mismos componentes que categorias_grid/productos_destacados
+// (ImagenConOverlay/LinkAcentoConSubrayado/CardOverlay.tsx) — nada nuevo
+// acá. Mientras no haya combos reales de clientes, el backend completa con
+// combos "de ejemplo" cargados por el admin (es_ejemplo_admin: true),
+// mostrados exactamente igual pero sin contarse como uso real.
+// ─────────────────────────────────────────────────────────────────────────────
+interface Combo {
+  id: string; es_ejemplo_admin: boolean; producto_id: string; variante_id: string | null;
+  producto_nombre: string; mate_imagen: string | null;
+  bombilla_producto_id: string | null; bombilla_imagen: string | null;
+  grabado_texto: string | null; anclaje: Anclaje | null;
+}
+
+function SeccionGaleriaCombos({ datos, tema }: { datos: Record<string, any>; tema: TemaGlobal }) {
+  const cantidad = datos.cantidad || 6;
+  const { data: combos = [] } = useQuery<Combo[]>({
+    queryKey: ['galeria-combos', cantidad],
+    queryFn: () => api.get(`/configurador/galeria-combos?limit=${cantidad}`).then(r => r.data),
+  });
+
+  const { bg, tc, fontFamily, minHeight } = estiloHeredado(datos, tema);
+  const escalaTitulo = escalaTamano(datos.titulo_size);
+  const tituloFontSize = `clamp(${1.5 * escalaTitulo}rem, ${3 * escalaTitulo}vw, ${1.875 * escalaTitulo}rem)`;
+  const padding = paddingVertical(datos.padding, [4, 5], 'md');
+  const subtitulo = heredaDeBloque({ texto_color: datos.subtitulo_color, font_family: datos.subtitulo_font_family }, { bg, tc, fontFamily });
+  const accentColor = datos.accent_color || tema.accent_color;
+  const itemTituloFontSize = fontSizeClampItem(datos.item_titulo_size, 'sm');
+  const itemLinkFontSize = SIZE_REM[datos.item_link_size || 'xs'];
+
+  if (combos.length === 0) return null;
+
+  return (
+    <section className="w-full px-8 py-16 md:py-20 flex items-center" style={{ backgroundColor: bg, fontFamily, minHeight, ...padding }}>
+      <div className="max-w-6xl mx-auto w-full">
+        <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER}>
+          {datos.titulo && (
+            <div style={{ textAlign: datos.alineacion || undefined }} className="mb-10">
+              <SectionLabel>Inspiración</SectionLabel>
+              <motion.h2 variants={FADE_UP} transition={T}
+                className={`font-bold tracking-tight ${datos.subtitulo ? 'mb-2' : ''}`}
+                style={{ fontSize: tituloFontSize, color: tc }}>
+                {datos.titulo}
+              </motion.h2>
+              {datos.subtitulo && (
+                <motion.p variants={FADE_UP} transition={{ ...T, delay: 0.05 }}
+                  className="text-sm max-w-md"
+                  style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily }}>
+                  {datos.subtitulo}
+                </motion.p>
+              )}
+            </div>
+          )}
+
+          <div className={`grid grid-cols-2 ${COL_CLASS[combos.length] ?? 'md:grid-cols-4'} gap-3`}>
+            {combos.map((combo, i) => (
+              <motion.div key={combo.id} variants={FADE_UP} transition={{ ...T, delay: i * 0.05 }}>
+                <Link to={`/disena-tu-mate-v2?combo=${combo.id}`}
+                  className="group relative block w-full overflow-hidden rounded-xl"
+                  style={{ aspectRatio: '4 / 5' }}>
+                  {combo.mate_imagen ? (
+                    <ComboImagenConOverlay mateImg={combo.mate_imagen} bombillaImg={combo.bombilla_imagen} anclaje={combo.anclaje} alt={combo.producto_nombre} />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/[0.04]">
+                      <span className="text-5xl">🧉</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 p-4">
+                    <div className="font-semibold text-[#FAF7F3] mb-0.5 leading-tight line-clamp-2" style={{ fontSize: itemTituloFontSize }}>
+                      {combo.producto_nombre}
+                    </div>
+                    {combo.grabado_texto && (
+                      <div className="text-[11px] text-[#FAF7F3]/70 italic mb-1 line-clamp-1">"{combo.grabado_texto}"</div>
+                    )}
+                    <LinkAcentoConSubrayado color={accentColor} fontSize={itemLinkFontSize}>
+                      Armá el tuyo <ArrowRight size={10} />
+                    </LinkAcentoConSubrayado>
+                  </div>
+                </Link>
               </motion.div>
             ))}
           </div>
@@ -925,6 +1052,70 @@ function SeccionCtaBanner({ datos, tema }: { datos: Record<string, any>; tema: T
 
         {/* Línea decorativa */}
         <div className="absolute bottom-0 left-0 right-0 h-px" style={{ backgroundColor: `${tc}08` }} />
+      </motion.div>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7b. NEWSLETTER
+// ─────────────────────────────────────────────────────────────────────────────
+function SeccionNewsletter({ datos, tema }: { datos: Record<string, any>; tema: TemaGlobal }) {
+  const { bg, tc, fontFamily, minHeight } = estiloHeredado(datos, tema);
+  const padding = paddingVertical(datos.padding, [4, 5], 'md');
+  const subtitulo = heredaDeBloque({ texto_color: datos.subtitulo_color, font_family: datos.subtitulo_font_family }, { bg, tc, fontFamily });
+  const btn = heredaDeBloque({ bg_color: datos.btn_color, texto_color: datos.btn_texto_color }, { bg: tc, tc: bg, fontFamily });
+
+  const [email, setEmail] = useState('');
+  const [estado, setEstado] = useState<'idle' | 'cargando' | 'exito' | 'ya_suscripto' | 'error'>('idle');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (estado === 'cargando') return;
+    setEstado('cargando');
+    try {
+      const { data } = await api.post('/newsletter/suscribir', { email, origen: 'newsletter' });
+      setEstado(data?.estado === 'ya_suscripto' ? 'ya_suscripto' : 'exito');
+    } catch {
+      setEstado('error');
+    }
+  };
+
+  const mensaje = {
+    exito: '¡Listo! Ya estás suscripto.',
+    ya_suscripto: 'Ese email ya estaba suscripto.',
+    error: 'No pudimos suscribirte, intentá de nuevo.',
+  }[estado as 'exito' | 'ya_suscripto' | 'error'];
+
+  return (
+    <section className="w-full px-8" style={{ backgroundColor: bg, color: tc, fontFamily, minHeight, ...padding }}>
+      <motion.div className="max-w-xl mx-auto flex flex-col items-center text-center gap-4"
+        style={{ textAlign: datos.alineacion || 'center' }}
+        initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER}>
+        <motion.h2 variants={FADE_UP} transition={T} className="font-bold text-2xl md:text-3xl tracking-tight">
+          {datos.titulo || 'Sumate a la comunidad'}
+        </motion.h2>
+        {datos.subtitulo && (
+          <motion.p variants={FADE_UP} transition={{ ...T, delay: 0.1 }} className="text-sm max-w-sm"
+            style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily }}>
+            {datos.subtitulo}
+          </motion.p>
+        )}
+        <motion.form variants={FADE_UP} transition={{ ...T, delay: 0.15 }} onSubmit={submit}
+          className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-2">
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+            placeholder={datos.placeholder || 'Tu email'}
+            className="flex-1 px-4 py-3 text-sm rounded-lg border focus:outline-none"
+            style={{ borderColor: `${tc}25`, color: tc, backgroundColor: `${tc}08` }} />
+          <button type="submit" disabled={estado === 'cargando'}
+            className="px-6 py-3 text-sm font-bold rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ backgroundColor: btn.bg, color: btn.tc, fontFamily: btn.fontFamily }}>
+            {datos.btn_texto || 'Suscribirme'}
+          </button>
+        </motion.form>
+        {mensaje && (
+          <p className="text-xs" style={{ color: estado === 'error' ? '#e05252' : subtitulo.tc }}>{mensaje}</p>
+        )}
       </motion.div>
     </section>
   );
@@ -1057,9 +1248,11 @@ function renderSeccion(sec: Seccion, tema: TemaGlobal) {
     case 'productos_destacados': return <SeccionProductosDestacados key={sec.id} datos={sec.datos} tema={tema} />;
     case 'como_funciona':        return <SeccionComoFunciona key={sec.id} datos={sec.datos} tema={tema} />;
     case 'cta_banner':           return <SeccionCtaBanner key={sec.id} datos={sec.datos} tema={tema} />;
+    case 'newsletter':           return <SeccionNewsletter key={sec.id} datos={sec.datos} tema={tema} />;
     case 'banner_imagen':        return <SeccionBannerImagen key={sec.id} datos={sec.datos} />;
     case 'texto_libre':          return <SeccionTextoLibre key={sec.id} datos={sec.datos} tema={tema} />;
     case 'filtros_rapidos':      return <SeccionFiltrosRapidos key={sec.id} datos={sec.datos} tema={tema} />;
+    case 'galeria_combos':       return <SeccionGaleriaCombos key={sec.id} datos={sec.datos} tema={tema} />;
     default:                     return null;
   }
 }

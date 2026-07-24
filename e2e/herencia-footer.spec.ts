@@ -57,7 +57,9 @@ test.describe('Footer — bloque con herencia de tema', () => {
           id: 'foot-1', tipo: 'footer', activo: true, orden: -1,
           datos: {
             tagline: 'Tagline de prueba',
-            links: [{ label: 'Link custom', href: '/custom' }],
+            grupo_tienda: [{ label: 'Link custom', href: '/custom' }],
+            grupo_ayuda: [],
+            grupo_legal: [],
             redes: [{ label: '@customhandle', href: 'https://instagram.com/customhandle' }],
             copyright: '© 2030 Custom Brand',
           },

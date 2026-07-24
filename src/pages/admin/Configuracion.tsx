@@ -9,9 +9,10 @@ import { useTemaGlobalData, type TemaGlobal } from '../../hooks/useThemeGlobal';
 import { HomeSecciones } from '../../components/home/HomeSecciones';
 import ScaledPreview from '../../components/admin/ScaledPreview';
 import { STAT_ICONS, STAT_ICON_NAMES, STAT_ICON_FALLBACK } from '../../components/ui/StatIcons';
+import { PAYMENT_LOGOS, PAYMENT_LABELS } from '../../components/ui/PaymentLogos';
 
 // ── tipos ────────────────────────────────────────────────────────────────────
-type TipoSeccion = 'hero' | 'banner_texto' | 'productos_destacados' | 'categorias_grid' | 'texto_libre' | 'banner_imagen' | 'stats_barra' | 'como_funciona' | 'cta_banner' | 'filtros_rapidos';
+type TipoSeccion = 'hero' | 'banner_texto' | 'productos_destacados' | 'categorias_grid' | 'texto_libre' | 'banner_imagen' | 'stats_barra' | 'como_funciona' | 'cta_banner' | 'filtros_rapidos' | 'galeria_combos' | 'newsletter';
 
 // El navbar y el footer se guardan como una sección más cada uno (tipo
 // 'navbar' / 'footer'), aunque no son seleccionables desde "Agregar sección"
@@ -31,16 +32,35 @@ const NAV_LINKS_DEFAULT = [
 // Defaults del footer — calcados de lo que hoy está hardcodeado en
 // Footer.tsx, para que la migración a sección no cambie nada visualmente
 // hasta que el admin edite algo.
-const FOOTER_LINKS_DEFAULT = [
-  { label: 'Productos', href: '/productos' },
-  { label: 'Cómo funciona', href: '/#como-funciona' },
-  { label: 'Contacto', href: '/#contacto' },
-];
 const FOOTER_REDES_DEFAULT = [
   { label: '@matelaserstudio', href: 'https://instagram.com/matelaserstudio' },
 ];
 const FOOTER_TAGLINE_DEFAULT = 'Grabado láser personalizado · Todo Argentina';
 const FOOTER_COPYRIGHT_DEFAULT = '© 2025 Mate Laser Studio';
+// Grupos de links del footer: Tienda / Ayuda / Legal, reemplazan el antiguo
+// "links" plano + "links_legales" separado. "Seguimiento de pedido" queda
+// afuera de Tienda por ahora — el dato de tracking no es consultable
+// end-to-end todavía (ver auditoría de envíos).
+const FOOTER_GRUPO_TIENDA_DEFAULT = [
+  { label: 'Productos', href: '/productos' },
+  { label: 'Cómo funciona', href: '/#como-funciona' },
+];
+const FOOTER_GRUPO_AYUDA_DEFAULT = [
+  { label: 'Preguntas frecuentes', href: '/faq' },
+  { label: 'Envíos y devoluciones', href: '/envios-y-devoluciones' },
+  { label: 'Contacto', href: '/#contacto' },
+];
+const FOOTER_GRUPO_LEGAL_DEFAULT = [
+  { label: 'Términos y condiciones', href: '/terminos' },
+  { label: 'Política de privacidad', href: '/privacidad' },
+];
+const METODOS_PAGO_DISPONIBLES = [
+  { value: 'mercadopago', label: 'Mercado Pago' },
+  { value: 'visa', label: 'Visa' },
+  { value: 'mastercard', label: 'Mastercard' },
+  { value: 'amex', label: 'Amex' },
+];
+const FOOTER_METODOS_PAGO_DEFAULT = ['mercadopago', 'visa', 'mastercard'];
 
 interface Seccion {
   id: string;
@@ -61,6 +81,8 @@ const TIPO_LABELS: Record<TipoSeccion, string> = {
   como_funciona: 'Cómo funciona',
   cta_banner: 'CTA / Llamada a la acción',
   filtros_rapidos: 'Barra de filtros rápidos',
+  galeria_combos: 'Galería de combos (configurador)',
+  newsletter: 'Newsletter (suscripción por email)',
 };
 
 // Defaults de contenido + estilo por tipo
@@ -112,10 +134,10 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
     titulo: '¿Cómo funciona?',
     subtitulo: 'En 4 simples pasos tenés tu mate personalizado',
     pasos: [
-      { icono: '🎨', titulo: 'Elegís el diseño', desc: 'Subís tu logo, texto o imagen desde el sitio o por WhatsApp.' },
-      { icono: '✅', titulo: 'Aprobás el arte', desc: 'Te enviamos una previsualización del grabado para tu visto bueno.' },
-      { icono: '⚡', titulo: 'Grabamos tu pieza', desc: 'Láser de precisión sobre acero inoxidable, madera o acrílico.' },
-      { icono: '📦', titulo: 'Lo recibís en casa', desc: 'Enviamos a todo el país con seguimiento en tiempo real.' },
+      { icono: 'Palette', titulo: 'Elegís el diseño', desc: 'Subís tu logo, texto o imagen desde el sitio o por WhatsApp.' },
+      { icono: 'CheckCircle2', titulo: 'Aprobás el arte', desc: 'Te enviamos una previsualización del grabado para tu visto bueno.' },
+      { icono: 'Zap', titulo: 'Grabamos tu pieza', desc: 'Láser de precisión sobre acero inoxidable, madera o acrílico.' },
+      { icono: 'Package', titulo: 'Lo recibís en casa', desc: 'Enviamos a todo el país con seguimiento en tiempo real.' },
     ],
     bg_color: '#0a2218', texto_color: '#ffffff',
   },
@@ -130,6 +152,21 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
     items: [],
     bg_color: '#ffffff', texto_color: '#111111',
     padding: 'sm',
+  },
+  galeria_combos: {
+    titulo: 'Inspirate con estos combos',
+    subtitulo: 'Armados por otros clientes a través del configurador',
+    cantidad: 6,
+    bg_color: '#ffffff', texto_color: '#111111',
+    titulo_size: 'lg', columnas: 4, padding: 'md', alineacion: 'left',
+  },
+  newsletter: {
+    titulo: 'Sumate a la comunidad',
+    subtitulo: 'Enterate primero de nuevos diseños y descuentos',
+    placeholder: 'Tu email',
+    btn_texto: 'Suscribirme',
+    bg_color: '#1D9E75', texto_color: '#ffffff',
+    padding: 'md', alineacion: 'center',
   },
 };
 
@@ -421,6 +458,37 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
   );
 }
 
+// ── Selector de ícono (lucide-react, lista curada) ───────────────────────────
+// Compartido entre stats_barra y como_funciona — un solo componente para
+// elegir ícono en vez de duplicar el picker en cada editor.
+function IconPickerButton({ value, onChange }: { value?: string; onChange: (nombre: string) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const IconoActual = value ? STAT_ICONS[value] : undefined;
+  return (
+    <div className="relative">
+      <button onClick={() => setAbierto(o => !o)}
+        className="w-9 h-9 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:border-[#1D9E75] transition-colors"
+        title="Elegir ícono">
+        {IconoActual ? <IconoActual size={16} className="text-gray-600" /> : <span className="text-gray-300 text-xs">?</span>}
+      </button>
+      {abierto && (
+        <div className="absolute z-10 top-full left-0 mt-1 grid grid-cols-10 gap-1 bg-white border border-gray-100 rounded-lg p-2 shadow-lg w-[280px]">
+          {STAT_ICON_NAMES.map(nombre => {
+            const IconoOpcion = STAT_ICONS[nombre];
+            return (
+              <button key={nombre} title={nombre}
+                onClick={() => { onChange(nombre); setAbierto(false); }}
+                className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${value === nombre ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                <IconoOpcion size={14} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Editor de la barra de estadísticas (stats_barra) ─────────────────────────
 // Cantidad de items configurable (agregar/quitar/reordenar), mismo patrón
 // que CategoriasGridEditor/FiltrosRapidosEditor — cada item tiene valor,
@@ -430,7 +498,6 @@ interface StatItemEditable { valor: string; label: string; icono?: string }
 
 function StatsBarraEditor({ datos, set }: { datos: Record<string, any>; set: (k: string, v: any) => void }) {
   const stats: StatItemEditable[] = datos.stats ?? [];
-  const [pickerAbierto, setPickerAbierto] = useState<number | null>(null);
 
   const update = (next: StatItemEditable[]) => set('stats', next);
   const agregar = () => update([...stats, {
@@ -452,52 +519,31 @@ function StatsBarraEditor({ datos, set }: { datos: Record<string, any>; set: (k:
           <Plus size={12} /> Agregar estadística
         </button>
       </div>
-      {stats.map((s, i) => {
-        const IconoActual = s.icono ? STAT_ICONS[s.icono] : undefined;
-        return (
-          <div key={i} className="border border-gray-100 rounded-xl p-3 flex flex-col gap-2 bg-gray-50">
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPickerAbierto(pickerAbierto === i ? null : i)}
-                className="w-9 h-9 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:border-[#1D9E75] transition-colors"
-                title="Elegir ícono">
-                {IconoActual ? <IconoActual size={16} className="text-gray-600" /> : <span className="text-gray-300 text-xs">?</span>}
+      {stats.map((s, i) => (
+        <div key={i} className="border border-gray-100 rounded-xl p-3 flex flex-col gap-2 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <IconPickerButton value={s.icono} onChange={nombre => { const ns = [...stats]; ns[i] = { ...ns[i], icono: nombre }; update(ns); }} />
+            <input className={inputCls} value={s.valor} placeholder="1200+"
+              onChange={e => { const ns = [...stats]; ns[i] = { ...ns[i], valor: e.target.value }; update(ns); }} />
+            <input className={inputCls} value={s.label} placeholder="Mates entregados"
+              onChange={e => { const ns = [...stats]; ns[i] = { ...ns[i], label: e.target.value }; update(ns); }} />
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button onClick={() => mover(i, -1)} disabled={i === 0}
+                className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                <ChevronUp size={13} />
               </button>
-              <input className={inputCls} value={s.valor} placeholder="1200+"
-                onChange={e => { const ns = [...stats]; ns[i] = { ...ns[i], valor: e.target.value }; update(ns); }} />
-              <input className={inputCls} value={s.label} placeholder="Mates entregados"
-                onChange={e => { const ns = [...stats]; ns[i] = { ...ns[i], label: e.target.value }; update(ns); }} />
-              <div className="flex items-center gap-0.5 flex-shrink-0">
-                <button onClick={() => mover(i, -1)} disabled={i === 0}
-                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
-                  <ChevronUp size={13} />
-                </button>
-                <button onClick={() => mover(i, 1)} disabled={i === stats.length - 1}
-                  className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
-                  <ChevronDown size={13} />
-                </button>
-                <button onClick={() => eliminar(i)}
-                  className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
-                  <Trash2 size={13} />
-                </button>
-              </div>
+              <button onClick={() => mover(i, 1)} disabled={i === stats.length - 1}
+                className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                <ChevronDown size={13} />
+              </button>
+              <button onClick={() => eliminar(i)}
+                className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
+                <Trash2 size={13} />
+              </button>
             </div>
-            {pickerAbierto === i && (
-              <div className="grid grid-cols-10 gap-1 bg-white border border-gray-100 rounded-lg p-2">
-                {STAT_ICON_NAMES.map(nombre => {
-                  const IconoOpcion = STAT_ICONS[nombre];
-                  return (
-                    <button key={nombre} title={nombre}
-                      onClick={() => { const ns = [...stats]; ns[i] = { ...ns[i], icono: nombre }; update(ns); setPickerAbierto(null); }}
-                      className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${s.icono === nombre ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
-                      <IconoOpcion size={14} />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
-        );
-      })}
+        </div>
+      ))}
       {stats.length === 0 && (
         <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
           Sin estadísticas — el bloque no se muestra en el sitio hasta agregar al menos una.
@@ -855,6 +901,27 @@ function EditorContenido({ tipo, datos, set }: {
 
   if (tipo === 'filtros_rapidos') return <FiltrosRapidosEditor datos={datos} set={set} />;
 
+  if (tipo === 'galeria_combos') return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <label className={labelCls}>Título de sección</label>
+        <input className={inputCls} value={datos.titulo || ''} onChange={e => set('titulo', e.target.value)} />
+      </div>
+      <div>
+        <label className={labelCls}>Subtítulo</label>
+        <input className={inputCls} value={datos.subtitulo || ''} onChange={e => set('subtitulo', e.target.value)} />
+      </div>
+      <div>
+        <label className={labelCls}>Cantidad de combos a mostrar (máx.)</label>
+        <input className={inputCls} type="number" min={1} max={12} value={datos.cantidad || 6}
+          onChange={e => set('cantidad', parseInt(e.target.value))} />
+      </div>
+      <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
+        Los combos se traen automáticamente: primero los reales (armados por clientes a través de "Diseñá tu mate"), completando con los combos de ejemplo que cargues en <strong>Configurador → Combos de ejemplo</strong> solo si faltan para llegar a la cantidad configurada.
+      </p>
+    </div>
+  );
+
   if (tipo === 'banner_texto') return (
     <div className="flex flex-col gap-3">
       <div>
@@ -922,9 +989,16 @@ function EditorContenido({ tipo, datos, set }: {
   if (tipo === 'stats_barra') return <StatsBarraEditor datos={datos} set={set} />;
 
   if (tipo === 'como_funciona') {
-    const pasos: { icono: string; titulo: string; desc: string }[] = datos.pasos ?? [];
+    const pasos: { icono?: string; titulo: string; desc: string }[] = datos.pasos ?? [];
+    const actualizarPaso = (i: number, patch: Partial<{ icono: string; titulo: string; desc: string }>) => {
+      const np = [...pasos]; np[i] = { ...np[i], ...patch }; set('pasos', np);
+    };
     return (
       <div className="flex flex-col gap-4">
+        <div>
+          <label className={labelCls}>Eyebrow (texto pequeño arriba del título, opcional)</label>
+          <input className={inputCls} value={datos.eyebrow || ''} onChange={e => set('eyebrow', e.target.value)} placeholder="Ej: Proceso" />
+        </div>
         <div>
           <label className={labelCls}>Título de sección</label>
           <input className={inputCls} value={datos.titulo || ''} onChange={e => set('titulo', e.target.value)} />
@@ -936,25 +1010,14 @@ function EditorContenido({ tipo, datos, set }: {
         {pasos.map((p, i) => (
           <div key={i} className="border border-gray-100 rounded-lg p-3 flex flex-col gap-2">
             <div className="text-xs font-semibold text-gray-400">Paso {i + 1}</div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className={labelCls}>Ícono (emoji)</label>
-                <input className={inputCls} value={p.icono} onChange={e => {
-                  const np = [...pasos]; np[i] = { ...np[i], icono: e.target.value }; set('pasos', np);
-                }} placeholder="🎨" />
-              </div>
-              <div className="col-span-2">
-                <label className={labelCls}>Título del paso</label>
-                <input className={inputCls} value={p.titulo} onChange={e => {
-                  const np = [...pasos]; np[i] = { ...np[i], titulo: e.target.value }; set('pasos', np);
-                }} />
-              </div>
+            <div className="flex items-center gap-2">
+              <IconPickerButton value={p.icono} onChange={nombre => actualizarPaso(i, { icono: nombre })} />
+              <input className={inputCls} value={p.titulo} placeholder="Título del paso"
+                onChange={e => actualizarPaso(i, { titulo: e.target.value })} />
             </div>
             <div>
               <label className={labelCls}>Descripción</label>
-              <input className={inputCls} value={p.desc} onChange={e => {
-                const np = [...pasos]; np[i] = { ...np[i], desc: e.target.value }; set('pasos', np);
-              }} />
+              <input className={inputCls} value={p.desc} onChange={e => actualizarPaso(i, { desc: e.target.value })} />
             </div>
           </div>
         ))}
@@ -980,6 +1043,29 @@ function EditorContenido({ tipo, datos, set }: {
     </div>
   );
 
+  if (tipo === 'newsletter') return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <label className={labelCls}>Título</label>
+        <input className={inputCls} value={datos.titulo || ''} onChange={e => set('titulo', e.target.value)} placeholder="Sumate a la comunidad" />
+      </div>
+      <div>
+        <label className={labelCls}>Subtítulo</label>
+        <input className={inputCls} value={datos.subtitulo || ''} onChange={e => set('subtitulo', e.target.value)} placeholder="Enterate primero de nuevos diseños y descuentos" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Placeholder del input</label>
+          <input className={inputCls} value={datos.placeholder || ''} onChange={e => set('placeholder', e.target.value)} placeholder="Tu email" />
+        </div>
+        <div>
+          <label className={labelCls}>Texto del botón</label>
+          <input className={inputCls} value={datos.btn_texto || ''} onChange={e => set('btn_texto', e.target.value)} placeholder="Suscribirme" />
+        </div>
+      </div>
+    </div>
+  );
+
   return null;
 }
 
@@ -991,8 +1077,8 @@ function EditorEstilo({ tipo, datos, set }: {
   // mirar los slides (formato actual), no solo el campo legacy datos.imagen_url
   // (única imagen, formato previo a los slides múltiples).
   const heroTieneImagen = tipo === 'hero' && (!!datos.imagen_url || !!datos.slides?.some((s: any) => s.imagen_url));
-  const tieneSubtitulo = ['hero', 'cta_banner', 'productos_destacados', 'categorias_grid', 'como_funciona'].includes(tipo);
-  const tieneBotonesConColorPropio = tipo === 'hero' || tipo === 'cta_banner';
+  const tieneSubtitulo = ['hero', 'cta_banner', 'productos_destacados', 'categorias_grid', 'como_funciona', 'galeria_combos', 'newsletter'].includes(tipo);
+  const tieneBotonesConColorPropio = tipo === 'hero' || tipo === 'cta_banner' || tipo === 'newsletter';
 
   return (
     <div className="flex flex-col gap-4">
@@ -1034,6 +1120,12 @@ function EditorEstilo({ tipo, datos, set }: {
           )}
           {tipo === 'stats_barra' && (
             <ColorField label="Color del ícono (default: hereda el texto)" value={datos.icon_color || ''} onChange={v => set('icon_color', v)} />
+          )}
+          {tipo === 'como_funciona' && (
+            <ColorField label="Color de acento (burbuja del ícono, línea conectora)" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />
+          )}
+          {tipo === 'galeria_combos' && (
+            <ColorField label="Color de acento (link 'Armá el tuyo')" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />
           )}
         </div>
         <p className="text-[10px] text-gray-400 mt-2">
@@ -1086,7 +1178,7 @@ function EditorEstilo({ tipo, datos, set }: {
                 <p className="text-[10px] text-gray-400 mt-1">Google Font — se carga desde internet</p>
               )}
             </div>
-            {['hero', 'productos_destacados', 'categorias_grid'].includes(tipo) && (
+            {['hero', 'productos_destacados', 'categorias_grid', 'galeria_combos'].includes(tipo) && (
               <SelectField label="Tamaño título" value={datos.titulo_size || 'lg'} onChange={v => set('titulo_size', v)} options={SIZES} />
             )}
             {tipo === 'categorias_grid' && (
@@ -1100,6 +1192,12 @@ function EditorEstilo({ tipo, datos, set }: {
             )}
             {tipo === 'productos_destacados' && (
               <SelectField label='Tamaño precio / link "Ver producto"' value={datos.item_link_size || 'xs'} onChange={v => set('item_link_size', v)} options={SIZES} />
+            )}
+            {tipo === 'galeria_combos' && (
+              <SelectField label="Tamaño nombre del combo (dentro de cada card)" value={datos.item_titulo_size || 'sm'} onChange={v => set('item_titulo_size', v)} options={SIZES} />
+            )}
+            {tipo === 'galeria_combos' && (
+              <SelectField label='Tamaño link "Armá el tuyo"' value={datos.item_link_size || 'xs'} onChange={v => set('item_link_size', v)} options={SIZES} />
             )}
             {tipo === 'hero' && (
               <SelectField label="Peso título" value={datos.titulo_font_weight || 'bold'} onChange={v => set('titulo_font_weight', v)} options={PESOS} />
@@ -1144,7 +1242,10 @@ function EditorEstilo({ tipo, datos, set }: {
           {tipo !== 'banner_imagen' && tipo !== 'texto_libre' && (
             <SelectField label="Alineación" value={datos.alineacion || 'left'} onChange={v => set('alineacion', v)} options={ALINEACIONES} />
           )}
-          {['productos_destacados', 'categorias_grid'].includes(tipo) && (
+          {tipo === 'como_funciona' && (
+            <SelectField label="Espaciado título → subtítulo" value={datos.titulo_subtitulo_gap || 'sm'} onChange={v => set('titulo_subtitulo_gap', v)} options={PADDINGS} />
+          )}
+          {['productos_destacados', 'categorias_grid', 'galeria_combos'].includes(tipo) && (
             <SelectField label="Columnas" value={String(datos.columnas || 3)} onChange={v => set('columnas', parseInt(v))} options={COLUMNAS} />
           )}
           {tipo !== 'banner_imagen' && (
@@ -1802,8 +1903,18 @@ function FooterEditor({ datos, set, tema }: {
   const bg = datos.bg_color || tema.bg_color;
   const texto = datos.texto_color || tema.texto_color;
   const fontFamily = datos.font_family || tema.font_family || undefined;
-  const links: { label: string; href: string }[] = Array.isArray(datos.links) ? datos.links : FOOTER_LINKS_DEFAULT;
   const redes: { label: string; href: string }[] = Array.isArray(datos.redes) ? datos.redes : FOOTER_REDES_DEFAULT;
+  const grupoTienda: { label: string; href: string }[] = Array.isArray(datos.grupo_tienda) ? datos.grupo_tienda : FOOTER_GRUPO_TIENDA_DEFAULT;
+  const grupoAyuda: { label: string; href: string }[] = Array.isArray(datos.grupo_ayuda) ? datos.grupo_ayuda : FOOTER_GRUPO_AYUDA_DEFAULT;
+  const grupoLegal: { label: string; href: string }[] = Array.isArray(datos.grupo_legal) ? datos.grupo_legal : FOOTER_GRUPO_LEGAL_DEFAULT;
+  const metodosPago: string[] = Array.isArray(datos.metodos_pago) ? datos.metodos_pago : FOOTER_METODOS_PAGO_DEFAULT;
+  const metodosPagoLogos: Record<string, string> = datos.metodos_pago_logos ?? {};
+  const setMetodoPagoLogo = (value: string, url: string) => set('metodos_pago_logos', { ...metodosPagoLogos, [value]: url });
+  const contacto: Record<string, any> = datos.contacto ?? {};
+  const setContacto = (k: string, v: string) => set('contacto', { ...contacto, [k]: v });
+  const toggleMetodoPago = (value: string) => {
+    set('metodos_pago', metodosPago.includes(value) ? metodosPago.filter(m => m !== value) : [...metodosPago, value]);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -1851,11 +1962,69 @@ function FooterEditor({ datos, set, tema }: {
         </div>
       </div>
 
-      <EnlacesEditor titulo="Links secundarios" enlaces={links} onChange={v => set('links', v)}
+      <EnlacesEditor titulo="Grupo: Tienda" enlaces={grupoTienda} onChange={v => set('grupo_tienda', v)}
         placeholderLabel="Nuevo link" placeholderHref="/" />
+
+      <EnlacesEditor titulo="Grupo: Ayuda" enlaces={grupoAyuda} onChange={v => set('grupo_ayuda', v)}
+        placeholderLabel="Nuevo link" placeholderHref="/" />
+
+      <EnlacesEditor titulo="Grupo: Legal" enlaces={grupoLegal} onChange={v => set('grupo_legal', v)}
+        placeholderLabel="Términos y condiciones" placeholderHref="/terminos" />
 
       <EnlacesEditor titulo="Redes sociales" enlaces={redes} onChange={v => set('redes', v)}
         placeholderLabel="@usuario" placeholderHref="https://instagram.com/usuario" />
+      <p className="text-[10px] text-gray-400 -mt-3">
+        Un link a instagram.com muestra automáticamente el ícono de Instagram al lado del texto.
+      </p>
+
+      {/* Contacto directo */}
+      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contacto directo</div>
+        <p className="text-xs text-gray-400 -mt-2">Distinto del botón flotante de WhatsApp — opcional, vacío no se muestra.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Email</label>
+            <input className={inputCls} value={contacto.email || ''} onChange={e => setContacto('email', e.target.value)} placeholder="hola@matelaserstudio.com" />
+          </div>
+          <div>
+            <label className={labelCls}>Teléfono</label>
+            <input className={inputCls} value={contacto.telefono || ''} onChange={e => setContacto('telefono', e.target.value)} placeholder="+54 9 11 1234-5678" />
+          </div>
+          <div className="col-span-2">
+            <label className={labelCls}>Dirección</label>
+            <input className={inputCls} value={contacto.direccion || ''} onChange={e => setContacto('direccion', e.target.value)} placeholder="Buenos Aires, Argentina" />
+          </div>
+        </div>
+      </div>
+
+      {/* Métodos de pago */}
+      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Métodos de pago</div>
+        <p className="text-xs text-gray-400 -mt-2">Se muestran como logos al pie, más grandes que el resto de los elementos secundarios del footer.</p>
+        <div className="flex flex-wrap gap-3">
+          {METODOS_PAGO_DISPONIBLES.map(m => (
+            <label key={m.value} className="flex items-center gap-2 text-xs border border-gray-200 rounded-lg px-3 py-2 cursor-pointer">
+              <input type="checkbox" checked={metodosPago.includes(m.value)} onChange={() => toggleMetodoPago(m.value)} />
+              {m.label}
+            </label>
+          ))}
+        </div>
+        {metodosPago.map(m => {
+          const Logo = PAYMENT_LOGOS[m];
+          return (
+            <div key={m} className="flex items-center gap-3 border-t border-gray-100 pt-3">
+              <span className="w-24 flex-shrink-0 text-xs text-gray-500">{PAYMENT_LABELS[m] ?? m}</span>
+              {metodosPagoLogos[m] ? (
+                <img src={metodosPagoLogos[m]} alt={m} className="h-8 w-auto object-contain" />
+              ) : Logo ? (
+                <Logo className="h-8 w-auto" />
+              ) : null}
+              <SeccionImageUploader label="" value={metodosPagoLogos[m] || ''} onChange={v => setMetodoPagoLogo(m, v)} />
+            </div>
+          );
+        })}
+        <p className="text-[10px] text-gray-400">Por default se usa un logo genérico incluido. Subí una imagen para reemplazarlo por el logo oficial.</p>
+      </div>
 
       {/* Preview */}
       <div className="rounded-xl overflow-hidden border border-gray-100">
@@ -1869,7 +2038,7 @@ function FooterEditor({ datos, set, tema }: {
             </p>
           </div>
           <div className="flex gap-4 text-xs" style={{ color: texto }}>
-            {links.map((l, i) => <span key={i}>{l.label}</span>)}
+            {grupoTienda.map((l, i) => <span key={i}>{l.label}</span>)}
           </div>
           <div className="flex gap-3 items-center text-xs" style={{ color: texto }}>
             {redes.map((r, i) => <span key={i}>{r.label}</span>)}
@@ -1920,7 +2089,7 @@ function FooterCard({ datos, set, tema }: {
 // ── Página principal ──────────────────────────────────────────────────────────
 export default function AdminConfiguracion() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'homepage' | 'tema' | 'tienda'>('homepage');
+  const [tab, setTab] = useState<'homepage' | 'tema' | 'tienda' | 'paginas'>('homepage');
   const [secciones, setSecciones] = useState<Seccion[]>([]);
   const [cargado, setCargado] = useState(false);
   const [nuevoTipo, setNuevoTipo] = useState<TipoSeccion>('hero');
@@ -2009,7 +2178,9 @@ export default function AdminConfiguracion() {
         bg_color: '#0a0a0a',
         texto_color: '#ffffff',
         tagline: FOOTER_TAGLINE_DEFAULT,
-        links: FOOTER_LINKS_DEFAULT,
+        grupo_tienda: FOOTER_GRUPO_TIENDA_DEFAULT,
+        grupo_ayuda: FOOTER_GRUPO_AYUDA_DEFAULT,
+        grupo_legal: FOOTER_GRUPO_LEGAL_DEFAULT,
         redes: FOOTER_REDES_DEFAULT,
         copyright: FOOTER_COPYRIGHT_DEFAULT,
       },
@@ -2210,13 +2381,14 @@ export default function AdminConfiguracion() {
       <div className="flex flex-col gap-6 w-full max-w-3xl flex-shrink-0">
 
       <div className="flex gap-1 border border-gray-100 rounded-xl p-1 bg-white w-fit">
-        {(['homepage', 'tema', 'tienda'] as const).map(t => (
+        {(['homepage', 'tema', 'tienda', 'paginas'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`relative px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-            {t === 'homepage' ? 'Inicio' : t === 'tema' ? 'Tema' : 'Tienda'}
-            {/* Tema y Tienda comparten el mismo formulario — el punto avisa
-                que hay cambios sin guardar aunque no estés parado en esa tab. */}
-            {(t === 'tema' || t === 'tienda') && hayCambiosConfigSinGuardar && (
+            {t === 'homepage' ? 'Inicio' : t === 'tema' ? 'Tema' : t === 'tienda' ? 'Tienda' : 'Páginas'}
+            {/* Tema, Tienda y Páginas comparten el mismo formulario — el
+                punto avisa que hay cambios sin guardar aunque no estés
+                parado en esa tab. */}
+            {(t === 'tema' || t === 'tienda' || t === 'paginas') && hayCambiosConfigSinGuardar && (
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" title="Cambios sin guardar" />
             )}
           </button>
@@ -2350,6 +2522,50 @@ export default function AdminConfiguracion() {
               className="bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50 flex items-center gap-2">
               <Save size={14} />
               {guardarConfigMutation.isPending ? 'Guardando...' : 'Guardar configuración'}
+            </motion.button>
+          </div>
+        </div>
+      )}
+
+      {tab === 'paginas' && (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-500">
+            Título y contenido (HTML) de las páginas legales/de ayuda enlazadas desde el footer. El contenido final se carga acá cuando esté listo — mientras tanto la ruta ya existe y no queda rota.
+          </p>
+          {[
+            { clave: 'pagina_terminos', label: 'Términos y condiciones' },
+            { clave: 'pagina_privacidad', label: 'Política de privacidad' },
+            { clave: 'pagina_faq', label: 'Preguntas frecuentes' },
+            { clave: 'pagina_envios', label: 'Envíos y devoluciones' },
+          ].map(({ clave, label }) => (
+            <div key={clave} className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-3">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</div>
+              <div>
+                <label className={labelCls}>Título</label>
+                <input className={inputCls} value={configForm[`${clave}_titulo`] ?? ''} placeholder={label}
+                  onChange={e => setConfigForm(f => ({ ...f, [`${clave}_titulo`]: e.target.value }))} />
+              </div>
+              <div>
+                <label className={labelCls}>Contenido (HTML)</label>
+                <textarea className={inputCls + ' h-32 resize-y font-mono text-xs'}
+                  value={configForm[`${clave}_html`] ?? ''} placeholder="<p>Tu contenido aquí...</p>"
+                  onChange={e => setConfigForm(f => ({ ...f, [`${clave}_html`]: e.target.value }))} />
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-end gap-3">
+            {hayCambiosConfigSinGuardar && !configOk && (
+              <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                Tenés cambios sin guardar
+              </span>
+            )}
+            <FeedbackToast show={configOk} className="text-xs text-[#1D9E75]">¡Guardado correctamente!</FeedbackToast>
+            <motion.button onClick={() => guardarConfigMutation.mutate(configForm)} whileTap={{ scale: 0.97 }}
+              disabled={guardarConfigMutation.isPending}
+              className="bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50 flex items-center gap-2">
+              <Save size={14} />
+              {guardarConfigMutation.isPending ? 'Guardando...' : 'Guardar páginas'}
             </motion.button>
           </div>
         </div>

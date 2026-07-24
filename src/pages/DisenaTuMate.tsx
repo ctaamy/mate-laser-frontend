@@ -146,9 +146,10 @@ export default function DisenaTuMate() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const { data } = await api.post('/configurador/upload-diseno', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Bugfix: mismo problema que useSubirImagen.ts — fijar Content-Type a
+      // mano pisa el boundary que el navegador genera solo para un
+      // FormData, y el backend no puede parsear el multipart (400).
+      const { data } = await api.post('/configurador/upload-diseno', formData);
       setDiseñoUrl(data.url);
       setDiseñoNombre(file.name);
     } catch (e: any) {

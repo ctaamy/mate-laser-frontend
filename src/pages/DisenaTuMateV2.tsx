@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Check, MessageCircle, ShoppingCart } from 'lucide-react';
 import api from '../lib/api';
@@ -91,6 +91,15 @@ interface SeleccionBombilla {
   variante: VarianteProducto;
 }
 
+// Respuesta de GET /configurador/combo/:id — combo real o de ejemplo, ya
+// hidratado con producto/variante completos (ver galeria_combos en el home).
+interface ComboParaConfigurador {
+  producto: Producto;
+  variante: VarianteProducto | null;
+  bombilla: { producto: Producto; variante: VarianteProducto } | null;
+  grabado_texto: string | null;
+}
+
 const PASOS = ['Tipo de mate', 'Mate y variante', 'Bombilla', 'Grabado', 'Resumen'] as const;
 
 export default function DisenaTuMateV2() {
@@ -101,6 +110,25 @@ export default function DisenaTuMateV2() {
   // undefined = todavía no decidido; 'saltado' = el cliente saltó el paso; objeto = bombilla elegida.
   const [seleccionBombilla, setSeleccionBombilla] = useState<SeleccionBombilla | 'saltado' | undefined>(undefined);
   const [seleccionGrabado, setSeleccionGrabado] = useState<SeleccionGrabado | 'saltado' | undefined>(undefined);
+
+  // Precarga desde la galería de combos del home (?combo=<id>, real o de
+  // ejemplo) — "quiero uno así": salta directo al Resumen con todo ya
+  // elegido, el cliente puede volver atrás y cambiar cualquier paso.
+  const [searchParams] = useSearchParams();
+  const comboId = searchParams.get('combo');
+  const { data: comboPrecarga } = useQuery<ComboParaConfigurador | null>({
+    queryKey: ['configurador-combo-precarga', comboId],
+    queryFn: () => api.get(`/configurador/combo/${comboId}`).then((r) => r.data),
+    enabled: !!comboId,
+  });
+
+  useEffect(() => {
+    if (!comboPrecarga) return;
+    setSeleccionMate({ producto: comboPrecarga.producto, variante: comboPrecarga.variante });
+    setSeleccionBombilla(comboPrecarga.bombilla ? { producto: comboPrecarga.bombilla.producto, variante: comboPrecarga.bombilla.variante } : 'saltado');
+    setSeleccionGrabado(comboPrecarga.grabado_texto ? { tipo: 'texto', texto: comboPrecarga.grabado_texto } : 'saltado');
+    setPasoActivo(4);
+  }, [comboPrecarga]);
 
   const { data: categorias, isLoading: cargandoCategorias } = useQuery<Categoria[]>({
     queryKey: ['categorias'],

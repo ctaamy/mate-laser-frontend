@@ -73,9 +73,11 @@ export function useSubirImagen<T = { url: string }>(
       }
       const fd = new FormData();
       fd.append('file', archivo);
-      const res = await api.post(endpoint, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Bugfix: fijar Content-Type a mano acá pisa el boundary que el
+      // navegador genera automáticamente para un FormData — sin él, el
+      // backend no puede parsear el multipart ("Boundary not found", 400).
+      // Sin este header, axios/el navegador lo arman solos con el boundary.
+      const res = await api.post(endpoint, fd);
       onSuccess(res.data as T);
     } catch {
       setError(mensajeErrorSubida);
