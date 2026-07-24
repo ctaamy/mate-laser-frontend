@@ -136,20 +136,16 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
 
         {badges}
 
-        {/* Botón agregar — aparece al hover desde abajo */}
-        <motion.div
-          className="absolute bottom-0 left-0 right-0 z-10"
-          initial={{ y: '100%' }}
-          animate={{ y: hovered ? '0%' : '100%' }}
-          transition={{ duration: 0.28, ease: 'easeInOut' }}
-        >
+        {/* Botón agregar — siempre visible en mobile (no hay hover en touch);
+            en desktop se mantiene el reveal al hover sobre la imagen. */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 translate-y-0 transition-transform duration-300 ease-in-out md:translate-y-full md:group-hover:translate-y-0">
           <button
             onClick={e => { e.preventDefault(); onAgregar(producto); }}
             className="w-full py-3 bg-black text-white text-xs font-semibold tracking-widest uppercase hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
           >
             <ShoppingCart size={12} /> Agregar al carrito
           </button>
-        </motion.div>
+        </div>
       </Link>
 
       {/* Info debajo de la imagen */}

@@ -28,10 +28,12 @@ const gridVariants = {
   },
 };
 
+// Mobile-first: 2 columnas siempre hasta md, después el valor elegido — mismo
+// criterio que COL_CLASS en HomeSecciones.tsx (categorias_grid/galeria_combos).
 const colClass: Record<number, string> = {
   2: 'grid-cols-2',
-  3: 'grid-cols-3',
-  4: 'grid-cols-4',
+  3: 'grid-cols-2 md:grid-cols-3',
+  4: 'grid-cols-2 md:grid-cols-4',
 };
 
 export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, tituloFontSize, linkFontSize }: ProductGridProps) {
@@ -43,7 +45,7 @@ export default function ProductGrid({ productos, onAgregar, cols = 3, variant, a
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: '-80px' }}
-      className={`grid ${colClass[cols] ?? 'grid-cols-3'} gap-x-4 gap-y-8`}
+      className={`grid ${colClass[cols] ?? 'grid-cols-2 md:grid-cols-3'} gap-x-4 gap-y-8`}
     >
       {productos.map((producto, i) => (
         // ProductCard ya tiene sus propias variants (hidden/visible),
