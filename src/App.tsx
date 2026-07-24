@@ -17,7 +17,6 @@ import Pago from './pages/Pago';
 import Confirmacion from './pages/Confirmacion';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import DisenaTuMate from './pages/DisenaTuMate';
 import DisenaTuMateV2 from './pages/DisenaTuMateV2';
 import PaginaEstatica from './pages/PaginaEstatica';
 
@@ -29,7 +28,6 @@ import AdminCupones from './pages/admin/Cupones';
 import AdminEnvios from './pages/admin/Envios';
 import AdminConfiguracion from './pages/admin/Configuracion';
 import AdminCategorias from './pages/admin/Categorias';
-import AdminConfigurador from './pages/admin/Configurador';
 import AdminConfiguradorV2 from './pages/admin/ConfiguradorV2';
 
 const queryClient = new QueryClient({
@@ -80,7 +78,6 @@ export default function App() {
             <Route path="checkout" element={<Checkout />} />
             <Route path="pago/:id" element={<Pago />} />
             <Route path="confirmacion/:id" element={<Confirmacion />} />
-            <Route path="disena-tu-mate" element={<DisenaTuMate />} />
             <Route path="disena-tu-mate-v2" element={<DisenaTuMateV2 />} />
             <Route path="terminos" element={<PaginaEstatica claveBase="pagina_terminos" tituloDefault="Términos y condiciones" />} />
             <Route path="privacidad" element={<PaginaEstatica claveBase="pagina_privacidad" tituloDefault="Política de privacidad" />} />
@@ -99,7 +96,6 @@ export default function App() {
             <Route path="envios" element={<AdminEnvios />} />
             <Route path="configuracion" element={<AdminConfiguracion />} />
             <Route path="categorias" element={<AdminCategorias />} />
-            <Route path="configurador" element={<AdminConfigurador />} />
             <Route path="configurador-v2" element={<AdminConfiguradorV2 />} />
           </Route>
         </Routes>

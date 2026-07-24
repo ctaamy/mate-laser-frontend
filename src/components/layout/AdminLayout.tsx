@@ -21,8 +21,7 @@ export default function AdminLayout() {
     { to: '/admin/ordenes', label: 'Órdenes', icon: ShoppingBag },
     { to: '/admin/cupones', label: 'Cupones', icon: Tag },
     { to: '/admin/envios', label: 'Envíos', icon: Truck },
-    { to: '/admin/configurador', label: 'Diseñá tu mate', icon: Wand2 },
-    { to: '/admin/configurador-v2', label: 'Diseñá tu mate v2', icon: Wand2 },
+    { to: '/admin/configurador-v2', label: 'Diseñá tu mate', icon: Wand2 },
     { to: '/admin/configuracion', label: 'Configuración', icon: Settings },
   ];
 
