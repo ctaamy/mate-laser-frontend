@@ -73,11 +73,15 @@ export function useSubirImagen<T = { url: string }>(
       }
       const fd = new FormData();
       fd.append('file', archivo);
-      // Bugfix: fijar Content-Type a mano acá pisa el boundary que el
-      // navegador genera automáticamente para un FormData — sin él, el
-      // backend no puede parsear el multipart ("Boundary not found", 400).
-      // Sin este header, axios/el navegador lo arman solos con el boundary.
-      const res = await api.post(endpoint, fd);
+      // Bugfix: la instancia de `api` fija Content-Type: application/json por
+      // default (ver lib/api.ts). Si se manda un FormData sin anular ese
+      // header, axios lo detecta como "hasJSONContentType" y en vez de
+      // mandarlo como multipart lo serializa a JSON (formDataToJSON) — el
+      // archivo nunca llega, Multer no puebla req.file y el backend explota
+      // con "Cannot read properties of undefined (reading 'mimetype')".
+      // Poniendo el header en undefined se lo saca del request para que
+      // axios/el navegador arme el multipart con su propio boundary.
+      const res = await api.post(endpoint, fd, { headers: { 'Content-Type': undefined } });
       onSuccess(res.data as T);
     } catch {
       setError(mensajeErrorSubida);
