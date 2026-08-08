@@ -26,9 +26,10 @@ async function completarHastaPago(page: Page) {
   await page.getByPlaceholder('tu@email.com').fill('juana@test.com');
   await page.getByPlaceholder('+54 11 XXXX-XXXX').fill('1122334455');
 
-  // El listado de envíos solo se pide cuando hay un CP cargado (aunque el
-  // método elegido termine siendo retiro), así que lo completamos igual.
-  await page.getByPlaceholder('1043').fill('1000');
+  // El listado de envíos solo se pide cuando hay Provincia+Ciudad elegidas
+  // (aunque el método termine siendo retiro), así que las completamos igual.
+  await page.getByLabel(/Provincia \*/).selectOption('Buenos Aires');
+  await page.getByLabel(/Ciudad \/ Localidad \*/).selectOption('Ciudad E2E');
   await expect(page.getByText('Retiro en local')).toBeVisible();
   await page.getByText('Retiro en local').click();
 

@@ -8,6 +8,7 @@ import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
 import type { Producto } from '../types';
 import BadgeAptoGrabado from '../components/ui/BadgeAptoGrabado';
+import CuotasBanner from '../components/ui/CuotasBanner';
 
 const T = { duration: 0.4, ease: 'easeOut' as const };
 
@@ -28,6 +29,7 @@ export default function ProductoDetalle() {
     queryFn: () => api.get(`/productos/${slug}`).then((r) => r.data),
     enabled: !!slug,
   });
+
 
   if (isLoading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -197,6 +199,8 @@ export default function ProductoDetalle() {
                 </span>
               )}
             </div>
+
+            <CuotasBanner productoId={producto.id} />
 
             <div className="h-px bg-black/[0.07]" />
 

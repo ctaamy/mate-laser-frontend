@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import {
   LayoutDashboard, Package, ShoppingBag, Tag,
-  Truck, Settings, LogOut, ExternalLink, Layers, Wand2
+  Truck, Settings, LogOut, ExternalLink, Layers, Wand2, CreditCard
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -22,6 +22,7 @@ export default function AdminLayout() {
     { to: '/admin/cupones', label: 'Cupones', icon: Tag },
     { to: '/admin/envios', label: 'Envíos', icon: Truck },
     { to: '/admin/configurador-v2', label: 'Diseñá tu mate', icon: Wand2 },
+    { to: '/admin/promociones-bancarias', label: 'Promociones bancarias', icon: CreditCard },
     { to: '/admin/configuracion', label: 'Configuración', icon: Settings },
   ];
 

@@ -688,10 +688,15 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
 
           {/* Grid adaptable: CSS Grid solo dibuja las celdas que tienen
               contenido — con menos categorías que columnas, la fila queda
-              incompleta sin huecos grises (no hay celdas "vacías" que pintar). */}
-          <div className={`grid grid-cols-2 ${COL_CLASS[datos.columnas ?? 4] ?? 'md:grid-cols-4'} gap-3`}>
+              incompleta sin huecos grises (no hay celdas "vacías" que pintar).
+              Mobile (< sm): carrusel horizontal con scroll-snap — cada card
+              al 72% del viewport para que se asome la siguiente y sea
+              evidente que hay más contenido a los costados. Desde sm: vuelve
+              al grid de siempre, sin tocar el comportamiento desktop. */}
+          <div className={`flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-8 px-8 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none ${COL_CLASS[datos.columnas ?? 4] ?? 'md:grid-cols-4'}`}>
             {entries.map(({ cat, icono, imagen_url }, i) => (
-              <motion.div key={cat.id} variants={FADE_UP} transition={{ ...T, delay: i * 0.05 }}>
+              <motion.div key={cat.id} variants={FADE_UP} transition={{ ...T, delay: i * 0.05 }}
+                className="w-[72%] flex-shrink-0 snap-start sm:w-auto sm:flex-shrink sm:snap-none">
                 <Link to={`/productos?categoria_id=${cat.id}`}
                   className="group relative block w-full overflow-hidden rounded-xl"
                   style={{ aspectRatio: '4 / 5' }}>
@@ -757,6 +762,12 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
   const accentColor = datos.accent_color || tema.accent_color;
   const itemTituloFontSize = fontSizeClampItem(datos.item_titulo_size, 'sm');
   const itemLinkFontSize = SIZE_REM[datos.item_link_size || 'xs'];
+  // layout "carrusel" (default, look histórico): cards overlay con scroll
+  // horizontal en mobile. layout "grid": cards tipo catálogo (imagen arriba,
+  // texto debajo, badge de descuento arriba a la derecha), siempre 2
+  // columnas fijas sin scroll — para tener ambos estilos disponibles y
+  // poder combinar dos bloques de productos_destacados, uno de cada tipo.
+  const esCarrusel = (datos.layout || 'carrusel') === 'carrusel';
 
   return (
     <section className="w-full px-8 py-16 md:py-20 flex items-center" style={{ backgroundColor: bg, fontFamily, minHeight, ...padding }}>
@@ -790,7 +801,8 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
           productos={(productos ?? []).slice(0, cantidad)}
           onAgregar={handleAgregar}
           cols={(datos.columnas ?? 3) as 2 | 3 | 4}
-          variant="overlay"
+          variant={esCarrusel ? 'overlay' : 'grid'}
+          scroll={esCarrusel}
           accentColor={accentColor}
           tituloFontSize={itemTituloFontSize}
           linkFontSize={itemLinkFontSize}
@@ -944,9 +956,12 @@ function SeccionGaleriaCombos({ datos, tema }: { datos: Record<string, any>; tem
             </div>
           )}
 
-          <div className={`grid grid-cols-2 ${COL_CLASS[combos.length] ?? 'md:grid-cols-4'} gap-3`}>
+          {/* Mismo patrón de carrusel mobile que categorias_grid — ver
+              comentario ahí para el detalle del breakpoint sm. */}
+          <div className={`flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-8 px-8 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none ${COL_CLASS[combos.length] ?? 'md:grid-cols-4'}`}>
             {combos.map((combo, i) => (
-              <motion.div key={combo.id} variants={FADE_UP} transition={{ ...T, delay: i * 0.05 }}>
+              <motion.div key={combo.id} variants={FADE_UP} transition={{ ...T, delay: i * 0.05 }}
+                className="w-[72%] flex-shrink-0 snap-start sm:w-auto sm:flex-shrink sm:snap-none">
                 <Link to={`/disena-tu-mate-v2?combo=${combo.id}`}
                   className="group relative block w-full overflow-hidden rounded-xl"
                   style={{ aspectRatio: '4 / 5' }}>

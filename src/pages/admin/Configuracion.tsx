@@ -107,6 +107,7 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
     titulo: 'Lo más vendido', cantidad: 8,
     bg_color: '#ffffff', texto_color: '#111111',
     titulo_size: 'lg', columnas: 3, padding: 'md', alineacion: 'left',
+    layout: 'carrusel',
   },
   categorias_grid: {
     titulo: 'Categorías', categorias_items: [],
@@ -225,6 +226,15 @@ const ALINEACIONES = [
   { value: 'left', label: 'Izquierda' },
   { value: 'center', label: 'Centro' },
   { value: 'right', label: 'Derecha' },
+];
+
+// Dos estilos para productos_destacados: "carrusel" (cards con texto
+// superpuesto, deslizable en mobile) y "grid" (cards tipo catálogo, siempre
+// 2 columnas fijas, sin scroll) — para poder combinar dos bloques, uno de
+// cada estilo, en el mismo home.
+const LAYOUTS_PRODUCTOS = [
+  { value: 'carrusel', label: 'Carrusel (desliza en mobile)' },
+  { value: 'grid', label: 'Cuadrícula fija (2 columnas)' },
 ];
 
 const PESOS = [
@@ -959,6 +969,7 @@ function EditorContenido({ tipo, datos, set }: {
         <label className={labelCls}>Subtítulo</label>
         <input className={inputCls} value={datos.subtitulo || ''} onChange={e => set('subtitulo', e.target.value)} />
       </div>
+      <SelectField label="Estilo de cards" value={datos.layout || 'carrusel'} onChange={v => set('layout', v)} options={LAYOUTS_PRODUCTOS} />
     </div>
   );
 
@@ -2490,6 +2501,10 @@ export default function AdminConfiguracion() {
               { key: 'whatsapp_mensaje', label: 'Mensaje pre-cargado de WhatsApp', placeholder: '¡Hola! Quiero hacer un pedido personalizado 🧉' },
               { key: 'moneda', label: 'Moneda', placeholder: 'ARS' },
               { key: 'envio_gratis_monto', label: 'Monto mínimo para envío gratis ($)', placeholder: '15000' },
+              { key: 'transferencia_banco', label: 'Transferencia — Banco', placeholder: 'Banco Galicia' },
+              { key: 'transferencia_titular', label: 'Transferencia — Titular de la cuenta', placeholder: 'Mate Laser Studio' },
+              { key: 'transferencia_alias', label: 'Transferencia — Alias', placeholder: 'MATE.LASER.STUDIO' },
+              { key: 'transferencia_cbu', label: 'Transferencia — CBU', placeholder: '0000003100000000000000' },
             ].map(({ key, label, placeholder }) => (
               <div key={key}>
                 <label className={labelCls}>{label}</label>

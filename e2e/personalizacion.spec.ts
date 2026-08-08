@@ -18,6 +18,11 @@ async function mockProducto(page: import('@playwright/test').Page, overrides: Re
     if (route.request().method() !== 'GET') return route.continue();
     return route.fulfill({ json: {} });
   });
+  // Cuotas bancarias (CuotasBanner, montado en la PDP) — sin mock, la
+  // request se cuela a la red real y devuelve 500 (ver fixtures.ts).
+  await page.route(/\/api\/v1\/productos\/[^/]+\/promociones-bancarias$/, (route) =>
+    route.fulfill({ json: { tiene_promo_sin_interes: false, cuotas: 12, sin_interes: false } }),
+  );
   return producto;
 }
 

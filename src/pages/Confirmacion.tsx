@@ -3,6 +3,19 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, Clock, XCircle, Truck, Mail } from 'lucide-react';
 import api from '../lib/api';
 import type { Orden } from '../types';
+import { useConfiguracion } from '../hooks/useConfiguracion';
+import ResumenDireccionEnvio from '../components/ui/ResumenDireccionEnvio';
+
+function formatFechaAR(iso: string) {
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
 
 export default function Confirmacion() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +35,8 @@ export default function Confirmacion() {
     },
   });
 
+  const { data: config } = useConfiguracion();
+
   if (isLoading) return (
     <div className="flujo-compra flex items-center justify-center min-h-64 text-gray-400 text-sm">
       Cargando...
@@ -34,13 +49,20 @@ export default function Confirmacion() {
     </div>
   );
 
+  const telefonoWhatsapp = (config?.telefono_contacto || '').replace(/\D/g, '');
+  const ordenCorta = orden.id.slice(0, 8).toUpperCase();
+  const waHref = (mensaje: string) =>
+    telefonoWhatsapp ? `https://wa.me/${telefonoWhatsapp}?text=${encodeURIComponent(mensaje)}` : undefined;
+
   const pago = (orden as any).pagos?.[0];
   const estadoPago = pago?.estado;
 
   const isAprobado = orden.estado === 'pagado' || estadoPago === 'aprobado';
   // MP devuelve "success" pero el webhook puede demorar — mostrar como pendiente hasta que llegue
   const isMPPending = mpStatus === 'success' && orden.estado === 'pendiente';
-  const isPendiente = orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion' || isMPPending;
+  // MP devuelve "pending"/"in_process" (ticket, transferencia, revisión antifraude) — no hay webhook de aprobación en curso, puede tardar días
+  const isMPEnRevision = mpStatus === 'pending' && !isAprobado;
+  const isPendiente = orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion' || isMPPending || isMPEnRevision;
   const isRechazado = (orden.estado === 'rechazado' || estadoPago === 'rechazado') && mpStatus !== 'success';
   const isMPFailure = mpStatus === 'failure';
 
@@ -95,10 +117,21 @@ export default function Confirmacion() {
             <div className="w-16 h-16 bg-[#FAEEDA] rounded-full flex items-center justify-center mx-auto mb-4">
               <Clock size={32} className="text-[#BA7517]" />
             </div>
-            <h1 className="text-2xl font-medium mb-2">Pedido reservado, esperando pago</h1>
-            <p className="text-sm text-gray-500">
-              Tu orden está reservada. Completá el pago para que comencemos a prepararla.
-            </p>
+            {isMPEnRevision ? (
+              <>
+                <h1 className="text-2xl font-medium mb-2">Tu pago está en revisión</h1>
+                <p className="text-sm text-gray-500 max-w-md mx-auto">
+                  Mercado Pago está procesando tu pago. Si elegiste efectivo o transferencia, puede tardar hasta 2 días hábiles en acreditarse; si fue con tarjeta, la confirmación suele llegar en minutos. Te avisamos por email en cuanto se confirme — no hace falta que hagas nada más.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-medium mb-2">Pedido reservado, esperando pago</h1>
+                <p className="text-sm text-gray-500">
+                  Tu orden está reservada. Completá el pago para que comencemos a prepararla.
+                </p>
+              </>
+            )}
           </>
         )}
         {isRechazado && (
@@ -161,20 +194,60 @@ export default function Confirmacion() {
             </div>
           </div>
 
-          {/* INSTRUCCIONES PAGO PENDIENTE */}
+          {/* ENVÍO */}
+          <div className="bg-white border border-gray-100 rounded-xl p-5">
+            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+              <Truck size={15} className="text-[#1D9E75]" /> Envío
+            </h3>
+            <div className="flex flex-col gap-1 text-sm text-gray-600">
+              <div>
+                {orden.nombre_cliente} {orden.apellido_cliente}
+                {orden.telefono_cliente && ` · ${orden.telefono_cliente}`}
+              </div>
+              {orden.direccion_envio?.tipo === 'retiro' ? (
+                <div>Retiro en local</div>
+              ) : (
+                <>
+                  {orden.metodo_envio_nombre && <div className="text-gray-400">{orden.metodo_envio_nombre}</div>}
+                  {orden.direccion_envio && <ResumenDireccionEnvio direccion={orden.direccion_envio} variant="public" />}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* INSTRUCCIONES PAGO PENDIENTE — TRANSFERENCIA */}
           {isPendiente && pago?.proveedor === 'transferencia' && (
             <div className="bg-[#FAEEDA] border border-[#C8A96E] rounded-xl p-5">
               <h3 className="text-sm font-medium text-[#854F0B] mb-3">Datos para transferencia</h3>
               <div className="flex flex-col gap-2 text-sm text-[#633806]">
-                <div className="flex justify-between"><span>Banco</span><strong>Banco Galicia</strong></div>
-                <div className="flex justify-between"><span>Titular</span><strong>Mate Laser Studio</strong></div>
-                <div className="flex justify-between"><span>Alias</span><strong>MATE.LASER.STUDIO</strong></div>
+                {config?.transferencia_banco && (
+                  <div className="flex justify-between"><span>Banco</span><strong>{config.transferencia_banco}</strong></div>
+                )}
+                {config?.transferencia_titular && (
+                  <div className="flex justify-between"><span>Titular</span><strong>{config.transferencia_titular}</strong></div>
+                )}
+                {config?.transferencia_alias && (
+                  <div className="flex justify-between"><span>Alias</span><strong>{config.transferencia_alias}</strong></div>
+                )}
+                {config?.transferencia_cbu && (
+                  <div className="flex justify-between"><span>CBU</span><strong>{config.transferencia_cbu}</strong></div>
+                )}
                 <div className="flex justify-between"><span>Monto exacto</span><strong>${Number(orden.total).toLocaleString('es-AR')}</strong></div>
               </div>
               {pago?.reserva_vence_en && (
                 <div className="mt-3 bg-[#FCEBEB] rounded-lg p-3 text-xs text-[#A32D2D]">
-                  ⚠ Reserva válida hasta el {new Date(pago.reserva_vence_en).toLocaleDateString('es-AR')}
+                  ⚠ Tenés hasta el {formatFechaAR(pago.reserva_vence_en)} (hora Argentina) para completar el pago — después se libera el stock reservado.
                 </div>
+              )}
+              {telefonoWhatsapp && (
+                <a
+                  href={waHref(`¡Hola! Te mando el comprobante de transferencia de mi pedido #${ordenCorta} por $${Number(orden.total).toLocaleString('es-AR')}.`)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 flex items-center justify-center gap-2 bg-[#25D366] text-white rounded-lg py-2.5 text-sm font-medium hover:bg-[#1da851] transition-colors"
+                >
+                  Enviar comprobante por WhatsApp
+                </a>
               )}
             </div>
           )}
@@ -213,18 +286,30 @@ export default function Confirmacion() {
                 <Link to="/checkout" className="bg-[#1D9E75] text-white rounded-lg py-2.5 text-sm font-medium text-center hover:bg-[#0F6E56] transition-colors">
                   Reintentar pago
                 </Link>
-                <a href="https://wa.me/5491100000000" target="_blank" rel="noreferrer" className="bg-[#25D366] text-white rounded-lg py-2.5 text-sm font-medium text-center hover:bg-[#1da851] transition-colors">
-                  WhatsApp
-                </a>
+                {telefonoWhatsapp && (
+                  <a
+                    href={waHref(`¡Hola! Tuve un problema con el pago de mi pedido #${ordenCorta}, ¿me ayudan?`)}
+                    target="_blank" rel="noreferrer"
+                    className="bg-[#25D366] text-white rounded-lg py-2.5 text-sm font-medium text-center hover:bg-[#1da851] transition-colors"
+                  >
+                    WhatsApp
+                  </a>
+                )}
               </>
             ) : (
               <>
                 <Link to="/productos" className="bg-[#1D9E75] text-white rounded-lg py-2.5 text-sm font-medium text-center hover:bg-[#0F6E56] transition-colors">
                   Seguir comprando
                 </Link>
-                <a href="https://wa.me/5491100000000" target="_blank" rel="noreferrer" className="border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm text-center hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                  Consultar por WhatsApp
-                </a>
+                {telefonoWhatsapp && (
+                  <a
+                    href={waHref(`¡Hola! Quería consultar sobre mi pedido #${ordenCorta}.`)}
+                    target="_blank" rel="noreferrer"
+                    className="border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm text-center hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    Consultar por WhatsApp
+                  </a>
+                )}
               </>
             )}
           </div>

@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
+import ResumenDireccionEnvio from '../../components/ui/ResumenDireccionEnvio';
+import type { Orden } from '../../types';
 
 const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado'];
 
 export default function AdminOrdenes() {
   const queryClient = useQueryClient();
   const [filtroEstado, setFiltroEstado] = useState('');
-  const [ordenSeleccionada, setOrdenSeleccionada] = useState<any>(null);
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null);
   const [nuevoEstado, setNuevoEstado] = useState('');
   const [tracking, setTracking] = useState('');
   const [trackingUrl, setTrackingUrl] = useState('');
@@ -36,7 +38,7 @@ export default function AdminOrdenes() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] }),
   });
 
-  const abrirDetalle = (orden: any) => {
+  const abrirDetalle = (orden: Orden) => {
     setOrdenSeleccionada(orden);
     setNuevoEstado(orden.estado);
     setTracking(orden.numero_seguimiento || '');
@@ -45,6 +47,7 @@ export default function AdminOrdenes() {
   };
 
   const handleActualizar = () => {
+    if (!ordenSeleccionada) return;
     if (!confirm(`¿Confirmás el cambio de estado a "${nuevoEstado.replace(/_/g, ' ')}"? El cliente puede ver este estado desde su cuenta.`)) return;
     actualizarMutation.mutate({
       id: ordenSeleccionada.id,
@@ -176,6 +179,33 @@ export default function AdminOrdenes() {
                   ))}
                   {(!ordenSeleccionada.items_orden || ordenSeleccionada.items_orden.length === 0) && (
                     <div className="text-xs text-gray-400">Sin ítems.</div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 pt-2 border-t border-gray-100">Envío</div>
+                <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-sm text-gray-700 flex flex-col gap-1">
+                  <div>
+                    <span className="text-gray-400">Destinatario: </span>
+                    {ordenSeleccionada.nombre_cliente} {ordenSeleccionada.apellido_cliente}
+                    {ordenSeleccionada.telefono_cliente && ` · ${ordenSeleccionada.telefono_cliente}`}
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Modalidad: </span>
+                    {ordenSeleccionada.direccion_envio?.tipo === 'retiro'
+                      ? 'Retiro en local'
+                      : ordenSeleccionada.metodo_envio_nombre || ordenSeleccionada.metodos_envio?.nombre || 'Envío a domicilio'}
+                  </div>
+                  {ordenSeleccionada.direccion_envio && (
+                    <ResumenDireccionEnvio direccion={ordenSeleccionada.direccion_envio} variant="admin" />
+                  )}
+                  {ordenSeleccionada.envios_orden?.[0] && (
+                    <div className="pt-1 mt-1 border-t border-gray-200">
+                      <span className="text-gray-400">Tracking (proveedor): </span>
+                      {ordenSeleccionada.envios_orden[0].tracking_number || '—'}
+                      {ordenSeleccionada.envios_orden[0].estado && ` · ${ordenSeleccionada.envios_orden[0].estado}`}
+                    </div>
                   )}
                 </div>
               </div>

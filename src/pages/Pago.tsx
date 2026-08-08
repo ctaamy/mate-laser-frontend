@@ -22,6 +22,8 @@ export default function Pago() {
   const navigate = useNavigate();
   const limpiar = useCarritoStore(s => s.limpiar);
   const brickRef = useRef<{ unmount: () => void } | null>(null);
+  const brickWrapperRef = useRef<HTMLDivElement>(null);
+  const brickCreatedRef = useRef(false);
   const [sdkReady, setSdkReady] = useState(false);
   const [brickMounted, setBrickMounted] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +47,8 @@ export default function Pago() {
 
   // Montar el Brick cuando SDK y preference estén listos
   useEffect(() => {
-    if (!sdkReady || brickMounted || !orden) return;
+    if (!sdkReady || brickCreatedRef.current || !orden) return;
+    brickCreatedRef.current = true;
 
     const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY as string;
     if (!publicKey || publicKey.startsWith('TEST-XXX')) {
@@ -53,10 +56,15 @@ export default function Pago() {
       return;
     }
 
+    let cancelled = false;
+    const containerEl = document.createElement('div');
+    containerEl.id = `mp-brick-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    brickWrapperRef.current?.appendChild(containerEl);
+
     const mp = new window.MercadoPago(publicKey, { locale: 'es-AR' });
     const bricksBuilder = mp.bricks();
 
-    bricksBuilder.create('payment', 'mp-brick-container', {
+    bricksBuilder.create('payment', containerEl.id, {
       initialization: {
         amount: Number(orden.total),
       },
@@ -65,7 +73,6 @@ export default function Pago() {
           creditCard: 'all',
           debitCard: 'all',
           ticket: 'all',
-          bankTransfer: 'all',
         },
         visual: {
           style: {
@@ -110,12 +117,21 @@ export default function Pago() {
         },
       },
     }).then(controller => {
+      if (cancelled) {
+        controller.unmount();
+        return;
+      }
       brickRef.current = controller;
     });
 
-    setBrickMounted(true);
-    return () => { brickRef.current?.unmount(); };
-  }, [sdkReady, brickMounted, orden, id, navigate]);
+    return () => {
+      cancelled = true;
+      brickCreatedRef.current = false;
+      brickRef.current?.unmount();
+      brickRef.current = null;
+      containerEl.remove();
+    };
+  }, [sdkReady, orden, id, navigate]);
 
   const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
 
@@ -171,7 +187,7 @@ export default function Pago() {
         </div>
       ) : null}
 
-      <div id="mp-brick-container" />
+      <div ref={brickWrapperRef} />
 
       <div className="flex items-center justify-center gap-1.5 mt-6 text-[11px] text-black/30">
         <Shield size={11} /> Pago 100% seguro — procesado por Mercado Pago

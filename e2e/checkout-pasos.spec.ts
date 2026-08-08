@@ -39,8 +39,9 @@ test.describe('Checkout — pasos visibles y clickeables', () => {
     await email.fill('juana@test.com');
     await telefono.fill('1122334455');
 
-    // Paso 2: envío
-    await page.getByPlaceholder('1043').fill('1000');
+    // Paso 2: envío — la cascada Provincia/Ciudad dispara la cotización.
+    await page.getByLabel(/Provincia \*/).selectOption('Buenos Aires');
+    await page.getByLabel(/Ciudad \/ Localidad \*/).selectOption('Ciudad E2E');
     const opcionRetiro = page.getByText('Retiro en local');
     await expect(opcionRetiro).toBeVisible();
     await opcionRetiro.click();

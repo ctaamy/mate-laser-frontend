@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
 import FormError from '../components/ui/FormError';
+import GoogleButton from '../components/ui/GoogleButton';
 
 export default function Login() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(
+    searchParams.get('error') === 'google_denied'
+      ? 'No pudimos completar el login con Google. Probá de nuevo o usá tu email y contraseña.'
+      : ''
+  );
   const [loading, setLoading] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
@@ -73,6 +79,14 @@ export default function Login() {
             {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </button>
         </form>
+
+        <div className="flex items-center gap-3 my-5">
+          <div className="h-px bg-black/10 flex-1" />
+          <span className="text-[10px] uppercase tracking-[0.14em] text-black/30">o</span>
+          <div className="h-px bg-black/10 flex-1" />
+        </div>
+
+        <GoogleButton />
 
         <p className="text-center text-xs text-black/40 mt-5">
           ¿No tenés cuenta?{' '}

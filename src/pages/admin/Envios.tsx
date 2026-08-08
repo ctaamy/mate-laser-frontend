@@ -15,6 +15,20 @@ interface MetodoEnvio {
   orden: number;
 }
 
+interface PrecioZona {
+  id: number;
+  zona: string;
+  precio: number;
+  activo: boolean;
+}
+
+const ZONA_LABEL: Record<string, string> = {
+  CABA: 'CABA',
+  GBA_1: 'GBA 1',
+  GBA_2: 'GBA 2',
+  GBA_3: 'GBA 3',
+};
+
 const PROVEEDOR_INFO: Record<string, {
   icono: string;
   descripcionApi?: string;
@@ -148,13 +162,13 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">
-              Costo fijo ($) {metodo.proveedor === 'retiro' ? '— siempre gratis' : info.campos ? '— fallback si API falla' : ''}
+              Costo fijo ($) {metodo.proveedor === 'retiro' ? '— siempre gratis' : metodo.proveedor === 'oca' ? '— usa precio por zona, ver abajo' : info.campos ? '— fallback si API falla' : ''}
             </label>
             <input
               type="number"
               value={form.costo_fijo}
               onChange={e => setForm(f => ({ ...f, costo_fijo: e.target.value }))}
-              disabled={metodo.proveedor === 'retiro'}
+              disabled={metodo.proveedor === 'retiro' || metodo.proveedor === 'oca'}
               className="border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             />
           </div>
@@ -265,6 +279,55 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
   );
 }
 
+function PrecioZonaRow({ zona }: { zona: PrecioZona }) {
+  const qc = useQueryClient();
+  const [precio, setPrecio] = useState(String(zona.precio));
+  const [activo, setActivo] = useState(zona.activo);
+  const [saved, setSaved] = useState(false);
+
+  const updateMut = useMutation({
+    mutationFn: () => api.put(`/envios/precios-zona/${zona.id}`, {
+      precio: parseFloat(precio) || 0,
+      activo,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['precios-zona-admin'] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 border-b border-black/[0.05] last:border-b-0">
+      <span className="text-sm font-medium text-black w-16 flex-shrink-0">{ZONA_LABEL[zona.zona] ?? zona.zona}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm text-black/40">$</span>
+        <input
+          type="number"
+          value={precio}
+          onChange={e => setPrecio(e.target.value)}
+          className="border border-black/15 px-2.5 py-1.5 text-sm w-28 focus:outline-none focus:border-black transition-colors"
+        />
+      </div>
+      <button
+        onClick={() => setActivo(v => !v)}
+        className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${activo ? 'bg-black' : 'bg-black/15'}`}
+      >
+        <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${activo ? 'left-4' : 'left-0.5'}`} />
+      </button>
+      <span className="text-xs text-black/40 w-14">{activo ? 'Activa' : 'Inactiva'}</span>
+      <button
+        onClick={() => updateMut.mutate()}
+        disabled={updateMut.isPending}
+        className="ml-auto flex items-center gap-1.5 bg-black text-white px-3 py-1.5 text-xs font-semibold hover:bg-black/80 transition-colors disabled:opacity-50"
+      >
+        <Save size={11} />
+        {saved ? '¡Guardado!' : updateMut.isPending ? 'Guardando...' : 'Guardar'}
+      </button>
+    </div>
+  );
+}
+
 export default function AdminEnvios() {
   const { data: metodos, isLoading } = useQuery<MetodoEnvio[]>({
     queryKey: ['envios-admin'],
@@ -274,6 +337,11 @@ export default function AdminEnvios() {
   const { data: config } = useQuery<Record<string, string>>({
     queryKey: ['configuracion'],
     queryFn: () => api.get('/configuracion').then(r => r.data),
+  });
+
+  const { data: preciosZona, isLoading: preciosZonaLoading } = useQuery<PrecioZona[]>({
+    queryKey: ['precios-zona-admin'],
+    queryFn: () => api.get('/envios/precios-zona').then(r => r.data),
   });
 
   const qc = useQueryClient();
@@ -334,6 +402,27 @@ export default function AdminEnvios() {
             {savedConfig ? '¡Guardado!' : 'Guardar'}
           </button>
         </div>
+      </div>
+
+      {/* Precios por zona — Logística privada */}
+      <div className="border border-black/[0.07] mb-6">
+        <div className="px-5 py-4 border-b border-black/[0.05]">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/45">Precios por zona — Logística privada</h2>
+          <p className="text-xs text-black/40 mt-1">
+            La disponibilidad de "Logística privada" en el checkout depende del partido del comprador (tabla de cobertura,
+            no editable acá). El precio de cada zona sí se edita y se aplica al instante (cache de ~5 min).
+          </p>
+        </div>
+        {preciosZonaLoading ? (
+          <div className="text-sm text-black/40 py-6 text-center">Cargando...</div>
+        ) : (
+          <div>
+            {preciosZona?.map(z => <PrecioZonaRow key={z.id} zona={z} />)}
+            {(!preciosZona || preciosZona.length === 0) && (
+              <div className="text-sm text-black/40 py-6 text-center">Sin zonas cargadas.</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Métodos */}

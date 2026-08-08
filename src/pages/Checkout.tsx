@@ -1,24 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield, ArrowLeft, CreditCard, Banknote, Building2 } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import { useAuthStore } from '../store/auth.store';
+import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type Localidad } from '../lib/georef';
 import type { MetodoEnvio } from '../types';
 
 const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
 
-const provincias = [
-  'Buenos Aires', 'CABA', 'Córdoba', 'Santa Fe', 'Mendoza', 'Tucumán',
-  'Entre Ríos', 'Salta', 'Misiones', 'Chaco', 'Corrientes', 'Santiago del Estero',
-  'San Juan', 'Jujuy', 'Río Negro', 'Neuquén', 'Formosa', 'Chubut',
-  'San Luis', 'Catamarca', 'La Rioja', 'La Pampa', 'Santa Cruz', 'Tierra del Fuego',
-];
-
 const METODOS_PAGO = [
   { id: 'mercadopago', label: 'Mercado Pago', descripcion: 'Tarjeta de crédito, débito, cuotas, QR y más', Icon: CreditCard },
-  { id: 'transferencia', label: 'Transferencia bancaria', descripcion: 'Te enviamos los datos por email tras confirmar', Icon: Building2 },
+  { id: 'transferencia', label: 'Transferencia bancaria', descripcion: 'Te mostramos los datos bancarios al confirmar el pedido', Icon: Building2 },
   { id: 'efectivo', label: 'Efectivo', descripcion: 'Coordinamos entrega y pago por WhatsApp', Icon: Banknote },
 ];
 
@@ -28,8 +22,20 @@ const ICONO_ENVIO: Record<string, string> = {
   correo: '✉️',
 };
 
+// Teléfono argentino: código de área (2-4 dígitos) + número (6-8 dígitos), con o sin +54 9 / espacios / guiones.
+const TELEFONO_AR_REGEX = /^(\+?54)?\s?(9\s?)?(\(?\d{2,4}\)?[\s-]?)\d{6,8}$/;
+const CP_AR_REGEX = /^\d{4}$/;
+const CALLE_REGEX = /^[a-zA-ZÀ-ÿ0-9°.\s]+\s\d+[a-zA-Z]?$/;
+const DNI_AR_REGEX = /^\d{7,8}$/;
+
+// Códigos de error del backend que el checkout necesita distinguir de un error
+// genérico (ver http-exception.filter.ts) — no se parsea el texto del mensaje
+// porque puede cambiar de wording sin que se note acá.
+const ERROR_TARIFA_NO_DISPONIBLE = 'SHIPPING_RATE_UNAVAILABLE';
+
 export default function Checkout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { items, subtotal, limpiar } = useCarritoStore();
   const { usuario } = useAuthStore();
 
@@ -44,26 +50,80 @@ export default function Checkout() {
   const [cp, setCp] = useState('');
   const [ciudad, setCiudad] = useState('');
   const [provincia, setProvincia] = useState('');
+  // Partido resuelto vía Georef (departamento) a partir de la localidad elegida —
+  // determina si "Logística privada" está disponible y a qué precio.
+  const [partido, setPartido] = useState<string | undefined>(undefined);
   const [metodoEnvioId, setMetodoEnvioId] = useState<number | null>(null);
+  const [recibeComprador, setRecibeComprador] = useState<boolean | null>(null);
   const [quienRecibe, setQuienRecibe] = useState('');
   const [especificaciones, setEspecificaciones] = useState('');
+  const [dniReceptor, setDniReceptor] = useState('');
+  const [entreCalles, setEntreCalles] = useState('');
   const [metodoPago, setMetodoPago] = useState('mercadopago');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Caso puntual: el backend no pudo revalidar la tarifa en vivo de Andreani/Correo
+  // (proveedor caído tras reintentar). Se maneja aparte del banner genérico de
+  // `errors.general` porque necesita su propia acción ("volver a elegir método"),
+  // no un simple reintento que fallaría de nuevo si el proveedor sigue caído.
+  const [errorTarifaEnvio, setErrorTarifaEnvio] = useState<string | null>(null);
+
+  const [provincias, setProvincias] = useState<Provincia[] | null>(null);
+  const [provinciasFallback, setProvinciasFallback] = useState(false);
+  const [localidades, setLocalidades] = useState<Localidad[] | null>(null);
+  const [localidadesLoading, setLocalidadesLoading] = useState(false);
+  const [ciudadFallback, setCiudadFallback] = useState(false);
+
+  useEffect(() => {
+    obtenerProvincias().then(data => {
+      if (data) setProvincias(data);
+      else setProvinciasFallback(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!provincia) { setLocalidades(null); return; }
+    setLocalidadesLoading(true);
+    setCiudadFallback(false);
+    obtenerLocalidadesPorProvincia(provincia).then(data => {
+      setLocalidadesLoading(false);
+      if (data) setLocalidades(data);
+      else { setLocalidades(null); setCiudadFallback(true); }
+    });
+  }, [provincia]);
+
+  const handleSeleccionarCiudad = (nombreCiudad: string) => {
+    setCiudad(nombreCiudad);
+    const localidad = localidades?.find(l => l.nombre === nombreCiudad);
+    setPartido(localidad?.partido);
+  };
 
   const sub = subtotal();
 
+  // Se dispara con Provincia+Ciudad (ya no con el CP, que ahora se pide más
+  // abajo en "Dirección de envío"). El partido resuelve si Logística privada
+  // está disponible; Correo/Andreani muestran su costo_fijo configurado acá
+  // (sin cotización en vivo, porque el CP todavía no existe en este paso).
   const { data: envios } = useQuery<MetodoEnvio[]>({
-    queryKey: ['envios', cp, sub],
-    queryFn: () => api.post('/envios/calcular', { codigo_postal: cp, subtotal: sub }).then(r => r.data),
-    enabled: cp.length >= 4,
+    queryKey: ['envios', provincia, ciudad, partido, sub],
+    queryFn: () => api.post('/envios/calcular', { partido, subtotal: sub }).then(r => r.data),
+    enabled: !!provincia && !!ciudad,
   });
 
-  const envioSeleccionado = envios?.find(e => e.id === metodoEnvioId);
+  const envioSeleccionado = envios?.find(e => e.id === metodoEnvioId && e.disponible !== false);
   const isRetiro = envioSeleccionado?.proveedor === 'retiro';
   const isPrivada = !!envioSeleccionado && !['retiro', 'andreani', 'correo'].includes(envioSeleccionado.proveedor);
   const costoEnvio = envioSeleccionado?.costo ?? 0;
   const total = sub + costoEnvio;
+
+  // Si el método elegido deja de estar disponible (ej. el usuario cambia de
+  // localidad después de elegir logística privada), se deselecciona en vez de
+  // quedar "elegido" con un método que ya no aplica.
+  useEffect(() => {
+    if (metodoEnvioId === null || !envios) return;
+    const metodo = envios.find(e => e.id === metodoEnvioId);
+    if (!metodo || metodo.disponible === false) setMetodoEnvioId(null);
+  }, [envios, metodoEnvioId]);
 
   const inputClass = (field: string) =>
     `border px-3 py-2.5 text-sm focus:outline-none w-full transition-colors bg-white ${
@@ -72,21 +132,49 @@ export default function Checkout() {
         : 'border-black/15 focus:border-black placeholder-black/25'
     }`;
 
+  // Revalida un campo en vivo si ya tenía un error marcado (de un submit previo),
+  // para que corregir el valor lo refleje sin esperar al próximo submit.
+  const revalidarSiTeniaError = (campo: string, mensaje: string | null) => {
+    setErrors(prev => {
+      if (!(campo in prev)) return prev;
+      const next = { ...prev };
+      if (mensaje) next[campo] = mensaje;
+      else delete next[campo];
+      return next;
+    });
+  };
+
+  const validarTelefono = (valor: string) =>
+    !valor ? 'Requerido' : !TELEFONO_AR_REGEX.test(valor.trim()) ? 'Teléfono inválido (ej: 11 4444-5555)' : null;
+
+  const handleRecibeComprador = (valor: boolean) => {
+    setRecibeComprador(valor);
+    setQuienRecibe(valor ? `${nombre} ${apellido}`.trim() : '');
+  };
+
   const validateDatos = () => {
     const e: Record<string, string> = {};
     if (!nombre) e.nombre = 'Requerido';
     if (!apellido) e.apellido = 'Requerido';
     if (!email) e.email = 'Requerido';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Email inválido';
-    if (!telefono) e.telefono = 'Requerido';
+    const errorTelefono = validarTelefono(telefono);
+    if (errorTelefono) e.telefono = errorTelefono;
     if (metodoEnvioId === null) e.envio = 'Seleccioná un método de envío';
     if (!isRetiro) {
       if (!calle) e.calle = 'Requerido';
+      else if (!CALLE_REGEX.test(calle.trim())) e.calle = 'Formato inválido (ej: Av. Corrientes 1234)';
       if (!cp) e.cp = 'Requerido';
+      else if (!CP_AR_REGEX.test(cp.trim())) e.cp = 'Código postal inválido (4 dígitos)';
       if (!ciudad) e.ciudad = 'Requerido';
       if (!provincia) e.provincia = 'Requerido';
     }
-    if (isPrivada && !quienRecibe) e.quienRecibe = 'Requerido';
+    if (isPrivada) {
+      if (recibeComprador === null) e.recibeComprador = 'Seleccioná una opción';
+      if (!quienRecibe) e.quienRecibe = 'Requerido';
+      if (!dniReceptor) e.dniReceptor = 'Requerido';
+      else if (!DNI_AR_REGEX.test(dniReceptor.trim())) e.dniReceptor = 'DNI inválido (7 u 8 dígitos)';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -95,14 +183,32 @@ export default function Checkout() {
     if (validateDatos()) { setErrors({}); setStep(3); }
   };
 
+  // Vuelve al paso de método de envío tras el rechazo por tarifa no verificada:
+  // deselecciona el método elegido (ya no se puede confiar en ese precio) y
+  // fuerza un refetch de /envios/calcular para traer opciones frescas. El resto
+  // de los datos del checkout (contacto, dirección, carrito) queda intacto.
+  const handleVolverAElegirEnvio = () => {
+    setErrorTarifaEnvio(null);
+    setMetodoEnvioId(null);
+    setStep(2);
+    queryClient.invalidateQueries({ queryKey: ['envios'] });
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
+    setErrorTarifaEnvio(null);
     try {
       const direccionEnvio = isRetiro
         ? { tipo: 'retiro' }
         : {
-            calle, piso, cp, ciudad, provincia, pais: 'Argentina',
-            ...(isPrivada && { quien_recibe: quienRecibe, especificaciones: especificaciones || undefined }),
+            calle, piso, cp, ciudad, provincia, partido, pais: 'Argentina',
+            ...(isPrivada && {
+              recibe_comprador: recibeComprador ?? undefined,
+              quien_recibe: quienRecibe,
+              especificaciones: especificaciones || undefined,
+              dni_receptor: dniReceptor,
+            }),
+            entre_calles: entreCalles || undefined,
           };
 
       const { data } = await api.post('/ordenes', {
@@ -141,7 +247,11 @@ export default function Checkout() {
         navigate(`/confirmacion/${data.id}`);
       }
     } catch (err: any) {
-      setErrors({ general: err.response?.data?.message || 'Error al procesar la orden' });
+      if (err.response?.data?.error_code === ERROR_TARIFA_NO_DISPONIBLE) {
+        setErrorTarifaEnvio(err.response.data.message);
+      } else {
+        setErrors({ general: err.response?.data?.message || 'Error al procesar la orden' });
+      }
     } finally {
       setLoading(false);
     }
@@ -151,7 +261,7 @@ export default function Checkout() {
     <div className="flujo-compra max-w-5xl mx-auto px-6 py-10">
 
       {/* STEPPER */}
-      <div className="flex items-center justify-center gap-2 mb-10 text-xs">
+      <div className="flex items-center justify-center flex-wrap gap-y-2 gap-x-2 mb-10 text-xs">
         {STEPS.map((label, i) => {
           const active = (i === 1 && step === 2) || (i === 2 && step === 3);
           const done = i === 0 || (i === 1 && step === 3);
@@ -171,10 +281,20 @@ export default function Checkout() {
         })}
       </div>
 
-      <div className="grid grid-cols-3 gap-8">
-        <div className="col-span-2 flex flex-col gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 flex flex-col gap-5">
 
-          {errors.general && (
+          {errorTarifaEnvio ? (
+            <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 flex flex-col gap-2.5">
+              <span>{errorTarifaEnvio}</span>
+              <button
+                onClick={handleVolverAElegirEnvio}
+                className="self-start flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-amber-300 hover:border-amber-500 hover:bg-amber-100 transition-colors text-amber-900"
+              >
+                <ArrowLeft size={12} /> Elegir otro método de envío
+              </button>
+            </div>
+          ) : errors.general && (
             <div className="bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
               {errors.general}
             </div>
@@ -186,7 +306,7 @@ export default function Checkout() {
               {/* Datos personales */}
               <div className="border border-black/[0.07] p-5">
                 <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 mb-4">Datos personales</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Nombre *</label>
                     <input value={nombre} onChange={e => setNombre(e.target.value)} className={inputClass('nombre')} placeholder="María" />
@@ -204,7 +324,15 @@ export default function Checkout() {
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Teléfono *</label>
-                    <input value={telefono} onChange={e => setTelefono(e.target.value)} className={inputClass('telefono')} placeholder="+54 11 XXXX-XXXX" />
+                    <input
+                      value={telefono}
+                      onChange={e => {
+                        setTelefono(e.target.value);
+                        revalidarSiTeniaError('telefono', validarTelefono(e.target.value));
+                      }}
+                      className={inputClass('telefono')}
+                      placeholder="+54 11 XXXX-XXXX"
+                    />
                     {errors.telefono && <p className="text-xs text-red-500 mt-1">{errors.telefono}</p>}
                   </div>
                 </div>
@@ -214,10 +342,55 @@ export default function Checkout() {
               <div className="border border-black/[0.07] p-5">
                 <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 mb-4">Método de envío</h3>
 
-                {!envios && cp.length < 4 && (
-                  <p className="text-sm text-black/30 py-2">Ingresá tu código postal para ver las opciones disponibles.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label htmlFor="metodo-envio-provincia" className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Provincia *</label>
+                    {provinciasFallback || !provincias ? (
+                      <input
+                        id="metodo-envio-provincia"
+                        value={provincia}
+                        onChange={e => { setProvincia(e.target.value); setCiudad(''); setPartido(undefined); }}
+                        className={inputClass('provincia')}
+                        placeholder="Buenos Aires"
+                      />
+                    ) : (
+                      <select
+                        id="metodo-envio-provincia"
+                        value={provincia}
+                        onChange={e => { setProvincia(e.target.value); setCiudad(''); setPartido(undefined); }}
+                        className={inputClass('provincia')}
+                      >
+                        <option value="">Seleccioná</option>
+                        {provincias.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                      </select>
+                    )}
+                    {errors.provincia && <p className="text-xs text-red-500 mt-1">{errors.provincia}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="metodo-envio-ciudad" className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Ciudad / Localidad *</label>
+                    {ciudadFallback || !provincia || !localidades ? (
+                      <input
+                        id="metodo-envio-ciudad"
+                        value={ciudad}
+                        onChange={e => handleSeleccionarCiudad(e.target.value)}
+                        className={inputClass('ciudad')}
+                        placeholder={localidadesLoading ? 'Cargando…' : 'Buenos Aires'}
+                        disabled={localidadesLoading}
+                      />
+                    ) : (
+                      <select id="metodo-envio-ciudad" value={ciudad} onChange={e => handleSeleccionarCiudad(e.target.value)} className={inputClass('ciudad')}>
+                        <option value="">Seleccioná</option>
+                        {localidades.map(l => <option key={l.id} value={l.nombre}>{l.nombre}</option>)}
+                      </select>
+                    )}
+                    {errors.ciudad && <p className="text-xs text-red-500 mt-1">{errors.ciudad}</p>}
+                  </div>
+                </div>
+
+                {!envios && !(provincia && ciudad) && (
+                  <p className="text-sm text-black/30 py-2">Elegí tu provincia y ciudad para ver las opciones disponibles.</p>
                 )}
-                {!envios && cp.length >= 4 && (
+                {!envios && provincia && ciudad && (
                   <div className="text-sm text-black/30 py-4 text-center">Cargando opciones…</div>
                 )}
                 {envios?.length === 0 && (
@@ -226,14 +399,19 @@ export default function Checkout() {
                 {envios && envios.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {envios.map((envio) => {
-                      const activo = metodoEnvioId === envio.id;
+                      const disponible = envio.disponible !== false;
+                      const activo = disponible && metodoEnvioId === envio.id;
                       const icono = ICONO_ENVIO[envio.proveedor] ?? '🚚';
                       return (
                         <div
                           key={envio.id}
-                          onClick={() => setMetodoEnvioId(envio.id)}
-                          className={`flex items-center gap-3 border px-4 py-3.5 cursor-pointer transition-colors ${
-                            activo ? 'border-black bg-black/[0.02]' : 'border-black/[0.07] hover:border-black/20'
+                          onClick={() => disponible && setMetodoEnvioId(envio.id)}
+                          className={`flex items-center gap-3 border px-4 py-3.5 transition-colors ${
+                            !disponible
+                              ? 'opacity-50 cursor-not-allowed border-black/[0.07]'
+                              : activo
+                                ? 'border-black bg-black/[0.02] cursor-pointer'
+                                : 'border-black/[0.07] hover:border-black/20 cursor-pointer'
                           }`}
                         >
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${activo ? 'border-black' : 'border-black/20'}`}>
@@ -242,10 +420,12 @@ export default function Checkout() {
                           <span className="text-base flex-shrink-0">{icono}</span>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-black">{envio.nombre}</div>
-                            <div className="text-xs text-black/40 mt-0.5">{envio.descripcion}</div>
+                            <div className="text-xs text-black/40 mt-0.5">
+                              {disponible ? envio.descripcion : 'No disponible para la localidad elegida'}
+                            </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            {(envio as any).envio_gratis && envio.proveedor !== 'retiro' ? (
+                            {!disponible ? null : (envio as any).envio_gratis && envio.proveedor !== 'retiro' ? (
                               <div>
                                 <div className="text-xs text-black/30 line-through">${Number((envio as any).costo_original || 0).toLocaleString('es-AR')}</div>
                                 <div className="text-sm font-bold text-black">Gratis</div>
@@ -253,7 +433,7 @@ export default function Checkout() {
                             ) : envio.costo === 0 ? (
                               <div className="text-sm font-bold text-black">Gratis</div>
                             ) : (
-                              <div className="text-sm font-semibold text-black">${envio.costo.toLocaleString('es-AR')}</div>
+                              <div className="text-sm font-semibold text-black">${(envio.costo ?? 0).toLocaleString('es-AR')}</div>
                             )}
                           </div>
                         </div>
@@ -275,15 +455,11 @@ export default function Checkout() {
               {!isRetiro && (
                 <div className="border border-black/[0.07] p-5">
                   <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 mb-4">Dirección de envío</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
                       <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Calle y número *</label>
                       <input value={calle} onChange={e => setCalle(e.target.value)} className={inputClass('calle')} placeholder="Av. Corrientes 1234" />
                       {errors.calle && <p className="text-xs text-red-500 mt-1">{errors.calle}</p>}
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Piso / Depto</label>
-                      <input value={piso} onChange={e => setPiso(e.target.value)} className={inputClass('piso')} placeholder="3° B" />
                     </div>
                     <div>
                       <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Código postal *</label>
@@ -291,40 +467,88 @@ export default function Checkout() {
                       {errors.cp && <p className="text-xs text-red-500 mt-1">{errors.cp}</p>}
                     </div>
                     <div>
-                      <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Ciudad *</label>
-                      <input value={ciudad} onChange={e => setCiudad(e.target.value)} className={inputClass('ciudad')} placeholder="Buenos Aires" />
-                      {errors.ciudad && <p className="text-xs text-red-500 mt-1">{errors.ciudad}</p>}
+                      <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Piso / Depto</label>
+                      <input value={piso} onChange={e => setPiso(e.target.value)} className={inputClass('piso')} placeholder="3° B" />
                     </div>
                     <div>
-                      <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Provincia *</label>
-                      <select value={provincia} onChange={e => setProvincia(e.target.value)} className={inputClass('provincia')}>
-                        <option value="">Seleccioná</option>
-                        {provincias.map(p => <option key={p}>{p}</option>)}
-                      </select>
-                      {errors.provincia && <p className="text-xs text-red-500 mt-1">{errors.provincia}</p>}
+                      <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Provincia</label>
+                      <input value={provincia} disabled className={`${inputClass('provincia')} disabled:opacity-60 disabled:cursor-not-allowed`} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Ciudad / Localidad</label>
+                      <input value={ciudad} disabled className={`${inputClass('ciudad')} disabled:opacity-60 disabled:cursor-not-allowed`} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Entre calles</label>
+                      <input
+                        value={entreCalles}
+                        onChange={e => setEntreCalles(e.target.value)}
+                        className={inputClass('entreCalles')}
+                        placeholder="Entre Rivadavia y Mitre"
+                      />
                     </div>
 
                     {/* Campos extra para logística privada */}
                     {isPrivada && (
                       <>
-                        <div className="col-span-2">
-                          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Quién recibe *</label>
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">¿Recibís vos el pedido? *</label>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleRecibeComprador(true)}
+                              className={`flex-1 min-w-[140px] border px-3 py-2 text-xs font-medium transition-colors ${
+                                recibeComprador === true
+                                  ? 'border-black bg-black text-white'
+                                  : 'border-black/15 text-black/50 hover:border-black/40'
+                              }`}
+                            >
+                              Sí, soy yo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRecibeComprador(false)}
+                              className={`flex-1 min-w-[140px] border px-3 py-2 text-xs font-medium transition-colors ${
+                                recibeComprador === false
+                                  ? 'border-black bg-black text-white'
+                                  : 'border-black/15 text-black/50 hover:border-black/40'
+                              }`}
+                            >
+                              No, otra persona
+                            </button>
+                          </div>
+                          {errors.recibeComprador && <p className="text-xs text-red-500 mt-1">{errors.recibeComprador}</p>}
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Nombre de quien recibe *</label>
                           <input
                             value={quienRecibe}
                             onChange={e => setQuienRecibe(e.target.value)}
-                            className={inputClass('quienRecibe')}
+                            className={`${inputClass('quienRecibe')} truncate`}
                             placeholder="Nombre completo de quien recibe el paquete"
+                            disabled={recibeComprador === true}
+                            title={recibeComprador === true ? quienRecibe : undefined}
                           />
                           {errors.quienRecibe && <p className="text-xs text-red-500 mt-1">{errors.quienRecibe}</p>}
                         </div>
-                        <div className="col-span-2">
+                        <div>
+                          <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">DNI de quien recibe *</label>
+                          <input
+                            value={dniReceptor}
+                            onChange={e => setDniReceptor(e.target.value)}
+                            className={inputClass('dniReceptor')}
+                            placeholder="30123456"
+                          />
+                          {errors.dniReceptor && <p className="text-xs text-red-500 mt-1">{errors.dniReceptor}</p>}
+                        </div>
+                        <div className="sm:col-span-2">
                           <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/35 mb-1.5 block">Especificaciones de entrega</label>
                           <textarea
                             value={especificaciones}
                             onChange={e => setEspecificaciones(e.target.value)}
                             className={`${inputClass('especificaciones')} resize-none`}
                             rows={3}
-                            placeholder="Ej: no tiene timbre, llamar al portero, dejar con el vecino del 2B, horario preferido…"
+                            placeholder="Ej: no tiene timbre, llamar al portero, dejar con el vecino del 2B…"
                           />
                         </div>
                       </>
@@ -386,7 +610,7 @@ export default function Checkout() {
                 )}
                 {metodoPago === 'transferencia' && (
                   <div className="mt-4 bg-black/[0.02] border border-black/[0.06] px-4 py-3 text-sm text-black/50">
-                    Al confirmar te enviamos los <strong className="text-black/70">datos bancarios por email</strong>. Tu pedido queda reservado por 48 hs mientras realizás la transferencia.
+                    Al confirmar te mostramos los <strong className="text-black/70">datos bancarios</strong> en la pantalla de confirmación. Tu pedido queda reservado por <strong>3 días</strong> mientras realizás la transferencia.
                   </div>
                 )}
                 {metodoPago === 'efectivo' && (
@@ -398,7 +622,7 @@ export default function Checkout() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setStep(2); setErrors({}); }}
+                  onClick={() => { setStep(2); setErrors({}); setErrorTarifaEnvio(null); }}
                   className="flex items-center gap-2 px-5 py-3 text-sm font-medium border border-black/15 hover:border-black/40 transition-colors text-black/60"
                 >
                   <ArrowLeft size={13} /> Volver
@@ -460,6 +684,29 @@ export default function Checkout() {
               <span>Total</span>
               <span className="text-lg">${total.toLocaleString('es-AR')}</span>
             </div>
+
+            {/* Repaso de envío — visible en el paso de pago para que el usuario pueda revisar antes de confirmar */}
+            {step === 3 && metodoEnvioId !== null && (
+              <>
+                <div className="h-px bg-black/[0.07] my-3" />
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 mb-2">Envío a</div>
+                <div className="text-xs text-black/60 flex flex-col gap-0.5">
+                  <div>{nombre} {apellido} · {telefono}</div>
+                  {isRetiro ? (
+                    <div>Retiro en local</div>
+                  ) : (
+                    <>
+                      <div>{calle}{piso && `, ${piso}`}</div>
+                      <div>{ciudad}, {provincia} (CP {cp})</div>
+                      {isPrivada && (
+                        <div>Recibe: {quienRecibe}{recibeComprador === false && ' (tercero)'} · DNI {dniReceptor}</div>
+                      )}
+                      {entreCalles && <div>Entre calles: {entreCalles}</div>}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -31,3 +31,13 @@
   color: #171717;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+
+/* Carrusel horizontal mobile (categorias_grid, galeria_combos): oculta la
+   scrollbar nativa para que quede solo el swipe táctil, sin barra visible. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

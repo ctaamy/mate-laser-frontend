@@ -98,20 +98,46 @@ export interface Resena {
   creado_en: string;
 }
 
+export interface DireccionEnvio {
+  tipo?: string;
+  calle?: string;
+  piso?: string;
+  cp?: string;
+  ciudad?: string;
+  provincia?: string;
+  pais?: string;
+  partido?: string;
+  quien_recibe?: string;
+  recibe_comprador?: boolean;
+  especificaciones?: string;
+  dni_receptor?: string;
+  entre_calles?: string;
+}
+
 export interface Orden {
   id: string;
   usuario_id?: string;
   estado: string;
-  direccion_envio: Record<string, any>;
+  direccion_envio: DireccionEnvio;
   subtotal: number;
   costo_envio: number;
   descuento: number;
   total: number;
   metodo_pago?: string;
+  metodo_envio_nombre?: string;
   numero_seguimiento?: string;
+  url_seguimiento?: string;
+  notas?: string;
+  nombre_cliente?: string;
+  apellido_cliente?: string;
+  email_cliente?: string;
+  telefono_cliente?: string;
   creado_en: string;
   items_orden?: ItemOrden[];
   pagos?: Pago[];
+  envios_orden?: { tracking_number?: string; estado?: string }[];
+  usuarios?: { nombre: string; apellido: string };
+  metodos_envio?: { nombre: string };
 }
 
 export interface ItemOrden {
@@ -141,10 +167,14 @@ export interface MetodoEnvio {
   nombre: string;
   proveedor: string;
   descripcion?: string;
-  costo: number;
+  costo: number | null;
   api_conectada: boolean;
   envio_gratis_disponible: boolean;
   monto_envio_gratis: number;
+  // false cuando el método existe pero no aplica para la selección actual
+  // (ej. logística privada fuera de zona de cobertura) — se muestra
+  // deshabilitado en vez de ocultarse.
+  disponible?: boolean;
 }
 
 export interface Cupon {

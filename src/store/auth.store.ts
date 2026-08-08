@@ -16,6 +16,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
+  loginConToken: (token: string, refreshToken: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -55,8 +56,22 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
+      // Login con Google: el backend ya emitió los tokens (ver /auth/google/callback),
+      // acá solo los guardamos y traemos el perfil del usuario para completar el estado.
+      loginConToken: async (token, refreshToken) => {
+        localStorage.setItem('token', token);
+        localStorage.setItem('refreshToken', refreshToken);
+        const { data: usuario } = await api.get('/usuarios/perfil');
+        set({
+          usuario,
+          token,
+          isAuthenticated: true,
+        });
+      },
+
       logout: () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         set({
           usuario: null,
           token: null,

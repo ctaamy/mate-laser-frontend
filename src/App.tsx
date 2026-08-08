@@ -17,6 +17,7 @@ import Pago from './pages/Pago';
 import Confirmacion from './pages/Confirmacion';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import GoogleCallback from './pages/auth/GoogleCallback';
 import DisenaTuMateV2 from './pages/DisenaTuMateV2';
 import PaginaEstatica from './pages/PaginaEstatica';
 
@@ -29,6 +30,7 @@ import AdminEnvios from './pages/admin/Envios';
 import AdminConfiguracion from './pages/admin/Configuracion';
 import AdminCategorias from './pages/admin/Categorias';
 import AdminConfiguradorV2 from './pages/admin/ConfiguradorV2';
+import AdminPromocionesBancarias from './pages/admin/PromocionesBancarias';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +77,7 @@ export default function App() {
             <Route path="carrito" element={<Carrito />} />
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
+            <Route path="auth/google/callback" element={<GoogleCallback />} />
             <Route path="checkout" element={<Checkout />} />
             <Route path="pago/:id" element={<Pago />} />
             <Route path="confirmacion/:id" element={<Confirmacion />} />
@@ -97,6 +100,7 @@ export default function App() {
             <Route path="configuracion" element={<AdminConfiguracion />} />
             <Route path="categorias" element={<AdminCategorias />} />
             <Route path="configurador-v2" element={<AdminConfiguradorV2 />} />
+            <Route path="promociones-bancarias" element={<AdminPromocionesBancarias />} />
           </Route>
         </Routes>
       </BrowserRouter>

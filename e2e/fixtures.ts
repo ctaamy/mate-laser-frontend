@@ -137,6 +137,25 @@ export async function mockBackendYMercadoPago(
     route.fulfill({ json: [METODO_ENVIO_MOCK] }),
   );
 
+  // Cuotas bancarias (CuotasBanner, montado también en Pago.tsx junto al
+  // Brick de MP) — sin este mock, la request se cuela a la red real y
+  // devuelve 500 (producto de prueba inexistente en la DB real), lo que
+  // rompía cualquier test que solo chequeara "sin errores de consola".
+  await page.route(/\/api\/v1\/productos\/[^/]+\/promociones-bancarias$/, (route) =>
+    route.fulfill({ json: { tiene_promo_sin_interes: false, cuotas: 12, sin_interes: false } }),
+  );
+
+  // Georef (cascada Provincia/Ciudad en "Método de envío") — mockeado para que
+  // el test sea hermético y no dependa de la red real de datos.gob.ar.
+  await page.route('https://apis.datos.gob.ar/georef/api/provincias**', (route) =>
+    route.fulfill({ json: { provincias: [{ id: '06', nombre: 'Buenos Aires' }] } }),
+  );
+  await page.route('https://apis.datos.gob.ar/georef/api/localidades**', (route) =>
+    route.fulfill({
+      json: { localidades: [{ id: 'loc-1', nombre: 'Ciudad E2E', departamento_nombre: 'Partido E2E' }] },
+    }),
+  );
+
   // Creación de la orden (checkout → pago)
   await page.route('**/api/v1/ordenes', (route) => {
     if (route.request().method() !== 'POST') return route.continue();
