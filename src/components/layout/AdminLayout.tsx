@@ -28,13 +28,8 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {import.meta.env.DEV && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 text-white text-center text-xs font-bold py-1.5 tracking-widest uppercase">
-          ⚠ MODO DESARROLLO — SIN AUTENTICACIÓN — No deployar en este estado
-        </div>
-      )}
-      <div className={`flex flex-1 ${import.meta.env.DEV ? 'mt-7' : ''}`}>
-      <aside className="w-56 bg-[#085041] flex flex-col fixed left-0 h-full" style={{ top: import.meta.env.DEV ? '1.75rem' : 0 }}>
+      <div className="flex flex-1">
+      <aside className="w-56 bg-[#085041] flex flex-col fixed left-0 h-full" style={{ top: 0 }}>
         <div className="p-5 border-b border-[#0F6E56]">
           <span className="text-[#E1F5EE] font-medium text-sm">
             mate<span className="text-[#5DCAA5]">laser</span> admin

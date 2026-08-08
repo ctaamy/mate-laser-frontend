@@ -16,21 +16,61 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// El access token dura 15min. Ante un 401 intentamos refrescarlo una sola vez
+// con el refresh token (rotación en el backend, ver AuthService.refresh) antes
+// de resignarnos a un logout. Si mientras tanto salen varias requests en 401
+// a la vez, todas esperan el mismo refresh en curso en vez de disparar uno cada una.
+let refrescando: Promise<string> | null = null;
+
+function hacerLogoutYRedirigir() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  useAuthStore.getState().logout();
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const path = window.location.pathname;
-      // En rutas de checkout/pago/confirmacion no redirigir al login (guests válidos)
-      const esRutaPublica = ['/pago/', '/checkout', '/confirmacion/'].some(r => path.includes(r));
-      if (!esRutaPublica) {
-        localStorage.removeItem('token');
-        useAuthStore.getState().logout();
-        if (path !== '/login') {
-          window.location.href = '/login';
+  async (error) => {
+    const original = error.config;
+    const path = window.location.pathname;
+    // En rutas de checkout/pago/confirmacion no redirigir al login (guests válidos)
+    const esRutaPublica = ['/pago/', '/checkout', '/confirmacion/'].some(r => path.includes(r));
+
+    if (error.response?.status === 401 && !esRutaPublica && !original?._reintentoRefresh) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        hacerLogoutYRedirigir();
+        return Promise.reject(error);
+      }
+
+      original._reintentoRefresh = true;
+
+      try {
+        if (!refrescando) {
+          refrescando = axios
+            .post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken })
+            .then(({ data }) => {
+              localStorage.setItem('token', data.token);
+              localStorage.setItem('refreshToken', data.refreshToken);
+              return data.token as string;
+            })
+            .finally(() => {
+              refrescando = null;
+            });
         }
+
+        const nuevoToken = await refrescando;
+        original.headers.Authorization = `Bearer ${nuevoToken}`;
+        return api(original);
+      } catch (refreshError) {
+        hacerLogoutYRedirigir();
+        return Promise.reject(refreshError);
       }
     }
+
     return Promise.reject(error);
   }
 );
