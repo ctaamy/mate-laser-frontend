@@ -1,8 +1,17 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { useHomepageSecciones } from '../../hooks/useHomepageSecciones';
 import { useTemaGlobalData } from '../../hooks/useThemeGlobal';
 import { PAYMENT_LOGOS, PAYMENT_LABELS } from '../ui/PaymentLogos';
+import ContactoModal from './ContactoModal';
+
+// Sentinel: el link "Contacto" del footer usaba este href para navegar a un
+// ancla (#contacto) que nunca existió en ninguna página — el click no hacía
+// nada. Ahora, en vez de navegar, este mismo valor dispara el modal de
+// contacto (ver ContactoModal.tsx). Se mantiene el valor tal cual para no
+// romper configuraciones ya guardadas en el admin con este href.
+const HREF_CONTACTO_MODAL = '/#contacto';
 
 // El footer es una sección más (tipo 'footer') dentro de homepage_sections,
 // igual que el navbar — comparte la misma infraestructura de bloques
@@ -62,6 +71,7 @@ function InstagramIcon({ size = 15 }: { size?: number }) {
 export default function Footer() {
   const { data: secciones } = useHomepageSecciones();
   const tema = useTemaGlobalData();
+  const [contactoAbierto, setContactoAbierto] = useState(false);
 
   const footerSec = secciones?.find(s => s.tipo === 'footer');
   const datos: Record<string, any> = footerSec?.datos ?? {};
@@ -110,10 +120,18 @@ export default function Footer() {
             <div key={grupo.titulo} className="flex flex-col gap-2 text-xs">
               <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: `${tc}40` }}>{grupo.titulo}</span>
               {grupo.links.map((link, i) => (
-                <Link key={i} to={link.href} className={linkCls} style={linkStyle}
-                  onMouseEnter={onHoverIn} onMouseLeave={onHoverOut}>
-                  {link.label}
-                </Link>
+                link.href === HREF_CONTACTO_MODAL ? (
+                  <button key={i} type="button" onClick={() => setContactoAbierto(true)}
+                    className={`${linkCls} text-left`} style={linkStyle}
+                    onMouseEnter={onHoverIn} onMouseLeave={onHoverOut}>
+                    {link.label}
+                  </button>
+                ) : (
+                  <Link key={i} to={link.href} className={linkCls} style={linkStyle}
+                    onMouseEnter={onHoverIn} onMouseLeave={onHoverOut}>
+                    {link.label}
+                  </Link>
+                )
               ))}
             </div>
           ))}
@@ -178,6 +196,8 @@ export default function Footer() {
           )}
         </div>
       </div>
+
+      <ContactoModal open={contactoAbierto} onClose={() => setContactoAbierto(false)} contacto={contacto} />
     </footer>
   );
 }
