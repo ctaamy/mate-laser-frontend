@@ -2545,7 +2545,7 @@ export default function AdminConfiguracion() {
       {tab === 'paginas' && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-gray-500">
-            Título y contenido (HTML) de las páginas legales/de ayuda enlazadas desde el footer. El contenido final se carga acá cuando esté listo — mientras tanto la ruta ya existe y no queda rota.
+            Título y contenido (Markdown) de las páginas legales/de ayuda enlazadas desde el footer. El contenido final se carga acá cuando esté listo — mientras tanto la ruta ya existe y no queda rota.
           </p>
           {[
             { clave: 'pagina_terminos', label: 'Términos y condiciones' },
@@ -2561,10 +2561,10 @@ export default function AdminConfiguracion() {
                   onChange={e => setConfigForm(f => ({ ...f, [`${clave}_titulo`]: e.target.value }))} />
               </div>
               <div>
-                <label className={labelCls}>Contenido (HTML)</label>
+                <label className={labelCls}>Contenido (Markdown)</label>
                 <textarea className={inputCls + ' h-32 resize-y font-mono text-xs'}
-                  value={configForm[`${clave}_html`] ?? ''} placeholder="<p>Tu contenido aquí...</p>"
-                  onChange={e => setConfigForm(f => ({ ...f, [`${clave}_html`]: e.target.value }))} />
+                  value={configForm[`${clave}_markdown`] ?? ''} placeholder={'# Título\n\nTexto con **negrita** y un [link](https://ejemplo.com).'}
+                  onChange={e => setConfigForm(f => ({ ...f, [`${clave}_markdown`]: e.target.value }))} />
               </div>
             </div>
           ))}
