@@ -329,6 +329,11 @@ export default function Navbar() {
                           <p className="text-[11px] text-gray-400 font-medium">Hola,</p>
                           <p className="text-sm font-semibold text-gray-900 truncate">{usuario?.nombre}</p>
                         </div>
+                        <Link to="/mi-cuenta"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors group">
+                          Mi cuenta
+                          <ArrowRight size={12} className="ml-auto text-gray-300 group-hover:text-gray-500 transition-colors" />
+                        </Link>
                         {usuario?.rol === 'admin' && (
                           <Link to="/admin"
                             className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors group">
@@ -499,14 +504,24 @@ export default function Navbar() {
               </nav>
 
               {/* Acciones rápidas mobile */}
-              {!isAuthenticated && mostrarUsuario && (
-                <div className="px-4 pb-4">
-                  <Link to="/login"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold transition-colors"
-                    style={{ backgroundColor: navColor, color: navBg }}>
-                    <User size={15} /> Iniciar sesión
-                  </Link>
-                </div>
+              {mostrarUsuario && (
+                isAuthenticated ? (
+                  <div className="px-4 pb-4">
+                    <Link to="/mi-cuenta"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold transition-colors"
+                      style={{ backgroundColor: navColor, color: navBg }}>
+                      <User size={15} /> Mi cuenta
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="px-4 pb-4">
+                    <Link to="/login"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold transition-colors"
+                      style={{ backgroundColor: navColor, color: navBg }}>
+                      <User size={15} /> Iniciar sesión
+                    </Link>
+                  </div>
+                )
               )}
             </motion.div>
           </>

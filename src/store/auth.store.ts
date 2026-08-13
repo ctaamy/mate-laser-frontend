@@ -7,7 +7,9 @@ interface Usuario {
   email: string;
   nombre: string;
   apellido: string;
+  telefono?: string;
   rol: string;
+  email_verificado?: boolean;
 }
 
 interface AuthState {
@@ -18,6 +20,7 @@ interface AuthState {
   register: (data: RegisterData) => Promise<void>;
   loginConToken: (token: string, refreshToken: string) => Promise<void>;
   logout: () => void;
+  actualizarUsuario: (usuario: Partial<Usuario>) => void;
 }
 
 interface RegisterData {
@@ -79,6 +82,13 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           isAuthenticated: false,
         });
+      },
+
+      // Merge parcial tras editar perfil (PUT /usuarios/perfil) sin recargar la página.
+      actualizarUsuario: (datos) => {
+        set((state) => ({
+          usuario: state.usuario ? { ...state.usuario, ...datos } : state.usuario,
+        }));
       },
     }),
     {

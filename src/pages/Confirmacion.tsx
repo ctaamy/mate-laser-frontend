@@ -1,10 +1,12 @@
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle, Clock, XCircle, Truck, Mail } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Mail } from 'lucide-react';
 import api from '../lib/api';
 import type { Orden } from '../types';
 import { useConfiguracion } from '../hooks/useConfiguracion';
-import ResumenDireccionEnvio from '../components/ui/ResumenDireccionEnvio';
+import OrdenItems from '../components/orden/OrdenItems';
+import OrdenEnvioResumen from '../components/orden/OrdenEnvioResumen';
+import OrdenTimeline from '../components/orden/OrdenTimeline';
 
 function formatFechaAR(iso: string) {
   return new Intl.DateTimeFormat('es-AR', {
@@ -155,65 +157,10 @@ export default function Confirmacion() {
         <div className="col-span-2 flex flex-col gap-4">
 
           {/* ITEMS */}
-          <div className="bg-white border border-gray-100 rounded-xl p-5">
-            <h3 className="text-sm font-medium mb-4">Productos</h3>
-            <div className="flex flex-col gap-3">
-              {orden.items_orden?.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#E1F5EE] rounded-lg flex items-center justify-center text-lg flex-shrink-0">
-                    ☕
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{item.nombre_producto}</div>
-                    <div className="text-xs text-gray-400">
-                      {item.color && `Color: ${item.color} · `}
-                      {item.texto_grabado && `"${item.texto_grabado}" · `}
-                      x{item.cantidad}
-                    </div>
-                  </div>
-                  <div className="text-sm font-medium">
-                    ${Number(item.subtotal).toLocaleString('es-AR')}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <hr className="border-gray-100 my-4" />
-            <div className="flex flex-col gap-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Subtotal</span>
-                <span>${Number(orden.subtotal).toLocaleString('es-AR')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Envío</span>
-                <span>{Number(orden.costo_envio) === 0 ? 'Gratis' : `$${Number(orden.costo_envio).toLocaleString('es-AR')}`}</span>
-              </div>
-              <div className="flex justify-between font-medium text-base mt-1">
-                <span>Total</span>
-                <span className="text-[#0F6E56]">${Number(orden.total).toLocaleString('es-AR')}</span>
-              </div>
-            </div>
-          </div>
+          <OrdenItems orden={orden} />
 
           {/* ENVÍO */}
-          <div className="bg-white border border-gray-100 rounded-xl p-5">
-            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-              <Truck size={15} className="text-[#1D9E75]" /> Envío
-            </h3>
-            <div className="flex flex-col gap-1 text-sm text-gray-600">
-              <div>
-                {orden.nombre_cliente} {orden.apellido_cliente}
-                {orden.telefono_cliente && ` · ${orden.telefono_cliente}`}
-              </div>
-              {orden.direccion_envio?.tipo === 'retiro' ? (
-                <div>Retiro en local</div>
-              ) : (
-                <>
-                  {orden.metodo_envio_nombre && <div className="text-gray-400">{orden.metodo_envio_nombre}</div>}
-                  {orden.direccion_envio && <ResumenDireccionEnvio direccion={orden.direccion_envio} variant="public" />}
-                </>
-              )}
-            </div>
-          </div>
+          <OrdenEnvioResumen orden={orden} />
 
           {/* INSTRUCCIONES PAGO PENDIENTE — TRANSFERENCIA */}
           {isPendiente && pago?.proveedor === 'transferencia' && (
@@ -256,29 +203,7 @@ export default function Confirmacion() {
         {/* SIDEBAR */}
         <div className="flex flex-col gap-4">
           {/* TIMELINE */}
-          {(isAprobado || isPendiente) && (
-            <div className="bg-white border border-gray-100 rounded-xl p-5">
-              <h3 className="text-sm font-medium mb-4">Estado del pedido</h3>
-              <div className="flex flex-col gap-0">
-                {[
-                  { label: isAprobado ? 'Pedido confirmado' : 'Pedido reservado', done: true },
-                  { label: isAprobado ? 'En preparación' : 'Esperando pago', active: true },
-                  { label: 'Enviado', done: false },
-                  { label: 'Entregado', done: false },
-                ].map((step, i, arr) => (
-                  <div key={step.label} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full mt-0.5 flex-shrink-0 ${step.done ? 'bg-[#1D9E75]' : step.active ? 'border-2 border-[#1D9E75] bg-[#E1F5EE]' : 'border-2 border-gray-200 bg-white'}`} />
-                      {i < arr.length - 1 && <div className={`w-0.5 flex-1 my-1 ${step.done ? 'bg-[#1D9E75]' : 'bg-gray-200'}`} style={{ minHeight: 16 }} />}
-                    </div>
-                    <div className="pb-3">
-                      <div className={`text-sm ${step.done || step.active ? 'font-medium' : 'text-gray-400'}`}>{step.label}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <OrdenTimeline isAprobado={isAprobado} isPendiente={isPendiente} />
 
           <div className="flex flex-col gap-2">
             {isRechazado ? (

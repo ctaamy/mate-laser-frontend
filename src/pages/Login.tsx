@@ -71,6 +71,12 @@ export default function Login() {
 
           <FormError mensaje={error} />
 
+          <div className="text-right -mt-2">
+            <Link to="/olvide-password" className="text-xs text-black/40 hover:text-black hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+
           <button
             type="submit"
             disabled={loading}

@@ -17,9 +17,12 @@ import Pago from './pages/Pago';
 import Confirmacion from './pages/Confirmacion';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import OlvidePassword from './pages/OlvidePassword';
+import ResetearPassword from './pages/ResetearPassword';
 import GoogleCallback from './pages/auth/GoogleCallback';
 import DisenaTuMateV2 from './pages/DisenaTuMateV2';
 import PaginaEstatica from './pages/PaginaEstatica';
+import MiCuenta from './pages/MiCuenta';
 
 // Páginas admin
 import AdminDashboard from './pages/admin/Dashboard';
@@ -75,11 +78,15 @@ export default function App() {
             <Route path="carrito" element={<Carrito />} />
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
+            <Route path="olvide-password" element={<OlvidePassword />} />
+            <Route path="resetear-password" element={<ResetearPassword />} />
             <Route path="auth/google/callback" element={<GoogleCallback />} />
             <Route path="checkout" element={<Checkout />} />
             <Route path="pago/:id" element={<Pago />} />
             <Route path="confirmacion/:id" element={<Confirmacion />} />
             <Route path="disena-tu-mate-v2" element={<DisenaTuMateV2 />} />
+            <Route path="mi-cuenta" element={<PrivateRoute><MiCuenta /></PrivateRoute>} />
+            <Route path="mi-cuenta/pedidos/:id" element={<PrivateRoute><MiCuenta /></PrivateRoute>} />
             <Route path="terminos" element={<PaginaEstatica claveBase="pagina_terminos" tituloDefault="Términos y condiciones" />} />
             <Route path="privacidad" element={<PaginaEstatica claveBase="pagina_privacidad" tituloDefault="Política de privacidad" />} />
             <Route path="faq" element={<PaginaEstatica claveBase="pagina_faq" tituloDefault="Preguntas frecuentes" />} />

@@ -193,6 +193,17 @@ export interface Usuario {
   telefono?: string;
   rol: string;
   activo: boolean;
+  email_verificado?: boolean;
   ultimo_login?: string;
   creado_en: string;
+}
+
+// Shape acotado de GET /ordenes/mis-ordenes (sin pagos, ver ordenes.service.ts findMisOrdenes)
+export interface OrdenResumen {
+  id: string;
+  estado: string;
+  total: number;
+  creado_en: string;
+  metodo_pago?: string;
+  items_orden?: { id: string; nombre_producto: string; cantidad: number }[];
 }
