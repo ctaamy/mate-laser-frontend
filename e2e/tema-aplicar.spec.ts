@@ -64,7 +64,7 @@ test.describe('Tema — "Aplicar a todo"', () => {
     page.on('dialog', d => d.accept());
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
     await page.getByRole('button', { name: 'Aplicar a todo' }).click();
 
     await expect(page.getByText('¡Guardado correctamente!')).toBeVisible();
@@ -97,7 +97,7 @@ test.describe('Tema — "Aplicar a todo"', () => {
     page.on('dialog', d => d.dismiss());
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
     await page.getByRole('button', { name: 'Aplicar a todo' }).click();
     await page.waitForTimeout(300);
 
@@ -112,7 +112,7 @@ test.describe('Tema — "Aplicar"', () => {
     await mockAdmin(page, (body) => { putBody = body; });
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
     await page.getByRole('button', { name: 'Aplicar', exact: true }).click();
 
     await expect(page.getByText('¡Guardado correctamente!')).toBeVisible();
@@ -141,7 +141,7 @@ test.describe('Tema — "Aplicar"', () => {
     await mockAdmin(page, () => {});
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
     await page.getByRole('button', { name: 'Aplicar', exact: true }).click();
     await page.waitForTimeout(300);
 

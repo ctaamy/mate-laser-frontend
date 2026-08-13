@@ -18,7 +18,10 @@ test.describe('Admin — Categorías — acciones de fila visibles sin hover', (
     await loginComoAdmin(page);
     await page.route('**/api/v1/categorias**', (route) => route.fulfill({ json: [CATEGORIA_PADRE] }));
 
-    await page.goto('/admin/categorias');
+    // Categorías ya no es ruta de primer nivel — ahora vive como tab dentro
+    // de /admin/productos (ver CategoriasPanel).
+    await page.goto('/admin/productos');
+    await page.getByRole('button', { name: 'Categorías' }).click();
 
     const filaSub = page.locator('div').filter({ hasText: 'Mates de acero' }).first();
     const botones = filaSub.locator('button');

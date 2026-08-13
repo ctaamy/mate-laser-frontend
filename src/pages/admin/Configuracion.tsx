@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, GripVertical, Eye, EyeOff, ChevronDown, ChevronUp, Save, Palette, Type, Layout, ChevronRight, Image } from 'lucide-react';
@@ -2098,9 +2099,20 @@ function FooterCard({ datos, set, tema }: {
 }
 
 // ── Página principal ──────────────────────────────────────────────────────────
+// El nav del admin linkea acá con ?tab=inicio|tema|tienda|paginas — "inicio"
+// es el label visible del tab interno "homepage" (el resto coincide 1 a 1).
+function tabDesdeQueryParam(valor: string | null): 'homepage' | 'tema' | 'tienda' | 'paginas' {
+  if (valor === 'inicio') return 'homepage';
+  if (valor === 'tema' || valor === 'tienda' || valor === 'paginas') return valor;
+  return 'homepage';
+}
+
 export default function AdminConfiguracion() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'homepage' | 'tema' | 'tienda' | 'paginas'>('homepage');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<'homepage' | 'tema' | 'tienda' | 'paginas'>(
+    tabDesdeQueryParam(searchParams.get('tab'))
+  );
   const [secciones, setSecciones] = useState<Seccion[]>([]);
   const [cargado, setCargado] = useState(false);
   const [nuevoTipo, setNuevoTipo] = useState<TipoSeccion>('hero');

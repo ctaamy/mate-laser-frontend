@@ -5,6 +5,10 @@ import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, FolderOpen, Folder, X,
 import api from '../../lib/api';
 import type { Categoria } from '../../types/index';
 
+// Antes vivía en pages/admin/Categorias.tsx como ruta de primer nivel
+// (/admin/categorias). Ahora es un panel reusado dentro del tab "Categorías"
+// de la página de Productos — mismo componente, sin ruta propia.
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 const inputCls = 'border border-gray-200 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-gray-400 transition-colors';
 const labelCls = 'text-xs text-gray-500 mb-1 block font-medium';
@@ -254,12 +258,11 @@ function CategoriaRow({
   );
 }
 
-// ── Página principal ──────────────────────────────────────────────────────────
-export default function AdminCategorias() {
+// ── Panel principal (embebido en el tab "Categorías" de Productos) ────────────
+export default function CategoriasPanel() {
   const queryClient = useQueryClient();
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<Categoria | null>(null);
-  const [padrePreseleccionado, setPadrePreseleccionado] = useState<number | null>(null);
 
   // Traemos TODAS las categorías (incluyendo inactivas para el admin)
   const { data: todasRaw = [], isLoading } = useQuery<Categoria[]>({
@@ -280,8 +283,8 @@ export default function AdminCategorias() {
     },
   });
 
-  const handleEditar = (cat: Categoria) => { setEditando(cat); setPadrePreseleccionado(null); setModalAbierto(true); };
-  const handleNueva = () => { setEditando(null); setPadrePreseleccionado(null); setModalAbierto(true); };
+  const handleEditar = (cat: Categoria) => { setEditando(cat); setModalAbierto(true); };
+  const handleNueva = () => { setEditando(null); setModalAbierto(true); };
   const handleAgregarHijo = (padre: Categoria) => {
     // Abre el modal con la categoría padre preseleccionada
     setEditando({ nombre: '', slug: '', id: 0, padre_id: padre.id, orden: 0, activo: true } as any);
@@ -294,11 +297,11 @@ export default function AdminCategorias() {
   const handleClose = () => { setModalAbierto(false); setEditando(null); };
 
   return (
-    <div className="p-6 flex flex-col gap-5 max-w-3xl">
+    <div className="flex flex-col gap-5 max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Categorías</h1>
+          <h2 className="text-lg font-semibold text-gray-900">Categorías</h2>
           <p className="text-sm text-gray-400 mt-0.5">Organizá tus productos en categorías y subcategorías</p>
         </div>
         <button onClick={handleNueva}

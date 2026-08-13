@@ -28,7 +28,6 @@ import AdminOrdenes from './pages/admin/Ordenes';
 import AdminCupones from './pages/admin/Cupones';
 import AdminEnvios from './pages/admin/Envios';
 import AdminConfiguracion from './pages/admin/Configuracion';
-import AdminCategorias from './pages/admin/Categorias';
 import AdminConfiguradorV2 from './pages/admin/ConfiguradorV2';
 import AdminPromocionesBancarias from './pages/admin/PromocionesBancarias';
 import AdminUsuarios from './pages/admin/Usuarios';
@@ -97,7 +96,9 @@ export default function App() {
             <Route path="cupones" element={<AdminCupones />} />
             <Route path="envios" element={<AdminEnvios />} />
             <Route path="configuracion" element={<AdminConfiguracion />} />
-            <Route path="categorias" element={<AdminCategorias />} />
+            {/* Categorías dejó de ser ruta de primer nivel — ahora vive como
+                tab dentro de /admin/productos (ver CategoriasPanel). */}
+            <Route path="categorias" element={<Navigate to="/admin/productos" replace />} />
             <Route path="configurador-v2" element={<AdminConfiguradorV2 />} />
             <Route path="promociones-bancarias" element={<AdminPromocionesBancarias />} />
             <Route path="usuarios" element={<AdminUsuarios />} />

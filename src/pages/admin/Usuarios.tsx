@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import ActivoBadge from '../../components/ui/ActivoBadge';
@@ -23,13 +24,21 @@ export default function AdminUsuarios() {
   const queryClient = useQueryClient();
   const usuarioActual = useAuthStore((s) => s.usuario);
 
+  // Deep-link desde el nav del admin: /admin/usuarios?rol=admin|cliente
+  // precarga el filtro. Solo se lee al montar — después el filtro lo maneja
+  // el <select> como siempre, sin sincronizar de vuelta a la URL.
+  const [searchParams] = useSearchParams();
+  const rolInicial = searchParams.get('rol');
+
   const [q, setQ] = useState('');
-  const [rolFiltro, setRolFiltro] = useState('');
+  const [rolFiltro, setRolFiltro] = useState(
+    rolInicial === 'admin' || rolInicial === 'cliente' ? rolInicial : ''
+  );
   const [page, setPage] = useState(1);
   const [accionPendiente, setAccionPendiente] = useState<AccionPendiente | null>(null);
   const limit = 20;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-usuarios', q, rolFiltro, page],
     queryFn: () =>
       api
@@ -178,7 +187,14 @@ export default function AdminUsuarios() {
             })}
           </tbody>
         </table>
-        {!isLoading && (!data || data.items.length === 0) && (
+        {/* isError primero: antes, cualquier request fallido (auth, red,
+            lo que sea) se veía idéntico a "0 usuarios reales" porque data
+            quedaba undefined y caía en el mismo mensaje de vacío — sin
+            forma de distinguir un error de una lista genuinamente vacía. */}
+        {isError && (
+          <div className="text-center py-16 text-sm text-red-500">No se pudieron cargar los usuarios. Probá recargar la página.</div>
+        )}
+        {!isError && !isLoading && (!data || data.items.length === 0) && (
           <div className="text-center py-16 text-sm text-gray-400">No se encontraron usuarios</div>
         )}
       </div>

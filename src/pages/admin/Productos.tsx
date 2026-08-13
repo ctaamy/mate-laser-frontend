@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Copy, Check, Image, Shapes } from 'lucide-react';
+import { Pencil, Copy, Check, Image, Shapes, Layers } from 'lucide-react';
 import api from '../../lib/api';
 import type { Producto, Categoria, ImagenProducto } from '../../types';
 import ImageUploader from '../../components/ui/ImageUploader';
 import VariantesTab from '../../components/admin/VariantesTab';
+import CategoriasPanel from '../../components/admin/CategoriasPanel';
 import ActivoBadge from '../../components/ui/ActivoBadge';
 import BotonEliminar from '../../components/ui/BotonEliminar';
 import BotonNuevo from '../../components/ui/BotonNuevo';
@@ -13,6 +14,9 @@ interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; 
 
 export default function AdminProductos() {
   const queryClient = useQueryClient();
+  // Tab de página (Productos / Categorías) — no confundir con tabModal, que
+  // son las tabs internas del modal de edición de un producto puntual.
+  const [tabPagina, setTabPagina] = useState<'productos' | 'categorias'>('productos');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [tabModal, setTabModal] = useState<'datos' | 'imagenes' | 'variantes'>('datos');
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
@@ -193,6 +197,29 @@ export default function AdminProductos() {
 
   return (
     <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-medium text-gray-900">Productos</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Catálogo, precios, stock, variantes y categorías</p>
+        </div>
+      </div>
+
+      {/* Tabs de página: Productos / Categorías */}
+      <div className="flex gap-1 border border-gray-100 rounded-xl p-1 bg-white w-fit mb-6">
+        <button onClick={() => setTabPagina('productos')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tabPagina === 'productos' ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+          <Shapes size={14} /> Productos
+        </button>
+        <button onClick={() => setTabPagina('categorias')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tabPagina === 'categorias' ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+          <Layers size={14} /> Categorías
+        </button>
+      </div>
+
+      {tabPagina === 'categorias' ? (
+        <CategoriasPanel />
+      ) : (
+      <>
       {avisoPublicar && (
         <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <p className="text-sm text-amber-800">
@@ -201,11 +228,7 @@ export default function AdminProductos() {
           <button onClick={() => setAvisoPublicar(false)} className="text-xs text-amber-700 hover:underline flex-shrink-0">Cerrar</button>
         </div>
       )}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-xl font-medium text-gray-900">Productos</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{productos?.length || 0} productos en total</p>
-        </div>
+      <div className="flex justify-end items-center mb-4">
         <BotonNuevo label="Nuevo producto" onClick={() => abrirModal()} />
       </div>
 
@@ -280,6 +303,8 @@ export default function AdminProductos() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* MODAL */}
       {modalAbierto && (

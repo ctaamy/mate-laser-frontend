@@ -37,7 +37,7 @@ test.describe('Admin — Tema global', () => {
     await mockBackendBase(page, {}, (body) => { putBody = body; });
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
 
     const bgInput = page.getByText('Color de fondo', { exact: true })
       .locator('..').locator('input:not([type="color"])');
@@ -63,7 +63,7 @@ test.describe('Admin — Tema global', () => {
     await mockBackendBase(page);
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
 
     const bgInput = page.getByText('Color de fondo', { exact: true })
       .locator('..').locator('input:not([type="color"])');
@@ -82,7 +82,7 @@ test.describe('Admin — Tema global', () => {
     });
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
 
     const bgInput = page.getByText('Color de fondo', { exact: true })
       .locator('..').locator('input:not([type="color"])');
@@ -97,7 +97,7 @@ test.describe('Admin — indicador de cambios sin guardar (Tema/Tienda comparten
     await mockBackendBase(page);
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
 
     await expect(page.getByText('Tenés cambios sin guardar')).not.toBeVisible();
   });
@@ -107,7 +107,7 @@ test.describe('Admin — indicador de cambios sin guardar (Tema/Tienda comparten
     await mockBackendBase(page);
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
 
     const bgInput = page.getByText('Color de fondo', { exact: true })
       .locator('..').locator('input:not([type="color"])');
@@ -126,7 +126,7 @@ test.describe('Admin — indicador de cambios sin guardar (Tema/Tienda comparten
     await mockBackendBase(page, {}, () => {});
 
     await page.goto('/admin/configuracion');
-    await page.getByRole('button', { name: 'Tema' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
 
     const bgInput = page.getByText('Color de fondo', { exact: true })
       .locator('..').locator('input:not([type="color"])');
