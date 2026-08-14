@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Save } from 'lucide-react';
+import { Plus, Save, Check, Loader2, AlertTriangle } from 'lucide-react';
 import api from '../../lib/api';
 import { useTemaGlobalData, type TemaGlobal } from '../../hooks/useThemeGlobal';
 import { HomeSecciones } from '../../components/home/HomeSecciones';
@@ -49,6 +49,27 @@ export default function AdminConfiguracion() {
   // a otra sección del sidebar y los pierda en silencio.
   const [configFormGuardado, setConfigFormGuardado] = useState<Record<string, string>>({});
   const [configOk, setConfigOk] = useState(false);
+
+  // ── Autosave del borrador de secciones (Fase 4) ─────────────────────────────
+  // Debounce de 2.5s: cualquier cambio en `secciones` (editar contenido/estilo,
+  // reordenar, duplicar, eliminar, agregar) programa un guardado automático.
+  // El botón "Guardar inicio" sigue existiendo en paralelo — fuerza el guardado
+  // ya mismo y cancela el debounce pendiente (lo usan ~13 specs de Playwright
+  // para persistir de forma determinística, ver CLAUDE.md de esta fase).
+  const AUTOSAVE_DEBOUNCE_MS = 2500;
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seccionesCargadasRef = useRef(false); // evita disparar autosave con la carga inicial (migración incluida)
+  const skipProximoAutosaveRef = useRef(false); // usado por acciones que ya guardan de forma inmediata (ej. "Aplicar tema")
+  const [autosavePendiente, setAutosavePendiente] = useState(false);
+  const [autosaveGuardadoAlgunaVez, setAutosaveGuardadoAlgunaVez] = useState(false);
+
+  // Baseline de detección de conflicto multi-pestaña: el `actualizado` de la
+  // fila homepage_sections/borrador tal cual se cargó la primera vez. A
+  // propósito NO es un valor de React Query (que se podría refetchear solo) —
+  // necesitamos "lo que vi cuando abrí este tab", no "lo último que hay".
+  const metaBaselineRef = useRef<string | null>(null);
+  const metaBaselineCargadaRef = useRef(false);
+  const [conflictoDetectado, setConflictoDetectado] = useState(false);
 
   // El editor siempre lee/escribe el BORRADOR — nunca lo publicado
   // directamente. Lo que ve el admin acá es su propia vista previa real:
@@ -136,6 +157,50 @@ export default function AdminConfiguracion() {
     setCargado(true);
   }, [seccionesRemote, config, cargado]);
 
+  // Baseline de conflicto multi-pestaña: se pide una sola vez, apenas
+  // termina de cargar el tab "Inicio" (ver comentario junto al useRef).
+  useEffect(() => {
+    if (!cargado || metaBaselineCargadaRef.current) return;
+    metaBaselineCargadaRef.current = true;
+    // Timeout corto y fail-open a propósito: si este endpoint tarda o no
+    // responde (red lenta, algún proxy/mock de test que no lo contempla),
+    // preferimos arrancar sin baseline de conflicto antes que colgar la
+    // carga del editor — el chequeo de conflicto es una mejora de UX, no
+    // algo que deba bloquear el uso normal del builder.
+    api.get('/configuracion/homepage/borrador/meta', { timeout: 4000 })
+      .then(({ data }) => { metaBaselineRef.current = data?.actualizado ?? null; })
+      .catch(() => { metaBaselineRef.current = null; });
+  }, [cargado]);
+
+  // Programa el autosave debounced apenas cambia `secciones` — salvo la
+  // carga inicial (incluida la migración de navbar/footer) y las acciones
+  // que ya se guardan de forma inmediata (ver skipProximoAutosaveRef).
+  useEffect(() => {
+    if (!cargado) return;
+    if (!seccionesCargadasRef.current) {
+      seccionesCargadasRef.current = true;
+      return;
+    }
+    if (skipProximoAutosaveRef.current) {
+      skipProximoAutosaveRef.current = false;
+      return;
+    }
+    if (conflictoDetectado) return; // no reintentar en loop tras un conflicto
+
+    setAutosavePendiente(true);
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      autosaveTimerRef.current = null;
+      setAutosavePendiente(false);
+      guardarHomepageMutation.mutate(secciones);
+    }, AUTOSAVE_DEBOUNCE_MS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secciones, cargado, conflictoDetectado]);
+
+  useEffect(() => {
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+  }, []);
+
   useEffect(() => {
     if (config && Object.keys(configForm).length === 0) {
       const form: Record<string, string> = {};
@@ -148,12 +213,44 @@ export default function AdminConfiguracion() {
   }, [config]);
 
   const guardarHomepageMutation = useMutation({
-    mutationFn: (secs: Seccion[]) => api.put('/configuracion/homepage', { secciones: secs }),
-    onSuccess: () => {
+    mutationFn: async (secs: Seccion[]) => {
+      // Detección de conflicto multi-pestaña: antes de cada guardado (auto o
+      // manual) se compara el `actualizado` remoto contra el baseline con el
+      // que se cargó este tab. Si no hay baseline todavía (fila recién creada
+      // o el chequeo inicial falló) no hay nada contra qué comparar — se
+      // guarda igual. Si el chequeo en sí falla (red caída, etc.) se prioriza
+      // no perder el trabajo del admin: fail-open, se guarda igual.
+      if (metaBaselineRef.current !== null) {
+        let metaActual: string | null = metaBaselineRef.current;
+        try {
+          const { data } = await api.get('/configuracion/homepage/borrador/meta', { timeout: 4000 });
+          metaActual = data?.actualizado ?? null;
+        } catch {
+          // fail-open (incluye timeout) — ver comentario arriba
+        }
+        if (metaActual !== metaBaselineRef.current) {
+          const conflicto: any = new Error('CONFLICTO_MULTIPESTANA');
+          conflicto.esConflictoAutosave = true;
+          throw conflicto;
+        }
+      }
+      const res = await api.put('/configuracion/homepage', { secciones: secs });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      metaBaselineRef.current = data?.actualizado ?? metaBaselineRef.current;
       queryClient.invalidateQueries({ queryKey: ['homepage'] });
       queryClient.invalidateQueries({ queryKey: ['configuracion', 'estado-publicacion'] });
       setGuardadoOk(true);
+      setAutosaveGuardadoAlgunaVez(true);
       setTimeout(() => setGuardadoOk(false), 3000);
+    },
+    onError: (err: any) => {
+      if (err?.esConflictoAutosave) {
+        setConflictoDetectado(true);
+        if (autosaveTimerRef.current) { clearTimeout(autosaveTimerRef.current); autosaveTimerRef.current = null; }
+        setAutosavePendiente(false);
+      }
     },
   });
 
@@ -247,6 +344,33 @@ export default function AdminConfiguracion() {
     setSecciones(prev => prev.filter(s => s.id !== id));
   };
 
+  // Clona la sección completa (datos incluidos, sin compartir referencias con
+  // el original) y la inserta inmediatamente después — misma sección activa,
+  // nuevo id. Reasigna `orden` secuencial solo a las reordenables (navbar y
+  // footer no participan del orden numérico, ver reordenarSecciones).
+  const duplicarSeccion = (id: string) => {
+    setSecciones(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx === -1) return prev;
+      const original = prev[idx];
+      const datosClon = typeof structuredClone === 'function'
+        ? structuredClone(original.datos)
+        : JSON.parse(JSON.stringify(original.datos));
+      const clon: Seccion = { ...original, id: crypto.randomUUID(), datos: datosClon };
+      const conClon = [...prev.slice(0, idx + 1), clon, ...prev.slice(idx + 1)];
+      let i = 0;
+      return conClon.map(s => (s.tipo === 'navbar' || s.tipo === 'footer') ? s : { ...s, orden: i++ });
+    });
+  };
+
+  // Botón "Guardar inicio": fuerza el guardado ya mismo y cancela/resetea el
+  // debounce del autosave (que corre en paralelo, no lo reemplaza).
+  const guardarInicioManual = () => {
+    if (autosaveTimerRef.current) { clearTimeout(autosaveTimerRef.current); autosaveTimerRef.current = null; }
+    setAutosavePendiente(false);
+    guardarHomepageMutation.mutate(secciones);
+  };
+
   // Reorden por drag & drop (reemplaza los antiguos botones ↑/↓ — ver
   // SeccionCard/dnd-utils). `next` ya viene en el nuevo orden deseado, solo
   // para las secciones reordenables (navbar/footer quedan afuera de este
@@ -277,7 +401,10 @@ export default function AdminConfiguracion() {
       if (!ok) return;
     }
     const nuevas = secciones.map(sec => ({ ...sec, datos: limpiarDatosSeccion(sec.datos, modo) }));
+    skipProximoAutosaveRef.current = true; // ya se guarda de forma inmediata acá abajo
     setSecciones(nuevas);
+    if (autosaveTimerRef.current) { clearTimeout(autosaveTimerRef.current); autosaveTimerRef.current = null; }
+    setAutosavePendiente(false);
     guardarHomepageMutation.mutate(nuevas);
   };
 
@@ -315,6 +442,20 @@ export default function AdminConfiguracion() {
 
   return (
     <div className="p-6 flex flex-col gap-6">
+      {/* Banner bloqueante de conflicto multi-pestaña — a propósito no tiene
+          botón de cerrar ni overlay click-afuera: la única salida es recargar,
+          no hay merge automático (spec de UX ya aprobada). */}
+      {conflictoDetectado && (
+        <div data-testid="conflicto-multipestana-banner"
+          className="sticky top-0 z-50 -mx-6 -mt-6 mb-0 px-6 py-3 bg-red-600 text-white flex items-center justify-center gap-4 text-sm font-medium">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          <span>Este borrador se editó en otra pestaña. Recargá para ver los cambios más recientes.</span>
+          <button onClick={() => window.location.reload()}
+            className="bg-white text-red-600 rounded-lg px-3 py-1 text-xs font-semibold flex-shrink-0">
+            Recargar
+          </button>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4 max-w-6xl">
         <div>
           <h1 className="text-xl font-medium text-[var(--ink)]">Configuración</h1>
@@ -389,7 +530,8 @@ export default function AdminConfiguracion() {
               {seccionesHomepage.map(sec => (
                 <SeccionCard key={sec.id} sec={sec}
                   onChange={s => actualizarSeccion(sec.id, s)}
-                  onRemove={() => eliminarSeccion(sec.id)} />
+                  onRemove={() => eliminarSeccion(sec.id)}
+                  onDuplicate={() => duplicarSeccion(sec.id)} />
               ))}
             </SortableList>
             <FeedbackToast show={ordenOk} className="text-xs text-[var(--ink-soft)] self-end">Orden actualizado</FeedbackToast>
@@ -413,9 +555,25 @@ export default function AdminConfiguracion() {
           )}
 
           <div className="flex items-center justify-end gap-3">
+            {/* Indicador persistente de autosave — a diferencia de FeedbackToast
+                (efímero, 3s), este queda fijo hasta el próximo cambio. Corre en
+                paralelo al botón manual, no lo reemplaza. */}
+            {!conflictoDetectado && (
+              <span data-testid="autosave-estado"
+                data-estado={guardarHomepageMutation.isPending ? 'guardando' : autosavePendiente ? 'editando' : autosaveGuardadoAlgunaVez ? 'guardado' : 'sin-cambios'}
+                className="text-xs flex items-center gap-1.5 text-[var(--ink-soft)]">
+                {guardarHomepageMutation.isPending ? (
+                  <><Loader2 size={12} className="animate-spin" /> Guardando...</>
+                ) : autosavePendiente ? (
+                  <>Editando...</>
+                ) : autosaveGuardadoAlgunaVez ? (
+                  <><Check size={13} className="text-[var(--accent)]" /> Guardado hace un momento</>
+                ) : null}
+              </span>
+            )}
             <FeedbackToast show={guardadoOk} className="text-xs text-[var(--accent)]">¡Guardado correctamente!</FeedbackToast>
-            <motion.button onClick={() => guardarHomepageMutation.mutate(secciones)} whileTap={{ scale: 0.97 }}
-              disabled={guardarHomepageMutation.isPending}
+            <motion.button onClick={guardarInicioManual} whileTap={{ scale: 0.97 }}
+              disabled={guardarHomepageMutation.isPending || conflictoDetectado}
               className="bg-[var(--accent)] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 flex items-center gap-2">
               <Save size={14} />
               {guardarHomepageMutation.isPending ? 'Guardando...' : 'Guardar inicio'}

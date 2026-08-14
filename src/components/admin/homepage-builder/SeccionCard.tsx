@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Eye, EyeOff, ChevronDown, ChevronUp, Trash2, Palette, Type, Image } from 'lucide-react';
+import { Eye, EyeOff, ChevronDown, ChevronUp, Trash2, Copy, Palette, Type, Image } from 'lucide-react';
 import { TabBtn } from './campos-comunes';
 import { TIPO_LABELS } from './defaults';
 import { EditorContenido } from './EditorContenido';
@@ -33,9 +33,9 @@ function contarSubitems(tipo: TipoSeccion, datos: Record<string, any>): string |
 }
 
 // ── Card de sección ──────────────────────────────────────────────────────────
-export function SeccionCard({ sec, onChange, onRemove }: {
+export function SeccionCard({ sec, onChange, onRemove, onDuplicate }: {
   sec: Seccion;
-  onChange: (s: Seccion) => void; onRemove: () => void;
+  onChange: (s: Seccion) => void; onRemove: () => void; onDuplicate: () => void;
 }) {
   const [expandida, setExpandida] = useState(false);
   const [tabEdit, setTabEdit] = useState<'contenido' | 'estilo' | 'imagenes'>('contenido');
@@ -83,6 +83,10 @@ export function SeccionCard({ sec, onChange, onRemove }: {
           <button onClick={() => setExpandida(e => !e)}
             className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
             {expandida ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+          <button onClick={onDuplicate} title="Duplicar"
+            className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--accent)] transition-colors">
+            <Copy size={13} />
           </button>
           <button onClick={onRemove}
             className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-red-500 hover:border-red-200 transition-colors">
