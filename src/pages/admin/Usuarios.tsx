@@ -4,6 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import ActivoBadge from '../../components/ui/ActivoBadge';
 import { useAuthStore } from '../../store/auth.store';
+import AdminButton from '../../components/admin/ui/AdminButton';
+import AdminCard from '../../components/admin/ui/AdminCard';
+import AdminTable from '../../components/admin/ui/AdminTable';
+import AdminModal from '../../components/admin/ui/AdminModal';
+import { AdminInput, AdminSelect } from '../../components/admin/ui/AdminInput';
 
 type Usuario = {
   id: string;
@@ -87,14 +92,15 @@ export default function AdminUsuarios() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-xl font-medium text-gray-900">Usuarios</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{total} usuarios</p>
+          <h1 className="text-xl font-medium text-[var(--ink)]">Usuarios</h1>
+          <p className="text-sm text-[var(--ink-soft)] mt-0.5">{total} usuarios</p>
         </div>
       </div>
 
       <div className="flex gap-3 mb-4">
-        <input
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1D9E75] w-64"
+        <AdminInput
+          fullWidth={false}
+          className="w-64"
           placeholder="Buscar por email o nombre..."
           value={q}
           onChange={(e) => {
@@ -102,8 +108,8 @@ export default function AdminUsuarios() {
             setPage(1);
           }}
         />
-        <select
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1D9E75]"
+        <AdminSelect
+          fullWidth={false}
           value={rolFiltro}
           onChange={(e) => {
             setRolFiltro(e.target.value);
@@ -113,158 +119,126 @@ export default function AdminUsuarios() {
           <option value="">Todos los roles</option>
           <option value="admin">Admin</option>
           <option value="cliente">Cliente</option>
-        </select>
+        </AdminSelect>
       </div>
 
-      <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 text-xs text-gray-500 font-medium">
-              <th className="text-left px-5 py-3">Email</th>
-              <th className="text-left px-5 py-3">Nombre</th>
-              <th className="text-left px-5 py-3">Rol</th>
-              <th className="text-left px-5 py-3">Estado</th>
-              <th className="text-left px-5 py-3">Último login</th>
-              <th className="text-left px-5 py-3">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.items.map((u) => {
-              const esUsuarioActual = u.id === usuarioActual?.id;
-              return (
-                <tr key={u.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3 text-sm text-gray-900">
-                    {u.email}
-                    {esUsuarioActual && <span className="ml-2 text-xs text-gray-400">(vos)</span>}
-                  </td>
-                  <td className="px-5 py-3 text-sm text-gray-500">
-                    {[u.nombre, u.apellido].filter(Boolean).join(' ') || '—'}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${
-                        u.rol === 'admin' ? 'bg-[#E1F5EE] text-[#0F6E56]' : 'bg-gray-100 text-gray-600'
-                      }`}
+      <AdminCard padded={false}>
+        <AdminTable
+          columns={['Email', 'Nombre', 'Rol', 'Estado', 'Último login', 'Acciones']}
+          isLoading={isLoading}
+          isError={isError}
+          isEmpty={!data || data.items.length === 0}
+          emptyMessage="No se encontraron usuarios"
+          errorMessage="No se pudieron cargar los usuarios. Probá recargar la página."
+        >
+          {data?.items.map((u) => {
+            const esUsuarioActual = u.id === usuarioActual?.id;
+            return (
+              <tr key={u.id} className="border-t border-[var(--line)] hover:bg-[var(--n-50)] transition-colors">
+                <td className="px-5 py-3 text-sm text-[var(--ink)]">
+                  {u.email}
+                  {esUsuarioActual && <span className="ml-2 text-xs text-[var(--ink-soft)]">(vos)</span>}
+                </td>
+                <td className="px-5 py-3 text-sm text-[var(--ink-soft)]">
+                  {[u.nombre, u.apellido].filter(Boolean).join(' ') || '—'}
+                </td>
+                <td className="px-5 py-3">
+                  <span
+                    className={`text-xs font-medium px-2 py-1 rounded-full ${
+                      u.rol === 'admin' ? 'bg-[var(--accent-soft)] text-[var(--accent-hover)]' : 'bg-[var(--n-100)] text-[var(--ink-soft)]'
+                    }`}
+                  >
+                    {u.rol}
+                  </span>
+                </td>
+                <td className="px-5 py-3">
+                  <ActivoBadge activo={u.activo} />
+                </td>
+                <td className="px-5 py-3 text-xs text-[var(--ink-soft)]">
+                  {u.ultimo_login ? new Date(u.ultimo_login).toLocaleString('es-AR') : 'Nunca'}
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <AdminSelect
+                      fullWidth={false}
+                      disabled={esUsuarioActual}
+                      title={esUsuarioActual ? 'No podés cambiar tu propio rol' : undefined}
+                      className="px-2 py-1.5 text-xs"
+                      value={u.rol}
+                      onChange={(e) => {
+                        const nuevoRol = e.target.value as 'admin' | 'cliente';
+                        if (nuevoRol !== u.rol) {
+                          setAccionPendiente({ tipo: 'rol', usuario: u, nuevoRol });
+                        }
+                      }}
                     >
-                      {u.rol}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <ActivoBadge activo={u.activo} />
-                  </td>
-                  <td className="px-5 py-3 text-xs text-gray-400">
-                    {u.ultimo_login ? new Date(u.ultimo_login).toLocaleString('es-AR') : 'Nunca'}
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <select
-                        disabled={esUsuarioActual}
-                        title={esUsuarioActual ? 'No podés cambiar tu propio rol' : undefined}
-                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:border-[#1D9E75]"
-                        value={u.rol}
-                        onChange={(e) => {
-                          const nuevoRol = e.target.value as 'admin' | 'cliente';
-                          if (nuevoRol !== u.rol) {
-                            setAccionPendiente({ tipo: 'rol', usuario: u, nuevoRol });
-                          }
-                        }}
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="cliente">Cliente</option>
-                      </select>
-                      <button
-                        disabled={esUsuarioActual && u.activo}
-                        title={esUsuarioActual && u.activo ? 'No podés desactivar tu propia cuenta' : undefined}
-                        onClick={() => setAccionPendiente({ tipo: 'estado', usuario: u, nuevoActivo: !u.activo })}
-                        className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {u.activo ? 'Desactivar' : 'Activar'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {/* isError primero: antes, cualquier request fallido (auth, red,
-            lo que sea) se veía idéntico a "0 usuarios reales" porque data
-            quedaba undefined y caía en el mismo mensaje de vacío — sin
-            forma de distinguir un error de una lista genuinamente vacía. */}
-        {isError && (
-          <div className="text-center py-16 text-sm text-red-500">No se pudieron cargar los usuarios. Probá recargar la página.</div>
-        )}
-        {!isError && !isLoading && (!data || data.items.length === 0) && (
-          <div className="text-center py-16 text-sm text-gray-400">No se encontraron usuarios</div>
-        )}
-      </div>
+                      <option value="admin">Admin</option>
+                      <option value="cliente">Cliente</option>
+                    </AdminSelect>
+                    <AdminButton
+                      variant="secondary" size="sm"
+                      disabled={esUsuarioActual && u.activo}
+                      title={esUsuarioActual && u.activo ? 'No podés desactivar tu propia cuenta' : undefined}
+                      onClick={() => setAccionPendiente({ tipo: 'estado', usuario: u, nuevoActivo: !u.activo })}
+                    >
+                      {u.activo ? 'Desactivar' : 'Activar'}
+                    </AdminButton>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </AdminTable>
+      </AdminCard>
 
       {total > limit && (
-        <div className="flex justify-center items-center gap-3 mt-4 text-sm text-gray-500">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 disabled:opacity-40"
-          >
+        <div className="flex justify-center items-center gap-3 mt-4 text-sm text-[var(--ink-soft)]">
+          <AdminButton variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Anterior
-          </button>
+          </AdminButton>
           <span>
             Página {page} de {totalPaginas}
           </span>
-          <button
-            disabled={page >= totalPaginas}
-            onClick={() => setPage((p) => p + 1)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 disabled:opacity-40"
-          >
+          <AdminButton variant="secondary" size="sm" disabled={page >= totalPaginas} onClick={() => setPage((p) => p + 1)}>
             Siguiente
-          </button>
+          </AdminButton>
         </div>
       )}
 
-      {accionPendiente && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={cerrarModal}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-base font-medium text-gray-900">
-                {accionPendiente.tipo === 'rol' ? 'Cambiar rol' : accionPendiente.nuevoActivo ? 'Activar cuenta' : 'Desactivar cuenta'}
-              </h2>
-              <button onClick={cerrarModal} className="text-gray-400 text-xl">×</button>
-            </div>
-            <div className="p-6">
-              {accionPendiente.tipo === 'rol' ? (
-                <p className="text-sm text-gray-600">
-                  Vas a cambiar el rol de <span className="font-medium text-gray-900">{accionPendiente.usuario.email}</span> de{' '}
-                  <span className="font-medium">{accionPendiente.usuario.rol}</span> a{' '}
-                  <span className="font-medium">{accionPendiente.nuevoRol}</span>.
-                </p>
-              ) : (
-                <p className="text-sm text-gray-600">
-                  Vas a {accionPendiente.nuevoActivo ? 'activar' : 'desactivar'} la cuenta de{' '}
-                  <span className="font-medium text-gray-900">{accionPendiente.usuario.email}</span>.
-                  {!accionPendiente.nuevoActivo && ' No va a poder iniciar sesión hasta que se reactive.'}
-                </p>
-              )}
-              {error && (
-                <p className="text-sm text-red-600 mt-3">
-                  {error?.response?.data?.message || 'No se pudo completar la acción.'}
-                </p>
-              )}
-            </div>
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-              <button onClick={cerrarModal} className="border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600">
-                Cancelar
-              </button>
-              <button
-                onClick={confirmarAccion}
-                disabled={guardando}
-                className="bg-[#1D9E75] text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50"
-              >
-                {guardando ? 'Aplicando...' : 'Confirmar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AdminModal
+        open={!!accionPendiente}
+        onClose={cerrarModal}
+        title={accionPendiente ? (accionPendiente.tipo === 'rol' ? 'Cambiar rol' : accionPendiente.nuevoActivo ? 'Activar cuenta' : 'Desactivar cuenta') : ''}
+        footer={<>
+          <AdminButton variant="secondary" onClick={cerrarModal}>Cancelar</AdminButton>
+          <AdminButton variant="primary" disabled={guardando} onClick={confirmarAccion}>
+            {guardando ? 'Aplicando...' : 'Confirmar'}
+          </AdminButton>
+        </>}
+      >
+        {accionPendiente && (
+          <>
+            {accionPendiente.tipo === 'rol' ? (
+              <p className="text-sm text-[var(--ink-soft)]">
+                Vas a cambiar el rol de <span className="font-medium text-[var(--ink)]">{accionPendiente.usuario.email}</span> de{' '}
+                <span className="font-medium">{accionPendiente.usuario.rol}</span> a{' '}
+                <span className="font-medium">{accionPendiente.nuevoRol}</span>.
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--ink-soft)]">
+                Vas a {accionPendiente.nuevoActivo ? 'activar' : 'desactivar'} la cuenta de{' '}
+                <span className="font-medium text-[var(--ink)]">{accionPendiente.usuario.email}</span>.
+                {!accionPendiente.nuevoActivo && ' No va a poder iniciar sesión hasta que se reactive.'}
+              </p>
+            )}
+            {error && (
+              <p className="text-sm text-[var(--error)] mt-3">
+                {error?.response?.data?.message || 'No se pudo completar la acción.'}
+              </p>
+            )}
+          </>
+        )}
+      </AdminModal>
     </div>
   );
 }
