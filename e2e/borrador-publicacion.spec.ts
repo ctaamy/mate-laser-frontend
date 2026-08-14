@@ -6,8 +6,13 @@ import { loginComoAdmin } from './fixtures-admin';
 // "Publicar cambios" copia borrador → publicado (POST /configuracion/publicar).
 // "Descartar cambios del borrador" copia publicado → borrador (POST /configuracion/descartar).
 
+// Slide completo, sin ningún problema de validación (Fase 5: la validación
+// de pre-publish bloquearía un hero sin `datos.slides`, y mostraría un
+// warning por slide sin imagen — ver validacion.ts — así que el fixture
+// necesita un slide "completo" para no disparar el modal de validación en
+// los tests de este archivo, que no son sobre esa feature).
 const SECCIONES_BORRADOR = [
-  { id: 'hero-1', tipo: 'hero', activo: true, orden: 0, datos: { bg_color: '#ff0000' } },
+  { id: 'hero-1', tipo: 'hero', activo: true, orden: 0, datos: { bg_color: '#ff0000', slides: [{ titulo: 'Hola', imagen_url: 'https://ejemplo.com/img.jpg' }] } },
 ];
 
 async function mockAdmin(page: import('@playwright/test').Page, opts: {

@@ -20,6 +20,8 @@ import { SortableList } from '../../components/admin/homepage-builder/dnd-utils'
 import { TemaEditor } from '../../components/admin/homepage-builder/TemaEditor';
 import { NavbarCard, NavbarPreviewBar } from '../../components/admin/homepage-builder/NavbarBuilder';
 import { FooterCard } from '../../components/admin/homepage-builder/FooterBuilder';
+import { PublicarModal } from '../../components/admin/homepage-builder/PublicarModal';
+import { validarSecciones } from '../../components/admin/homepage-builder/validacion';
 import type { Seccion, TipoSeccion } from '../../components/admin/homepage-builder/types';
 
 // ── Página principal ──────────────────────────────────────────────────────────
@@ -314,10 +316,40 @@ export default function AdminConfiguracion() {
     },
   });
 
-  const publicarCambios = () => {
+  // ── Validación pre-publish (Fase 5) ─────────────────────────────────────────
+  // Se recalcula en cada render a partir de `secciones` — es barata (recorre
+  // los datos ya en memoria, sin red) y así el badge de cada SeccionCard y el
+  // modal siempre reflejan el estado actual del editor sin necesidad de
+  // sincronizar un estado aparte.
+  const [modalPublicarOpen, setModalPublicarOpen] = useState(false);
+  const resultadosValidacion = validarSecciones(secciones);
+
+  const confirmarYPublicar = () => {
     const ok = window.confirm('Vas a hacer visibles estos cambios a todos los clientes. ¿Confirmás?');
     if (!ok) return;
     publicarMutation.mutate();
+  };
+
+  const publicarCambios = () => {
+    if (resultadosValidacion.length > 0) {
+      setModalPublicarOpen(true);
+      return;
+    }
+    confirmarYPublicar();
+  };
+
+  const publicarIgualDesdeModal = () => {
+    setModalPublicarOpen(false);
+    confirmarYPublicar();
+  };
+
+  // Cierra el modal y lleva el scroll a la card de esa sección en el editor
+  // — no hace falta expandirla ni abrir ningún tab interno (spec de UX).
+  const irASeccionDesdeModal = (seccionId: string) => {
+    setModalPublicarOpen(false);
+    requestAnimationFrame(() => {
+      document.getElementById(`seccion-card-${seccionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   };
 
   const descartarCambios = () => {
@@ -452,6 +484,13 @@ export default function AdminConfiguracion() {
 
   return (
     <div className="p-6 flex flex-col gap-6">
+      <PublicarModal
+        open={modalPublicarOpen}
+        resultados={resultadosValidacion}
+        onClose={() => setModalPublicarOpen(false)}
+        onIrASeccion={irASeccionDesdeModal}
+        onPublicarIgual={publicarIgualDesdeModal}
+      />
       {/* Banner bloqueante de conflicto multi-pestaña — a propósito no tiene
           botón de cerrar ni overlay click-afuera: la única salida es recargar,
           no hay merge automático (spec de UX ya aprobada). */}
