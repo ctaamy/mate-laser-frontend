@@ -36,7 +36,7 @@ test.describe('Hero — el color del tab Estilo ahora impacta el sitio', () => {
     await page.getByRole('button', { name: 'Agregar sección' }).click();
 
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click(); // expandir
+    await tarjeta.getByRole('button').nth(2).click(); // expandir
     await page.getByRole('button', { name: 'Estilo' }).first().click();
 
     const fondoInput = page.getByText('Fondo del bloque (base)', { exact: true }).locator('..').locator('input:not([type="color"])');
@@ -78,10 +78,15 @@ test.describe('Hero — el color del tab Estilo ahora impacta el sitio', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
-    // Tab Contenido (default) muestra el editor de slides con el botón "Heredar del bloque"
+    await tarjeta.getByRole('button').nth(2).click();
+    // Tab Contenido (default) muestra la fila colapsada del slide — el botón
+    // "Heredar del bloque" está en el Drawer, hay que abrirlo primero.
+    await tarjeta.getByText('Hola', { exact: true }).click();
     await page.getByRole('button', { name: 'Heredar del bloque' }).first().click();
 
+    // Cierra el Drawer (Escape) antes de guardar — su backdrop cubre toda
+    // la página, incluido el botón "Guardar inicio".
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Guardar inicio' }).click();
     await expect(page.getByText('¡Guardado correctamente!')).toBeVisible();
 

@@ -45,7 +45,9 @@ test.describe('BUG fix — eliminar una sección y guardar ya no falla por el or
     // Eliminar una sección pide confirmación (ver confirmaciones-admin.spec.ts).
     page.on('dialog', d => d.accept());
 
-    // Elimina la primera sección (hero) — el botón trash es el 5to de la tarjeta.
+    // Elimina la primera sección (hero) — el botón trash es el 5to de la
+    // tarjeta (drag handle, ojo, chevron, duplicar, trash — ver SeccionCard;
+    // Fase 4 agregó "Duplicar" entre el chevron y el trash).
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
     await tarjeta.getByRole('button').nth(4).click();
 

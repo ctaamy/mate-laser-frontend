@@ -73,7 +73,7 @@ test.describe('Imágenes libres — admin', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click(); // expandir
+    await tarjeta.getByRole('button').nth(2).click(); // expandir
     await page.getByRole('button', { name: 'Imágenes' }).click();
 
     await page.getByPlaceholder('https://... (URL externa)').fill('https://example.com/sticker.png');
@@ -110,7 +110,7 @@ test.describe('Imágenes libres — admin', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Imágenes' }).click();
 
     const drag = page.locator('[data-testid="imagen-libre-drag"]');
@@ -157,7 +157,7 @@ test.describe('Imágenes libres — admin', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Imágenes' }).click();
 
     await expect(page.locator('[data-testid="imagen-libre-drag"]')).toHaveCount(1);

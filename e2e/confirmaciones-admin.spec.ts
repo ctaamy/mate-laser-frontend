@@ -300,12 +300,12 @@ test.describe('Confirmación al eliminar una sección o un slide en Configuraci�
 
     await page.goto('/admin/configuracion');
     const tarjetaHero = page.locator('.bg-white.border.rounded-xl.overflow-hidden').filter({ hasText: 'Hero' }).first();
-    await tarjetaHero.getByRole('button').nth(3).click(); // expandir la card
+    await tarjetaHero.getByRole('button').nth(2).click(); // expandir la card
 
     // El título "Slide 1" también aparece en el <textarea> (contenido) y en
     // la vista previa en vivo — se acota al <span> del header del slide.
     const slide1Header = tarjetaHero.locator('span.truncate', { hasText: 'Slide 1' });
-    await slide1Header.locator('..').getByRole('button').first().click();
+    await slide1Header.locator('../..').getByRole('button').last().click();
     await page.waitForTimeout(300);
 
     expect(putBody).toBeNull();
@@ -322,10 +322,10 @@ test.describe('Confirmación al eliminar una sección o un slide en Configuraci�
 
     await page.goto('/admin/configuracion');
     const tarjetaHero = page.locator('.bg-white.border.rounded-xl.overflow-hidden').filter({ hasText: 'Hero' }).first();
-    await tarjetaHero.getByRole('button').nth(3).click(); // expandir la card
+    await tarjetaHero.getByRole('button').nth(2).click(); // expandir la card
 
     const slide1Header = tarjetaHero.locator('span.truncate', { hasText: 'Slide 1' });
-    await slide1Header.locator('..').getByRole('button').first().click();
+    await slide1Header.locator('../..').getByRole('button').last().click();
 
     expect(mensajeDialogo).toMatch(/título|imagen|botones|estilos/i);
     await expect(slide1Header).toHaveCount(0);

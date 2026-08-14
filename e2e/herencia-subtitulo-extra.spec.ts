@@ -112,14 +112,14 @@ test.describe('admin — campos de subtítulo nuevos', () => {
     const tarjetas = page.locator('.bg-white.border.rounded-xl.overflow-hidden');
 
     // productos_destacados
-    await tarjetas.nth(0).getByRole('button').nth(3).click();
+    await tarjetas.nth(0).getByRole('button').nth(2).click();
     await expect(page.getByText('Subtítulo', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
     await expect(page.getByText('Color subtítulo')).toBeVisible();
-    await tarjetas.nth(0).getByRole('button').nth(3).click(); // colapsar
+    await tarjetas.nth(0).getByRole('button').nth(2).click(); // colapsar
 
     // categorias_grid
-    await tarjetas.nth(1).getByRole('button').nth(3).click();
+    await tarjetas.nth(1).getByRole('button').nth(2).click();
     await expect(page.getByText('Subtítulo', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
     await expect(page.getByText('Color subtítulo')).toBeVisible();

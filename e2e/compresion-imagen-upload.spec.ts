@@ -37,7 +37,11 @@ test.describe('Compresión de imagen al subir (useSubirImagen)', () => {
     await page.goto('/admin/configuracion');
     await page.getByRole('button', { name: 'Agregar sección' }).click();
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click(); // expandir
+    await tarjeta.getByRole('button').nth(2).click(); // expandir
+    // Los campos del slide (incluido el uploader) viven en el Drawer, no
+    // expandidos inline — hay que abrirlo primero clickeando la fila
+    // colapsada del slide (ver HeroSlideRow en HeroEditor.tsx).
+    await tarjeta.getByText('Mates únicos,').click();
 
     // Generar un PNG grande (4000x3000, sin comprimir sería varios MB)
     // directo en el browser, sin depender de un archivo fixture en disco.
@@ -99,7 +103,11 @@ test.describe('Compresión de imagen al subir (useSubirImagen)', () => {
     await page.goto('/admin/configuracion');
     await page.getByRole('button', { name: 'Agregar sección' }).click();
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
+    // Los campos del slide (incluido el uploader) viven en el Drawer, no
+    // expandidos inline — hay que abrirlo primero clickeando la fila
+    // colapsada del slide (ver HeroSlideRow en HeroEditor.tsx).
+    await tarjeta.getByText('Mates únicos,').click();
 
     await page.evaluate(() => {
       // GIF mínimo válido (1x1, transparente) codificado a mano.

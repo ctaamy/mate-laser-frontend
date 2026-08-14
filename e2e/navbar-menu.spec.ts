@@ -114,8 +114,16 @@ test.describe('Admin — Links del navbar (agregar / quitar / reordenar)', () =>
     const labelInputs = seccionLinks.locator('input').and(page.locator('[placeholder="Etiqueta"]'));
     await expect(labelInputs).toHaveCount(3);
 
-    // Reordena: sube el segundo link ("Nosotros") una posición
-    await seccionLinks.locator('button[aria-label="Mover arriba"]').nth(1).click();
+    // Reordena por drag & drop (dnd-kit): sube el segundo link ("Nosotros")
+    // una posición usando el handle + navegación por teclado (Space levanta,
+    // flecha mueve, Space vuelve a soltar — activador por defecto del
+    // KeyboardSensor, ver dnd-utils.tsx). Más confiable en test que simular
+    // un drag por mouse con dnd-kit.
+    const handleNosotros = seccionLinks.getByRole('button', { name: 'Arrastrar para reordenar' }).nth(1);
+    await handleNosotros.focus();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Space');
     await expect(labelInputs.nth(0)).toHaveValue('Nosotros');
     await expect(labelInputs.nth(1)).toHaveValue('Productos');
 

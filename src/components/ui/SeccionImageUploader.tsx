@@ -7,9 +7,15 @@ interface SeccionImageUploaderProps {
   value: string;           // URL actual guardada en datos.imagen_url
   onChange: (url: string) => void;
   label?: string;
+  // Oculta el input de URL manual siempre visible de acá abajo — usado por
+  // el logo del navbar (NavbarBuilder.tsx), que consolida upload + URL en
+  // un único flujo con el input de URL colapsado por default (ver
+  // "o pegar una URL" ahí). Default true: preserva el comportamiento actual
+  // en TODOS los demás usos (hero, banners, categorías, imágenes libres, etc).
+  mostrarUrlManual?: boolean;
 }
 
-export default function SeccionImageUploader({ value, onChange, label = 'Imagen' }: SeccionImageUploaderProps) {
+export default function SeccionImageUploader({ value, onChange, label = 'Imagen', mostrarUrlManual = true }: SeccionImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { subir, subiendo, error } = useSubirImagen(
     '/configuracion/imagen',
@@ -62,12 +68,14 @@ export default function SeccionImageUploader({ value, onChange, label = 'Imagen'
       </motion.div>
 
       {/* Fallback: input de URL manual */}
-      <input
-        className="border border-gray-200 rounded-lg px-3 py-2 text-xs w-full focus:outline-none focus:border-[#1D9E75] text-gray-500"
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        placeholder="https://... (URL externa)"
-      />
+      {mostrarUrlManual && (
+        <input
+          className="border border-gray-200 rounded-lg px-3 py-2 text-xs w-full focus:outline-none focus:border-[#1D9E75] text-gray-500"
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+          placeholder="https://... (URL externa)"
+        />
+      )}
 
       {error && <span className="text-[10px] text-red-500">{error}</span>}
     </div>

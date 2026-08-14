@@ -122,7 +122,7 @@ test.describe('admin — override de color por botón', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
 
     const fondoPropio = page.getByText('Fondo de este botón (opcional)').locator('..').locator('input:not([type="color"])');
     await fondoPropio.fill('#00cc66');
@@ -147,7 +147,7 @@ test.describe('admin — override de color por botón', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
     await expect(page.getByText('Fondo botón (default)')).toBeVisible();
     await expect(page.getByText('Texto botón (default)')).toBeVisible();
