@@ -164,8 +164,8 @@ function CategoriaModal({
 
 // ── Fila de subcategoría ──────────────────────────────────────────────────────
 function SubcategoriaRow({
-  cat, todasPadre, onEdit, onDelete,
-}: { cat: Categoria; todasPadre: Categoria[]; onEdit: (c: Categoria) => void; onDelete: (c: Categoria) => void }) {
+  cat, onEdit, onDelete,
+}: { cat: Categoria; onEdit: (c: Categoria) => void; onDelete: (c: Categoria) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
@@ -197,9 +197,9 @@ function SubcategoriaRow({
 
 // ── Fila de categoría padre ───────────────────────────────────────────────────
 function CategoriaRow({
-  cat, todasPadre, onEdit, onDelete, onAgregarHijo,
+  cat, onEdit, onDelete, onAgregarHijo,
 }: {
-  cat: Categoria; todasPadre: Categoria[];
+  cat: Categoria;
   onEdit: (c: Categoria) => void; onDelete: (c: Categoria) => void; onAgregarHijo: (padre: Categoria) => void;
 }) {
   const [abierta, setAbierta] = useState(true);
@@ -248,7 +248,7 @@ function CategoriaRow({
             className="overflow-hidden border-t border-[var(--line)] pb-1"
           >
             {hijos.map(h => (
-              <SubcategoriaRow key={h.id} cat={h} todasPadre={todasPadre} onEdit={onEdit} onDelete={onDelete} />
+              <SubcategoriaRow key={h.id} cat={h} onEdit={onEdit} onDelete={onDelete} />
             ))}
           </motion.div>
         )}
@@ -325,7 +325,6 @@ export default function CategoriasPanel() {
             <CategoriaRow
               key={cat.id}
               cat={cat}
-              todasPadre={opcionesPadre}
               onEdit={handleEditar}
               onDelete={handleEliminar}
               onAgregarHijo={handleAgregarHijo}

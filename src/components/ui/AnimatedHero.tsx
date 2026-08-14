@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion, type Variants } from 'motion/react';
 import { Link } from 'react-router-dom';
 
 interface AnimatedHeroProps {
@@ -12,7 +12,7 @@ interface AnimatedHeroProps {
 }
 
 // Variantes para el contenedor de texto: orquesta la entrada en cascada
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {},
   visible: {
     transition: { staggerChildren: 0.15, delayChildren: 0.2 },
@@ -20,7 +20,7 @@ const containerVariants = {
 };
 
 // Cada línea de texto entra desde abajo con fade
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -30,7 +30,7 @@ const itemVariants = {
 };
 
 // La imagen entra desde la derecha
-const imageVariants = {
+const imageVariants: Variants = {
   hidden: { opacity: 0, x: 40 },
   visible: {
     opacity: 1,

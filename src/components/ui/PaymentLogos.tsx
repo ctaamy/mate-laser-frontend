@@ -5,7 +5,7 @@
 // SVG inline (no assets externos) para no depender de hotlinking ni de
 // subir archivos al repo; el admin puede reemplazar cualquiera de estos
 // por su propio logo subido (ver metodos_pago_logos en Footer.tsx).
-import type { SVGProps } from 'react';
+import type { JSX, SVGProps } from 'react';
 
 function MercadoPagoLogo(props: SVGProps<SVGSVGElement>) {
   return (

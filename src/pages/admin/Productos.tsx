@@ -10,7 +10,6 @@ import ActivoBadge from '../../components/ui/ActivoBadge';
 import AdminButton from '../../components/admin/ui/AdminButton';
 import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
-import { AdminInput, AdminSelect, AdminTextarea, AdminLabel } from '../../components/admin/ui/AdminInput';
 
 interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; datos: Record<string, any>; }
 
@@ -70,16 +69,10 @@ export default function AdminProductos() {
     s => s.tipo === 'productos_destacados' && s.activo !== false
   );
 
-  const crearMutation = useMutation({
-    mutationFn: (data: any) => api.post('/productos', data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] }); cerrarModal(); },
-  });
-
-  const editarMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/productos/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] }); cerrarModal(); },
-  });
-
+  // Nota: alta/edición de producto NO usa mutations de React Query — pasa por
+  // handleSubmit (abajo), que encadena guardarSecciones() después del
+  // api.post/put. Antes había crearMutation/editarMutation acá pero quedaron
+  // sin usar (huérfanas) porque handleSubmit las evade por completo.
   const eliminarMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/productos/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] }),

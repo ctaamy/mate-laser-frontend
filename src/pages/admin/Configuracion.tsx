@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, GripVertical, Eye, EyeOff, ChevronDown, ChevronUp, Save, Palette, Type, Layout, ChevronRight, Image } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Eye, EyeOff, ChevronDown, ChevronUp, Save, Palette, Type, Layout, Image } from 'lucide-react';
 import api from '../../lib/api';
 import SeccionImageUploader from '../../components/ui/SeccionImageUploader';
 import type { Categoria } from '../../types/index';

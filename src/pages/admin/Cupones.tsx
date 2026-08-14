@@ -4,7 +4,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import ActivoBadge from '../../components/ui/ActivoBadge';
 import AdminButton from '../../components/admin/ui/AdminButton';
-import AdminCard, { AdminCardHeader } from '../../components/admin/ui/AdminCard';
+import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
 import AdminModal from '../../components/admin/ui/AdminModal';
 import { AdminInput, AdminSelect, AdminLabel } from '../../components/admin/ui/AdminInput';
