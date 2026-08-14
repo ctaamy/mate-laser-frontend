@@ -56,6 +56,12 @@ export function NavbarCard({ datos, set, nombreTienda, tema }: {
 function NavbarEditor({ datos, set, nombreTienda, tema }: {
   datos: Record<string, any>; set: (k: string, v: any) => void; nombreTienda: string; tema: TemaGlobal;
 }) {
+  // Consolidación de campos duplicados: antes había un input de URL manual +
+  // preview + "Quitar imagen" a mano, MÁS el uploader con su propio fallback
+  // de URL abajo — tres formas de tocar el mismo logo_url. Ahora es un único
+  // flujo (preview + botón "Subir imagen" primario, ver SeccionImageUploader)
+  // con la URL manual colapsada por default detrás de "o pegar una URL".
+  const [mostrarUrlLogo, setMostrarUrlLogo] = useState(false);
   const bool = (k: string, def = true) => datos[k] ?? def;
   const tipoMenu: 'tradicional' | 'hamburguesa' = datos.tipo_menu === 'hamburguesa' ? 'hamburguesa' : 'tradicional';
   const menuPosicion: 'izquierda' | 'derecha' = datos.menu_posicion === 'izquierda' ? 'izquierda' : 'derecha';
@@ -105,28 +111,32 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
       {/* Logo */}
       <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
         <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Logo</div>
-        <div>
-          <label className={labelCls}>URL del logo (imagen)</label>
-          <input className={inputCls} value={datos.logo_url ?? ''} placeholder="https://... (dejar vacío para usar el nombre)"
-            onChange={e => set('logo_url', e.target.value)} />
-          <p className="text-[10px] text-[var(--ink-soft)] mt-1">Si no se especifica una imagen, se muestra el nombre de la tienda como texto.</p>
-        </div>
-        {datos.logo_url && (
-          <div className="flex items-center gap-3">
-            <img src={datos.logo_url} alt="Logo preview" className="h-10 object-contain border border-[var(--line)] rounded-lg p-1 bg-white" />
-            <button onClick={() => set('logo_url', '')} className="text-xs text-red-500 hover:underline">Quitar imagen</button>
+        <SeccionImageUploader
+          value={datos.logo_url ?? ''}
+          onChange={url => set('logo_url', url)}
+          label="Logo de la tienda"
+          mostrarUrlManual={false}
+        />
+        {!datos.logo_url && (
+          <p className="text-[10px] text-[var(--ink-soft)] -mt-2">Si no se especifica una imagen, se muestra el nombre de la tienda como texto.</p>
+        )}
+        {mostrarUrlLogo ? (
+          <div>
+            <label className={labelCls}>URL del logo</label>
+            <input className={inputCls} autoFocus value={datos.logo_url ?? ''} placeholder="https://..."
+              onChange={e => set('logo_url', e.target.value)} />
           </div>
+        ) : (
+          <button type="button" onClick={() => setMostrarUrlLogo(true)}
+            className="text-xs text-[var(--accent)] hover:underline self-start -mt-2">
+            o pegar una URL
+          </button>
         )}
         <div>
           <label className={labelCls}>Altura del logo (px)</label>
           <input className={inputCls} type="number" min={20} max={80} value={datos.logo_alto ?? '32'}
             onChange={e => set('logo_alto', e.target.value)} placeholder="32" />
         </div>
-        <SeccionImageUploader
-          value={datos.logo_url ?? ''}
-          onChange={url => set('logo_url', url)}
-          label="O subir imagen de logo"
-        />
       </div>
 
       {/* Visibilidad de íconos */}

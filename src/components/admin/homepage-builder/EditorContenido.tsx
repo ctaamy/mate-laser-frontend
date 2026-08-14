@@ -10,12 +10,16 @@ import { StatsBarraEditor } from './StatsBarraEditor';
 import type { TipoSeccion } from './types';
 
 // ── Editor de CONTENIDO por tipo ─────────────────────────────────────────────
-export function EditorContenido({ tipo, datos, set }: {
+export function EditorContenido({ tipo, datos, set, onSubDragChange }: {
   tipo: TipoSeccion; datos: Record<string, any>; set: (k: string, v: any) => void;
+  // Solo los tipos con una lista de sub-items propia (Hero, filtros,
+  // categorías, stats) la usan — avisa a SeccionCard para deshabilitar su
+  // propio handle de arrastre mientras se reordena un sub-item adentro.
+  onSubDragChange?: (active: boolean) => void;
 }) {
-  if (tipo === 'hero') return <HeroSlidesEditor datos={datos} set={set} />;
+  if (tipo === 'hero') return <HeroSlidesEditor datos={datos} set={set} onSubDragChange={onSubDragChange} />;
 
-  if (tipo === 'filtros_rapidos') return <FiltrosRapidosEditor datos={datos} set={set} />;
+  if (tipo === 'filtros_rapidos') return <FiltrosRapidosEditor datos={datos} set={set} onSubDragChange={onSubDragChange} />;
 
   if (tipo === 'galeria_combos') return (
     <div className="flex flex-col gap-3">
@@ -79,7 +83,7 @@ export function EditorContenido({ tipo, datos, set }: {
     </div>
   );
 
-  if (tipo === 'categorias_grid') return <CategoriasGridEditor datos={datos} set={set} />;
+  if (tipo === 'categorias_grid') return <CategoriasGridEditor datos={datos} set={set} onSubDragChange={onSubDragChange} />;
 
   if (tipo === 'texto_libre') return (
     <div>
@@ -103,7 +107,7 @@ export function EditorContenido({ tipo, datos, set }: {
     </div>
   );
 
-  if (tipo === 'stats_barra') return <StatsBarraEditor datos={datos} set={set} />;
+  if (tipo === 'stats_barra') return <StatsBarraEditor datos={datos} set={set} onSubDragChange={onSubDragChange} />;
 
   if (tipo === 'como_funciona') {
     const pasos: { icono?: string; titulo: string; desc: string }[] = datos.pasos ?? [];

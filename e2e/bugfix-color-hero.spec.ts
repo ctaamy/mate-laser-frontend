@@ -42,7 +42,7 @@ test.describe('BUG fix — campo de color del Hero se puede vaciar', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click(); // expandir
+    await tarjeta.getByRole('button').nth(2).click(); // expandir
     await page.getByRole('button', { name: 'Estilo' }).first().click();
 
     const fondoInput = page.getByText('Fondo del bloque (base)', { exact: true }).locator('..').locator('input:not([type="color"])');
@@ -61,7 +61,7 @@ test.describe('BUG fix — campo de color del Hero se puede vaciar', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
 
     const fondoInput = page.getByText('Fondo del bloque (base)', { exact: true }).locator('..').locator('input:not([type="color"])');
@@ -79,7 +79,7 @@ test.describe('BUG fix — campo de color del Hero se puede vaciar', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
 
     const subtituloInput = page.getByText('Color subtítulo', { exact: true }).locator('..').locator('input:not([type="color"])');

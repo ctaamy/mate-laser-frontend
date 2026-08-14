@@ -253,7 +253,7 @@ test.describe('Bugfix — flujo completo admin → sitio público', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
 
     const tituloSizeSelect = page.getByText('Tamaño título', { exact: true }).locator('..').locator('select');

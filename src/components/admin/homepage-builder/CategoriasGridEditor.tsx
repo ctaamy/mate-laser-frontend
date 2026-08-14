@@ -1,14 +1,72 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import api from '../../../lib/api';
 import SeccionImageUploader from '../../ui/SeccionImageUploader';
 import type { Categoria } from '../../../types/index';
 import { labelCls, inputCls } from './constantes';
 import { ICONOS_DEFAULT } from './defaults';
 import type { CatItem } from './types';
+import { DragHandle, SortableList, useSortableItem } from './dnd-utils';
+
+// ── Fila de una categoría seleccionada, arrastrable ───────────────────────────
+function CategoriaRow({ item, cat, onIcono, onImagen, onQuitar }: {
+  item: CatItem; cat: Categoria | undefined;
+  onIcono: (v: string) => void; onImagen: (v: string) => void; onQuitar: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, style } = useSortableItem(String(item.id));
+  return (
+    <div ref={setNodeRef} style={style} className="bg-[var(--n-50)] border border-[var(--line)] rounded-xl overflow-hidden">
+      {/* Fila principal */}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <DragHandle attributes={attributes} listeners={listeners} />
+        {/* Preview: imagen o emoji */}
+        {item.imagen_url
+          ? <img src={item.imagen_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-[var(--line)]" />
+          : <input
+              className="w-10 h-10 text-center text-xl bg-white border border-[var(--line)] rounded-lg cursor-pointer focus:outline-none focus:border-[var(--n-400)] flex-shrink-0"
+              value={item.icono}
+              onChange={e => onIcono(e.target.value)}
+              maxLength={4}
+              title="Emoji de respaldo (se muestra si no hay imagen)"
+            />
+        }
+        {/* Nombre categoría */}
+        <span className="flex-1 text-sm font-medium text-[var(--ink)] truncate">
+          {cat?.nombre ?? `ID ${item.id}`}
+          {cat?.padre_id && (
+            <span className="ml-1 text-[10px] text-[var(--ink-soft)] font-normal">subcategoría</span>
+          )}
+        </span>
+        {/* Quitar */}
+        <button onClick={onQuitar}
+          className="w-6 h-6 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors">
+          <Trash2 size={12} />
+        </button>
+      </div>
+
+      {/* Uploader de imagen */}
+      <div className="px-3 pb-3">
+        <SeccionImageUploader
+          label={item.imagen_url ? 'Cambiar imagen' : 'Agregar imagen (reemplaza el emoji)'}
+          value={item.imagen_url || ''}
+          onChange={onImagen}
+        />
+        {item.imagen_url && (
+          <button onClick={() => onImagen('')}
+            className="mt-1.5 text-[11px] text-red-400 hover:text-red-600 transition-colors">
+            Quitar imagen (vuelve al emoji)
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── Editor visual de la grilla de categorías ─────────────────────────────────
-export function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set: (k: string, v: any) => void }) {
+export function CategoriasGridEditor({ datos, set, onSubDragChange }: {
+  datos: Record<string, any>; set: (k: string, v: any) => void;
+  onSubDragChange?: (active: boolean) => void;
+}) {
   const { data: todasCategorias = [] } = useQuery<Categoria[]>({
     queryKey: ['categorias'],
     queryFn: () => api.get('/categorias').then(r => r.data),
@@ -34,12 +92,6 @@ export function CategoriasGridEditor({ datos, set }: { datos: Record<string, any
   const updateImagen = (id: number, imagen_url: string) =>
     updateItems(items.map(i => i.id === id ? { ...i, imagen_url } : i));
 
-  const mover = (idx: number, dir: -1 | 1) => {
-    const next = [...items];
-    [next[idx], next[idx + dir]] = [next[idx + dir], next[idx]];
-    updateItems(next);
-  };
-
   // El endpoint ya devuelve la lista plana completa (raíces + hijos como items separados)
   const disponibles = todasCategorias.filter(c => !selectedIds.has(c.id));
 
@@ -63,67 +115,17 @@ export function CategoriasGridEditor({ datos, set }: { datos: Record<string, any
             Ninguna seleccionada — se mostrarán todas las categorías raíz.
           </p>
         )}
-        <div className="flex flex-col gap-2 mt-1">
-          {items.map((item, idx) => {
-            const cat = todasCategorias.find(c => c.id === item.id);
-            return (
-              <div key={item.id} className="bg-[var(--n-50)] border border-[var(--line)] rounded-xl overflow-hidden">
-                {/* Fila principal */}
-                <div className="flex items-center gap-2 px-3 py-2">
-                  {/* Preview: imagen o emoji */}
-                  {item.imagen_url
-                    ? <img src={item.imagen_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-[var(--line)]" />
-                    : <input
-                        className="w-10 h-10 text-center text-xl bg-white border border-[var(--line)] rounded-lg cursor-pointer focus:outline-none focus:border-[var(--n-400)] flex-shrink-0"
-                        value={item.icono}
-                        onChange={e => updateIcono(item.id, e.target.value)}
-                        maxLength={4}
-                        title="Emoji de respaldo (se muestra si no hay imagen)"
-                      />
-                  }
-                  {/* Nombre categoría */}
-                  <span className="flex-1 text-sm font-medium text-[var(--ink)] truncate">
-                    {cat?.nombre ?? `ID ${item.id}`}
-                    {cat?.padre_id && (
-                      <span className="ml-1 text-[10px] text-[var(--ink-soft)] font-normal">subcategoría</span>
-                    )}
-                  </span>
-                {/* Reordenar */}
-                <div className="flex items-center gap-0.5">
-                  <button onClick={() => mover(idx, -1)} disabled={idx === 0}
-                    className="w-6 h-6 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
-                    <ChevronUp size={13} />
-                  </button>
-                  <button onClick={() => mover(idx, 1)} disabled={idx === items.length - 1}
-                    className="w-6 h-6 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
-                    <ChevronDown size={13} />
-                  </button>
-                </div>
-                  {/* Quitar */}
-                  <button onClick={() => cat && toggleCat(cat)}
-                    className="w-6 h-6 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-
-                {/* Uploader de imagen */}
-                <div className="px-3 pb-3">
-                  <SeccionImageUploader
-                    label={item.imagen_url ? 'Cambiar imagen' : 'Agregar imagen (reemplaza el emoji)'}
-                    value={item.imagen_url || ''}
-                    onChange={url => updateImagen(item.id, url)}
-                  />
-                  {item.imagen_url && (
-                    <button onClick={() => updateImagen(item.id, '')}
-                      className="mt-1.5 text-[11px] text-red-400 hover:text-red-600 transition-colors">
-                      Quitar imagen (vuelve al emoji)
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <SortableList items={items} getId={i => String(i.id)} onReorder={updateItems}
+          onDragStateChange={onSubDragChange} disabled={items.length < 2}>
+          <div className="flex flex-col gap-2 mt-1">
+            {items.map(item => (
+              <CategoriaRow key={item.id} item={item} cat={todasCategorias.find(c => c.id === item.id)}
+                onIcono={v => updateIcono(item.id, v)}
+                onImagen={v => updateImagen(item.id, v)}
+                onQuitar={() => { const cat = todasCategorias.find(c => c.id === item.id); if (cat) toggleCat(cat); }} />
+            ))}
+          </div>
+        </SortableList>
       </div>
 
       {/* Agregar categorías disponibles */}

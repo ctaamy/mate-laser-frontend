@@ -1,10 +1,34 @@
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { inputCls } from './constantes';
+import { DragHandle, SortableList, useSortableItem } from './dnd-utils';
+
+// ── Fila de un enlace (label + href), arrastrable ────────────────────────────
+function EnlaceRow({ index, enlace, onLabelChange, onHrefChange, onRemove }: {
+  index: number; enlace: { label: string; href: string };
+  onLabelChange: (v: string) => void; onHrefChange: (v: string) => void; onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, style } = useSortableItem(String(index));
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 bg-white">
+      <DragHandle attributes={attributes} listeners={listeners} />
+      <input className={inputCls} value={enlace.label} placeholder="Etiqueta"
+        onChange={e => onLabelChange(e.target.value)} />
+      <input className={inputCls} value={enlace.href} placeholder="/ruta o https://..."
+        onChange={e => onHrefChange(e.target.value)} />
+      <button onClick={onRemove} aria-label="Eliminar enlace"
+        className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-red-500 border border-[var(--line)] rounded-lg transition-colors">
+        <Trash2 size={13} />
+      </button>
+    </div>
+  );
+}
 
 // ── Editor genérico de lista de enlaces (label + href) ───────────────────────
 // Reutilizado tanto para los links secundarios del footer como para sus
-// redes sociales — misma forma de dato ({label, href}), solo cambia el
-// texto de la sección y los placeholders.
+// redes sociales, y para los links de navegación del navbar — misma forma
+// de dato ({label, href}), solo cambia el texto de la sección y los
+// placeholders. Reorden por drag & drop (handle propio, SortableContext con
+// namespace de ids propio — ver dnd-utils).
 export function EnlacesEditor({ titulo, enlaces, onChange, placeholderLabel, placeholderHref }: {
   titulo: string; enlaces: { label: string; href: string }[]; onChange: (v: { label: string; href: string }[]) => void;
   placeholderLabel: string; placeholderHref: string;
@@ -13,13 +37,6 @@ export function EnlacesEditor({ titulo, enlaces, onChange, placeholderLabel, pla
     onChange(enlaces.map((e, i) => i === idx ? { ...e, [key]: val } : e));
   const agregar = () => onChange([...enlaces, { label: placeholderLabel, href: placeholderHref }]);
   const eliminar = (idx: number) => onChange(enlaces.filter((_, i) => i !== idx));
-  const mover = (idx: number, dir: -1 | 1) => {
-    const destino = idx + dir;
-    if (destino < 0 || destino >= enlaces.length) return;
-    const copia = [...enlaces];
-    [copia[idx], copia[destino]] = [copia[destino], copia[idx]];
-    onChange(copia);
-  };
 
   return (
     <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-3">
@@ -30,28 +47,16 @@ export function EnlacesEditor({ titulo, enlaces, onChange, placeholderLabel, pla
           <Plus size={12} /> Agregar
         </button>
       </div>
-      {enlaces.map((enlace, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <div className="flex flex-col flex-shrink-0">
-            <button onClick={() => mover(i, -1)} disabled={i === 0} aria-label="Mover arriba"
-              className="w-6 h-4 flex items-center justify-center text-[var(--n-300)] hover:text-[var(--ink-soft)] disabled:opacity-20 transition-colors">
-              <ChevronUp size={11} />
-            </button>
-            <button onClick={() => mover(i, 1)} disabled={i === enlaces.length - 1} aria-label="Mover abajo"
-              className="w-6 h-4 flex items-center justify-center text-[var(--n-300)] hover:text-[var(--ink-soft)] disabled:opacity-20 transition-colors">
-              <ChevronDown size={11} />
-            </button>
-          </div>
-          <input className={inputCls} value={enlace.label} placeholder="Etiqueta"
-            onChange={e => update(i, 'label', e.target.value)} />
-          <input className={inputCls} value={enlace.href} placeholder="/ruta o https://..."
-            onChange={e => update(i, 'href', e.target.value)} />
-          <button onClick={() => eliminar(i)} aria-label="Eliminar enlace"
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-red-500 border border-[var(--line)] rounded-lg transition-colors">
-            <Trash2 size={13} />
-          </button>
+      <SortableList items={enlaces} getId={(_, i) => String(i)} onReorder={onChange} disabled={enlaces.length < 2}>
+        <div className="flex flex-col gap-2">
+          {enlaces.map((enlace, i) => (
+            <EnlaceRow key={i} index={i} enlace={enlace}
+              onLabelChange={v => update(i, 'label', v)}
+              onHrefChange={v => update(i, 'href', v)}
+              onRemove={() => eliminar(i)} />
+          ))}
         </div>
-      ))}
+      </SortableList>
     </div>
   );
 }

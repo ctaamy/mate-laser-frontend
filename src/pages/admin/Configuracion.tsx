@@ -16,6 +16,7 @@ import {
 } from '../../components/admin/homepage-builder/defaults';
 import { FeedbackToast } from '../../components/admin/homepage-builder/campos-comunes';
 import { SeccionCard } from '../../components/admin/homepage-builder/SeccionCard';
+import { SortableList } from '../../components/admin/homepage-builder/dnd-utils';
 import { TemaEditor } from '../../components/admin/homepage-builder/TemaEditor';
 import { NavbarCard, NavbarPreviewBar } from '../../components/admin/homepage-builder/NavbarBuilder';
 import { FooterCard } from '../../components/admin/homepage-builder/FooterBuilder';
@@ -156,6 +157,22 @@ export default function AdminConfiguracion() {
     },
   });
 
+  // Drag & drop de secciones (primer nivel): persiste el nuevo orden apenas
+  // se suelta, sin esperar al botón "Guardar inicio" — PATCH liviano
+  // (ReordenarSeccionesDto, solo ids) en vez del PUT completo con todo
+  // `datos`. No pisa la respuesta sobre el estado local: si el admin tiene
+  // ediciones de contenido sin guardar en algún bloque, este PATCH no debe
+  // hacerlas desaparecer (el backend solo devuelve lo que ya tenía persistido).
+  const [ordenOk, setOrdenOk] = useState(false);
+  const reordenarMutation = useMutation({
+    mutationFn: (ids: string[]) => api.patch('/configuracion/homepage/orden', { ids }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['configuracion', 'estado-publicacion'] });
+      setOrdenOk(true);
+      setTimeout(() => setOrdenOk(false), 2000);
+    },
+  });
+
   const guardarConfigMutation = useMutation({
     mutationFn: (data: Record<string, string>) => api.put('/configuracion', data),
     onSuccess: (_res, data) => {
@@ -230,15 +247,18 @@ export default function AdminConfiguracion() {
     setSecciones(prev => prev.filter(s => s.id !== id));
   };
 
-  const moverSeccion = (id: string, dir: -1 | 1) =>
-    setSecciones(prev => {
-      const homepage = prev.filter(s => s.tipo !== 'navbar' && s.tipo !== 'footer');
-      const otras = prev.filter(s => s.tipo === 'navbar' || s.tipo === 'footer');
-      const idx = homepage.findIndex(s => s.id === id);
-      if (idx === -1 || idx + dir < 0 || idx + dir >= homepage.length) return prev;
-      [homepage[idx], homepage[idx + dir]] = [homepage[idx + dir], homepage[idx]];
-      return [...homepage.map((s, i) => ({ ...s, orden: i })), ...otras];
-    });
+  // Reorden por drag & drop (reemplaza los antiguos botones ↑/↓ — ver
+  // SeccionCard/dnd-utils). `next` ya viene en el nuevo orden deseado, solo
+  // para las secciones reordenables (navbar/footer quedan afuera de este
+  // DndContext, ver SortableList más abajo). Navbar y footer se preservan
+  // en su posición relativa dentro del array completo — su `orden` en sí no
+  // importa funcionalmente (se filtran por `tipo`, no por `orden`).
+  const reordenarSecciones = (next: Seccion[]) => {
+    const otras = secciones.filter(s => s.tipo === 'navbar' || s.tipo === 'footer');
+    const nuevas = [...next.map((s, i) => ({ ...s, orden: i })), ...otras];
+    setSecciones(nuevas);
+    reordenarMutation.mutate(nuevas.map(s => s.id));
+  };
 
   const actualizarNavbarDatos = (k: string, v: any) => {
     if (!navbarSec) return;
@@ -365,13 +385,14 @@ export default function AdminConfiguracion() {
                 {cargado ? 'No hay secciones. Agregá una abajo.' : 'Cargando...'}
               </div>
             )}
-            {seccionesHomepage.map((sec, idx) => (
-              <SeccionCard key={sec.id} sec={sec} idx={idx} total={seccionesHomepage.length}
-                onChange={s => actualizarSeccion(sec.id, s)}
-                onRemove={() => eliminarSeccion(sec.id)}
-                onMoveUp={() => moverSeccion(sec.id, -1)}
-                onMoveDown={() => moverSeccion(sec.id, 1)} />
-            ))}
+            <SortableList items={seccionesHomepage} getId={s => s.id} onReorder={reordenarSecciones}>
+              {seccionesHomepage.map(sec => (
+                <SeccionCard key={sec.id} sec={sec}
+                  onChange={s => actualizarSeccion(sec.id, s)}
+                  onRemove={() => eliminarSeccion(sec.id)} />
+              ))}
+            </SortableList>
+            <FeedbackToast show={ordenOk} className="text-xs text-[var(--ink-soft)] self-end">Orden actualizado</FeedbackToast>
           </div>
 
           <div className="bg-white border border-[var(--line)] rounded-xl p-4 flex items-center gap-3">

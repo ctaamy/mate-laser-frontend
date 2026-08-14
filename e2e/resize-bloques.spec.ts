@@ -80,13 +80,13 @@ test.describe('Resize de bloques — admin', () => {
 
     // Sección banner_texto: expandir y pasar a la tab Estilo
     const tarjetas = page.locator('.bg-white.border.rounded-xl.overflow-hidden');
-    await tarjetas.nth(0).getByRole('button').nth(3).click(); // botón expandir (Contenido/Estilo)
+    await tarjetas.nth(0).getByRole('button').nth(2).click(); // botón expandir (Contenido/Estilo)
     await page.getByRole('button', { name: 'Estilo' }).first().click();
     await expect(page.getByText('Alto mínimo del bloque')).toBeVisible();
 
     // Colapsar y expandir banner_imagen
-    await tarjetas.nth(0).getByRole('button').nth(3).click();
-    await tarjetas.nth(1).getByRole('button').nth(3).click();
+    await tarjetas.nth(0).getByRole('button').nth(2).click();
+    await tarjetas.nth(1).getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
     await expect(page.getByText('Alto mínimo del bloque')).not.toBeVisible();
     await expect(page.getByText('Altura máxima (px)')).toBeVisible();
@@ -110,7 +110,7 @@ test.describe('Resize de bloques — admin', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click();
+    await tarjeta.getByRole('button').nth(2).click();
     await page.getByRole('button', { name: 'Estilo' }).first().click();
 
     await page.getByPlaceholder('auto').fill('350');

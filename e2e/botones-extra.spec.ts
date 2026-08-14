@@ -88,7 +88,10 @@ test.describe('Botones extra — admin', () => {
 
     await page.goto('/admin/configuracion');
     const tarjeta = page.locator('.bg-white.border.rounded-xl.overflow-hidden').first();
-    await tarjeta.getByRole('button').nth(3).click(); // expandir sección
+    await tarjeta.getByRole('button').nth(2).click(); // expandir sección
+    // BotonesEditor vive en el Drawer del slide, no expandido inline — hay
+    // que abrirlo primero clickeando la fila colapsada (HeroSlideRow).
+    await tarjeta.getByText('Hola', { exact: true }).click();
     await page.getByRole('button', { name: 'Agregar botón' }).click();
 
     // 2 filas de botón: la legacy migrada ("Comprar") + la nueva vacía
@@ -97,6 +100,9 @@ test.describe('Botones extra — admin', () => {
     await page.getByPlaceholder('Texto del botón').fill('Contactanos');
     await page.getByPlaceholder('/ruta').fill('/#contacto');
 
+    // Cierra el Drawer (Escape) antes de guardar — su backdrop cubre toda
+    // la página, incluido el botón "Guardar inicio".
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Guardar inicio' }).click();
     await expect(page.getByText('¡Guardado correctamente!')).toBeVisible();
 
