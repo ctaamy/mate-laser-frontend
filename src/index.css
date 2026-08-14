@@ -32,6 +32,84 @@
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
+/* ── Tokens de diseño del admin (Fase 5a) ─────────────────────────────────
+   Mismo mecanismo de aislamiento que ".tema-publico"/".flujo-compra" de
+   arriba: variables propias en una clase con scope, no en :root global —
+   así no colisionan con --color-bg/--color-texto del tema público (que sí
+   vive en :root) y el admin nunca hereda nada de cómo el admin configuró
+   el sitio para sus clientes. Se aplica en la raíz de AdminLayout.tsx —
+   ESO es Fase 5b, acá solo se definen los valores.
+
+   Nada de esto se usa todavía en ningún componente (Fase 5b/5c). */
+.tema-admin {
+  /* Neutros cálidos — no el gris frío por default de Tailwind. Reemplazan
+     los 10 tonos de gray-* sueltos que hoy están repartidos sin sistema
+     por todo pages/admin/*.tsx (ver audit de Fase 5). */
+  --n-50:  #FAF9F6;
+  --n-100: #F0EEE8;
+  --n-200: #DEDACE;
+  --n-300: #B8B2A1;
+  --n-400: #8A8578;
+  --n-500: #635F55;
+  --n-600: #454239;
+  --n-700: #2E2C26;
+  --n-800: #1E1C18;
+  --n-900: #131211;
+
+  /* Acento — interacción/CTA (links, botones primarios, foco de inputs,
+     ítem activo del sidebar). Deliberadamente separado del lenguaje de
+     color de los estados (ok/warn/error, abajo): un botón "Guardar" no
+     debe leerse como "todo OK" solo por compartir el verde de "Activo". */
+  --accent:       #2A5FD9;
+  --accent-hover: #1F4CB8;
+  --accent-soft:  #E8EEFC;
+
+  /* Modo oscuro (fase separada, todavía no implementada): --accent pasa a
+     #6690FF y --accent-hover a un tono acorde (más claro que el de modo
+     claro, para mantener contraste sobre fondo oscuro en vez de sobre
+     blanco). Dejar anotado acá para no tener que redescubrirlo. */
+
+  /* Estados — se mantienen tal cual, lenguaje de color separado del
+     acento. "ok" reusa el verde ya existente en EstadoBadge.tsx/
+     ActivoBadge.tsx (#0F6E56 sobre #E1F5EE): contraste real 5.46:1,
+     pasa 4.5:1 cómodo — no hacía falta tocarlo. */
+  --ok:        #0F6E56;
+  --ok-soft:   #E1F5EE;
+  --warn:      #8A5A16;
+  --warn-soft: #FBEFDD;
+  --error:     #9B2C20;
+  --error-soft: #FBE4E1;
+
+  /* Semánticos — mapeo sobre los neutros de arriba, no valores nuevos.
+     --ink-soft reemplaza a text-gray-400 (2.54:1 de contraste real sobre
+     blanco, medido en el audit de Fase 5 — el uso más repetido de todo el
+     admin, 192 apariciones, y no llega a legible). --n-500 da 6.1:1. */
+  --bg:       var(--n-50);
+  --panel:    #FFFFFF;
+  --line:     var(--n-200);
+  --ink:      var(--n-900);
+  --ink-soft: var(--n-500);
+
+  /* Radius y sombra — hoy el admin no usa ningún shadow-* (ver audit),
+     solo border de 1px. Esto le suma profundidad real a las cards. */
+  --radius-card: 16px;
+  --radius-el:   10px;
+  --shadow-card: 0 1px 2px rgba(19, 18, 17, .04), 0 6px 20px rgba(19, 18, 17, .05);
+  --shadow-hover: 0 4px 10px rgba(19, 18, 17, .06), 0 14px 28px rgba(19, 18, 17, .08);
+
+  /* Tipografía — el admin hoy no declara font-family (cae en el default
+     del navegador, no comparte marca ni con el sitio público). Inter vía
+     Google Fonts, mismo mecanismo que useThemeGlobal.ts ya usa para el
+     sitio público (ver hooks/useThemeGlobal.ts:15) — pero estático en
+     index.html en vez de inyectado por JS, porque acá la fuente no es
+     configurable por tenant, es fija. Fase 5b agrega el <link>.
+     Escala: se mantiene text-xs/sm/base/lg/xl/2xl de Tailwind tal cual —
+     el problema no es que falten tamaños, es que el 94% del texto hoy
+     usa solo xs/sm (ver audit). Auditar el USO real en Fase 5c antes de
+     tocar tamaños en componentes. */
+  --font-admin: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
 /* Carrusel horizontal mobile (categorias_grid, galeria_combos): oculta la
    scrollbar nativa para que quede solo el swipe táctil, sin barra visible. */
 .no-scrollbar {

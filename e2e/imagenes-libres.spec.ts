@@ -161,7 +161,7 @@ test.describe('Imágenes libres — admin', () => {
     await page.getByRole('button', { name: 'Imágenes' }).click();
 
     await expect(page.locator('[data-testid="imagen-libre-drag"]')).toHaveCount(1);
-    await page.locator('.bg-gray-50.rounded-lg.p-2.border').getByRole('button').click();
+    await page.locator('[data-testid="imagen-libre-row"]').getByRole('button').click();
     await expect(page.locator('[data-testid="imagen-libre-drag"]')).toHaveCount(0);
   });
 });

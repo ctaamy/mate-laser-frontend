@@ -173,9 +173,9 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
 };
 
 // ── helpers de UI ─────────────────────────────────────────────────────────────
-const inputCls = 'border border-gray-200 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-[#1D9E75]';
+const inputCls = 'border border-[var(--line)] rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-[var(--accent)]';
 const selectCls = inputCls;
-const labelCls = 'text-xs text-gray-500 mb-1 block';
+const labelCls = 'text-xs text-[var(--ink-soft)] mb-1 block';
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
@@ -183,7 +183,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
       <label className={labelCls}>{label}</label>
       <div className="flex items-center gap-2">
         <input type="color" value={value || '#ffffff'} onChange={e => onChange(e.target.value)}
-          className="w-8 h-8 rounded border border-gray-200 cursor-pointer p-0.5" />
+          className="w-8 h-8 rounded border border-[var(--line)] cursor-pointer p-0.5" />
         <input className={inputCls} value={value || ''} onChange={e => onChange(e.target.value)} placeholder="#000000" />
       </div>
     </div>
@@ -320,7 +320,7 @@ function TabBtn({ active, onClick, icon: Icon, label }: {
 }) {
   return (
     <button onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[var(--accent)] text-white' : 'text-[var(--ink-soft)] hover:bg-[var(--n-100)]'}`}>
       <Icon size={12} />{label}
     </button>
   );
@@ -382,7 +382,7 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
       <div>
         <label className={labelCls}>Categorías en la grilla ({items.length})</label>
         {items.length === 0 && (
-          <p className="text-xs text-gray-400 py-2">
+          <p className="text-xs text-[var(--ink-soft)] py-2">
             Ninguna seleccionada — se mostrarán todas las categorías raíz.
           </p>
         )}
@@ -390,14 +390,14 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
           {items.map((item, idx) => {
             const cat = todasCategorias.find(c => c.id === item.id);
             return (
-              <div key={item.id} className="bg-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+              <div key={item.id} className="bg-[var(--n-50)] border border-[var(--line)] rounded-xl overflow-hidden">
                 {/* Fila principal */}
                 <div className="flex items-center gap-2 px-3 py-2">
                   {/* Preview: imagen o emoji */}
                   {item.imagen_url
-                    ? <img src={item.imagen_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-200" />
+                    ? <img src={item.imagen_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-[var(--line)]" />
                     : <input
-                        className="w-10 h-10 text-center text-xl bg-white border border-gray-200 rounded-lg cursor-pointer focus:outline-none focus:border-gray-400 flex-shrink-0"
+                        className="w-10 h-10 text-center text-xl bg-white border border-[var(--line)] rounded-lg cursor-pointer focus:outline-none focus:border-[var(--n-400)] flex-shrink-0"
                         value={item.icono}
                         onChange={e => updateIcono(item.id, e.target.value)}
                         maxLength={4}
@@ -405,26 +405,26 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
                       />
                   }
                   {/* Nombre categoría */}
-                  <span className="flex-1 text-sm font-medium text-gray-800 truncate">
+                  <span className="flex-1 text-sm font-medium text-[var(--ink)] truncate">
                     {cat?.nombre ?? `ID ${item.id}`}
                     {cat?.padre_id && (
-                      <span className="ml-1 text-[10px] text-gray-400 font-normal">subcategoría</span>
+                      <span className="ml-1 text-[10px] text-[var(--ink-soft)] font-normal">subcategoría</span>
                     )}
                   </span>
                 {/* Reordenar */}
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => mover(idx, -1)} disabled={idx === 0}
-                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                    className="w-6 h-6 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
                     <ChevronUp size={13} />
                   </button>
                   <button onClick={() => mover(idx, 1)} disabled={idx === items.length - 1}
-                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                    className="w-6 h-6 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
                     <ChevronDown size={13} />
                   </button>
                 </div>
                   {/* Quitar */}
                   <button onClick={() => cat && toggleCat(cat)}
-                    className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
+                    className="w-6 h-6 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors">
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -456,10 +456,10 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
           <div className="flex flex-wrap gap-1.5 mt-1">
             {disponibles.map(cat => (
               <button key={cat.id} onClick={() => toggleCat(cat)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-white border border-[var(--line)] rounded-lg hover:border-[var(--n-400)] hover:bg-[var(--n-50)] transition-colors">
                 <Plus size={10} />
                 {cat.nombre}
-                {cat.padre_id && <span className="text-gray-400 text-[10px]">(sub)</span>}
+                {cat.padre_id && <span className="text-[var(--ink-soft)] text-[10px]">(sub)</span>}
               </button>
             ))}
           </div>
@@ -478,18 +478,18 @@ function IconPickerButton({ value, onChange }: { value?: string; onChange: (nomb
   return (
     <div className="relative">
       <button onClick={() => setAbierto(o => !o)}
-        className="w-9 h-9 flex-shrink-0 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:border-[#1D9E75] transition-colors"
+        className="w-9 h-9 flex-shrink-0 flex items-center justify-center bg-white border border-[var(--line)] rounded-lg hover:border-[var(--accent)] transition-colors"
         title="Elegir ícono">
-        {IconoActual ? <IconoActual size={16} className="text-gray-600" /> : <span className="text-gray-300 text-xs">?</span>}
+        {IconoActual ? <IconoActual size={16} className="text-[var(--ink-soft)]" /> : <span className="text-[var(--n-300)] text-xs">?</span>}
       </button>
       {abierto && (
-        <div className="absolute z-10 top-full left-0 mt-1 grid grid-cols-10 gap-1 bg-white border border-gray-100 rounded-lg p-2 shadow-lg w-[280px]">
+        <div className="absolute z-10 top-full left-0 mt-1 grid grid-cols-10 gap-1 bg-white border border-[var(--line)] rounded-lg p-2 shadow-lg w-[280px]">
           {STAT_ICON_NAMES.map(nombre => {
             const IconoOpcion = STAT_ICONS[nombre];
             return (
               <button key={nombre} title={nombre}
                 onClick={() => { onChange(nombre); setAbierto(false); }}
-                className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${value === nombre ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${value === nombre ? 'bg-[var(--accent)] text-white' : 'text-[var(--ink-soft)] hover:bg-[var(--n-100)]'}`}>
                 <IconoOpcion size={14} />
               </button>
             );
@@ -525,13 +525,13 @@ function StatsBarraEditor({ datos, set }: { datos: Record<string, any>; set: (k:
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400">Estadísticas ({stats.length}) — valor, etiqueta e ícono por cada una.</p>
-        <button onClick={agregar} className="flex items-center gap-1 text-xs font-medium text-[#1D9E75] hover:underline">
+        <p className="text-xs text-[var(--ink-soft)]">Estadísticas ({stats.length}) — valor, etiqueta e ícono por cada una.</p>
+        <button onClick={agregar} className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
           <Plus size={12} /> Agregar estadística
         </button>
       </div>
       {stats.map((s, i) => (
-        <div key={i} className="border border-gray-100 rounded-xl p-3 flex flex-col gap-2 bg-gray-50">
+        <div key={i} className="border border-[var(--line)] rounded-xl p-3 flex flex-col gap-2 bg-[var(--n-50)]">
           <div className="flex items-center gap-2">
             <IconPickerButton value={s.icono} onChange={nombre => { const ns = [...stats]; ns[i] = { ...ns[i], icono: nombre }; update(ns); }} />
             <input className={inputCls} value={s.valor} placeholder="1200+"
@@ -540,15 +540,15 @@ function StatsBarraEditor({ datos, set }: { datos: Record<string, any>; set: (k:
               onChange={e => { const ns = [...stats]; ns[i] = { ...ns[i], label: e.target.value }; update(ns); }} />
             <div className="flex items-center gap-0.5 flex-shrink-0">
               <button onClick={() => mover(i, -1)} disabled={i === 0}
-                className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
                 <ChevronUp size={13} />
               </button>
               <button onClick={() => mover(i, 1)} disabled={i === stats.length - 1}
-                className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
                 <ChevronDown size={13} />
               </button>
               <button onClick={() => eliminar(i)}
-                className="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
+                className="w-7 h-7 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors">
                 <Trash2 size={13} />
               </button>
             </div>
@@ -556,7 +556,7 @@ function StatsBarraEditor({ datos, set }: { datos: Record<string, any>; set: (k:
         </div>
       ))}
       {stats.length === 0 && (
-        <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
+        <p className="text-xs text-[var(--ink-soft)] bg-[var(--n-50)] border border-[var(--line)] rounded-lg px-4 py-3">
           Sin estadísticas — el bloque no se muestra en el sitio hasta agregar al menos una.
         </p>
       )}
@@ -612,28 +612,28 @@ function FiltrosRapidosEditor({ datos, set }: { datos: Record<string, any>; set:
       <div>
         <label className={labelCls}>Filtros en la barra ({items.length})</label>
         {items.length === 0 && (
-          <p className="text-xs text-gray-400 py-2">Sin filtros — el bloque no se muestra en el sitio hasta agregar al menos uno.</p>
+          <p className="text-xs text-[var(--ink-soft)] py-2">Sin filtros — el bloque no se muestra en el sitio hasta agregar al menos uno.</p>
         )}
         <div className="flex flex-col gap-2 mt-1">
           {items.map((item, idx) => (
-            <div key={item.id} className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col gap-2">
+            <div key={item.id} className="bg-[var(--n-50)] border border-[var(--line)] rounded-xl p-3 flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 flex-shrink-0">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-soft)] flex-shrink-0">
                   {TIPOS_FILTRO.find(t => t.value === item.tipo)?.label}
                 </span>
                 <div className="flex-1" />
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => mover(idx, -1)} disabled={idx === 0}
-                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                    className="w-6 h-6 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
                     <ChevronUp size={13} />
                   </button>
                   <button onClick={() => mover(idx, 1)} disabled={idx === items.length - 1}
-                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded transition-colors">
+                    className="w-6 h-6 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
                     <ChevronDown size={13} />
                   </button>
                 </div>
                 <button onClick={() => eliminar(item.id)}
-                  className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors">
+                  className="w-6 h-6 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors">
                   <Trash2 size={12} />
                 </button>
               </div>
@@ -664,7 +664,7 @@ function FiltrosRapidosEditor({ datos, set }: { datos: Record<string, any>; set:
         <div className="flex flex-wrap gap-1.5 mt-1">
           {TIPOS_FILTRO.map(t => (
             <button key={t.value} onClick={() => agregar(t.value)} disabled={t.value === 'categoria' && categorias.length === 0}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 disabled:opacity-30 transition-colors">
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-white border border-[var(--line)] rounded-lg hover:border-[var(--n-400)] hover:bg-[var(--n-50)] disabled:opacity-30 transition-colors">
               <Plus size={10} /> {t.label}
             </button>
           ))}
@@ -702,28 +702,28 @@ function BotonesEditor({ botones, onChange, placeholderTexto = 'Ver colección',
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <label className={labelCls}>Botones ({botones.length})</label>
-        <button onClick={agregar} className="flex items-center gap-1 text-xs font-medium text-[#1D9E75] hover:underline">
+        <button onClick={agregar} className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
           <Plus size={12} /> Agregar botón
         </button>
       </div>
       {botones.length === 0 && (
-        <p className="text-xs text-gray-400">Sin botones — se muestra un botón "{placeholderTexto}" por defecto.</p>
+        <p className="text-xs text-[var(--ink-soft)]">Sin botones — se muestra un botón "{placeholderTexto}" por defecto.</p>
       )}
       {botones.map((boton, i) => (
-        <div key={i} className="border border-gray-100 rounded-lg p-2 flex flex-col gap-2">
+        <div key={i} className="border border-[var(--line)] rounded-lg p-2 flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <input className={inputCls} value={boton.texto} placeholder={i === 0 ? placeholderTexto : 'Texto del botón'}
               onChange={e => update(i, 'texto', e.target.value)} />
             <input className={inputCls} value={boton.link} placeholder={i === 0 ? placeholderLink : '/ruta'}
               onChange={e => update(i, 'link', e.target.value)} />
             <button onClick={() => eliminar(i)}
-              className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg transition-colors">
+              className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-red-500 border border-[var(--line)] rounded-lg transition-colors">
               <Trash2 size={13} />
             </button>
           </div>
           <div className="flex items-center gap-1.5 -mb-1">
-            <span className="text-[13px] text-gray-400">↳</span>
-            <p className="text-[11px] text-gray-500">Opcional — sobreescribe el color base/default del bloque solo para <strong>este botón</strong>.</p>
+            <span className="text-[13px] text-[var(--ink-soft)]">↳</span>
+            <p className="text-[11px] text-[var(--ink-soft)]">Opcional — sobreescribe el color base/default del bloque solo para <strong>este botón</strong>.</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <ColorField label="Fondo de este botón (opcional)" value={boton.bg_color || ''}
@@ -763,33 +763,33 @@ function HeroSlideEditor({ slide, onChange, onRemove, canRemove, index }: {
   const set = (k: keyof HeroSlide, v: string) => onChange({ ...slide, [k]: v });
 
   return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden bg-white">
+    <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-white">
       {/* Header del slide */}
       <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" onClick={() => setOpen(o => !o)}>
-        <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-gray-100 text-xs font-bold text-gray-500 flex-shrink-0">
+        <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-[var(--n-100)] text-xs font-bold text-[var(--ink-soft)] flex-shrink-0">
           {index + 1}
         </div>
         {slide.imagen_url
           ? <img src={slide.imagen_url} className="w-10 h-7 object-cover rounded flex-shrink-0" />
-          : <div className="w-10 h-7 rounded bg-gray-100 flex items-center justify-center flex-shrink-0"><Image size={12} className="text-gray-300" /></div>
+          : <div className="w-10 h-7 rounded bg-[var(--n-100)] flex items-center justify-center flex-shrink-0"><Image size={12} className="text-[var(--n-300)]" /></div>
         }
-        <span className="flex-1 text-sm font-medium truncate text-gray-800">
+        <span className="flex-1 text-sm font-medium truncate text-[var(--ink)]">
           {slide.titulo?.split('\n')[0] || `Slide ${index + 1}`}
         </span>
         {canRemove && (
           <button onClick={e => { e.stopPropagation(); onRemove(); }}
-            className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-500 rounded transition-colors flex-shrink-0">
+            className="w-6 h-6 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors flex-shrink-0">
             <Trash2 size={12} />
           </button>
         )}
-        <button className="text-gray-400 flex-shrink-0">
+        <button className="text-[var(--ink-soft)] flex-shrink-0">
           {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
       </div>
 
       {/* Campos */}
       {open && (
-        <div className="border-t border-gray-50 px-4 pb-4 pt-3 flex flex-col gap-3">
+        <div className="border-t border-[var(--line)] px-4 pb-4 pt-3 flex flex-col gap-3">
           <div>
             <label className={labelCls}>Título (Enter = nueva línea)</label>
             <textarea className={inputCls + ' resize-none h-16 text-xs'} value={slide.titulo || ''}
@@ -804,9 +804,9 @@ function HeroSlideEditor({ slide, onChange, onRemove, canRemove, index }: {
             <input className={inputCls} value={slide.eyebrow || ''} onChange={e => set('eyebrow', e.target.value)} placeholder="Ej: Grabado láser de precisión" />
           </div>
           <SeccionImageUploader label="Imagen" value={slide.imagen_url || ''} onChange={v => set('imagen_url', v)} />
-          <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
-            <span className="text-[13px] text-gray-400">↳</span>
-            <p className="text-[11px] text-gray-500">
+          <div className="bg-[var(--n-50)] border border-[var(--line)] rounded-lg px-3 py-2 flex items-center gap-1.5">
+            <span className="text-[13px] text-[var(--ink-soft)]">↳</span>
+            <p className="text-[11px] text-[var(--ink-soft)]">
               Opcional — sobreescribe el color base del bloque (tab Estilo) solo para <strong>este slide</strong>.
             </p>
           </div>
@@ -815,14 +815,14 @@ function HeroSlideEditor({ slide, onChange, onRemove, canRemove, index }: {
               <div className="flex items-center justify-between">
                 <label className={labelCls}>Fondo de este slide (opcional)</label>
                 {slide.bg_color && (
-                  <button onClick={() => set('bg_color', '')} className="text-[10px] text-[#1D9E75] hover:underline mb-1">
+                  <button onClick={() => set('bg_color', '')} className="text-[10px] text-[var(--accent)] hover:underline mb-1">
                     Heredar del bloque
                   </button>
                 )}
               </div>
               <div className="flex gap-2">
                 <input type="color" value={slide.bg_color || '#111111'} onChange={e => set('bg_color', e.target.value)}
-                  className="w-8 h-[34px] rounded border border-gray-200 cursor-pointer p-0.5" />
+                  className="w-8 h-[34px] rounded border border-[var(--line)] cursor-pointer p-0.5" />
                 <input className={inputCls} value={slide.bg_color || ''} onChange={e => set('bg_color', e.target.value)} placeholder="Hereda del bloque" />
               </div>
             </div>
@@ -830,14 +830,14 @@ function HeroSlideEditor({ slide, onChange, onRemove, canRemove, index }: {
               <div className="flex items-center justify-between">
                 <label className={labelCls}>Texto de este slide (opcional)</label>
                 {slide.texto_color && (
-                  <button onClick={() => set('texto_color', '')} className="text-[10px] text-[#1D9E75] hover:underline mb-1">
+                  <button onClick={() => set('texto_color', '')} className="text-[10px] text-[var(--accent)] hover:underline mb-1">
                     Heredar del bloque
                   </button>
                 )}
               </div>
               <div className="flex gap-2">
                 <input type="color" value={slide.texto_color || '#ffffff'} onChange={e => set('texto_color', e.target.value)}
-                  className="w-8 h-[34px] rounded border border-gray-200 cursor-pointer p-0.5" />
+                  className="w-8 h-[34px] rounded border border-[var(--line)] cursor-pointer p-0.5" />
                 <input className={inputCls} value={slide.texto_color || ''} onChange={e => set('texto_color', e.target.value)} placeholder="Hereda del bloque" />
               </div>
             </div>
@@ -874,9 +874,9 @@ function HeroSlidesEditor({ datos, set }: { datos: Record<string, any>; set: (k:
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400">{slides.length} slide{slides.length !== 1 ? 's' : ''}. El hero los mostrará en bucle automáticamente.</p>
+        <p className="text-xs text-[var(--ink-soft)]">{slides.length} slide{slides.length !== 1 ? 's' : ''}. El hero los mostrará en bucle automáticamente.</p>
         <button onClick={addSlide}
-          className="flex items-center gap-1 text-xs font-medium text-[#1D9E75] hover:underline">
+          className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
           <Plus size={12} /> Agregar slide
         </button>
       </div>
@@ -893,7 +893,7 @@ function HeroSlidesEditor({ datos, set }: { datos: Record<string, any>; set: (k:
       ))}
 
       {/* Configuración del slider */}
-      <div className="border border-gray-100 rounded-xl px-4 py-3 bg-gray-50 flex items-center gap-4">
+      <div className="border border-[var(--line)] rounded-xl px-4 py-3 bg-[var(--n-50)] flex items-center gap-4">
         <div className="flex-1">
           <label className={labelCls}>Intervalo entre slides (segundos)</label>
           <input className={inputCls} type="number" min={2} max={30} value={datos.intervalo ?? 5}
@@ -927,7 +927,7 @@ function EditorContenido({ tipo, datos, set }: {
         <input className={inputCls} type="number" min={1} max={12} value={datos.cantidad || 6}
           onChange={e => set('cantidad', parseInt(e.target.value))} />
       </div>
-      <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
+      <p className="text-xs text-[var(--ink-soft)] bg-[var(--n-50)] border border-[var(--line)] rounded-lg px-4 py-3">
         Los combos se traen automáticamente: primero los reales (armados por clientes a través de "Diseñá tu mate"), completando con los combos de ejemplo que cargues en <strong>Configurador → Combos de ejemplo</strong> solo si faltan para llegar a la cantidad configurada.
       </p>
     </div>
@@ -939,14 +939,14 @@ function EditorContenido({ tipo, datos, set }: {
         <label className={labelCls}>Texto del banner</label>
         <input className={inputCls} value={datos.texto || ''} onChange={e => set('texto', e.target.value)} placeholder="Ej: Envío gratis a partir de $15.000" />
       </div>
-      <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+      <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
         <div>
           <div className="text-sm font-medium">Modo ticker (marquee)</div>
-          <div className="text-xs text-gray-400">Texto en movimiento continuo</div>
+          <div className="text-xs text-[var(--ink-soft)]">Texto en movimiento continuo</div>
         </div>
         <button
           onClick={() => set('marquee', !datos.marquee)}
-          className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${datos.marquee ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}>
+          className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${datos.marquee ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
           <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${datos.marquee ? 'left-4' : 'left-0.5'}`} />
         </button>
       </div>
@@ -1020,8 +1020,8 @@ function EditorContenido({ tipo, datos, set }: {
           <input className={inputCls} value={datos.subtitulo || ''} onChange={e => set('subtitulo', e.target.value)} />
         </div>
         {pasos.map((p, i) => (
-          <div key={i} className="border border-gray-100 rounded-lg p-3 flex flex-col gap-2">
-            <div className="text-xs font-semibold text-gray-400">Paso {i + 1}</div>
+          <div key={i} className="border border-[var(--line)] rounded-lg p-3 flex flex-col gap-2">
+            <div className="text-xs font-semibold text-[var(--ink-soft)]">Paso {i + 1}</div>
             <div className="flex items-center gap-2">
               <IconPickerButton value={p.icono} onChange={nombre => actualizarPaso(i, { icono: nombre })} />
               <input className={inputCls} value={p.titulo} placeholder="Título del paso"
@@ -1096,9 +1096,9 @@ function EditorEstilo({ tipo, datos, set }: {
     <div className="flex flex-col gap-4">
       {/* Colores comunes */}
       <div>
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Colores</div>
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Colores</div>
         {(tipo === 'hero' || tieneBotonesConColorPropio) && (
-          <p className="text-xs text-gray-400 -mt-1 mb-2">
+          <p className="text-xs text-[var(--ink-soft)] -mt-1 mb-2">
             Esto es la base del bloque{tipo === 'hero' ? ' — un slide o un botón con su propio color (tab Contenido) lo pisa.' : ' — un botón con su propio color (tab Contenido) lo pisa.'}
           </p>
         )}
@@ -1140,14 +1140,14 @@ function EditorEstilo({ tipo, datos, set }: {
             <ColorField label="Color de acento (link 'Armá el tuyo')" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />
           )}
         </div>
-        <p className="text-[10px] text-gray-400 mt-2">
+        <p className="text-[10px] text-[var(--ink-soft)] mt-2">
           Por defecto, título y subtítulo usan el color de texto primario del tema (alto contraste). Para un look más sutil, elegí acá el color secundario del tema en vez de dejarlo en blanco.
         </p>
       </div>
 
       {heroTieneImagen && (
         <div>
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Imagen y overlay</div>
+          <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Imagen y overlay</div>
           <div className="grid grid-cols-2 gap-3">
             <SelectField label="Posición de la imagen" value={datos.image_position || 'bleed'} onChange={v => set('image_position', v)} options={IMAGE_POSITIONS} />
             <SelectField label="Dirección del overlay" value={datos.overlay_direction || 'left'} onChange={v => set('overlay_direction', v)} options={OVERLAY_DIRECTIONS} />
@@ -1162,7 +1162,7 @@ function EditorEstilo({ tipo, datos, set }: {
               <label className={labelCls}>Intensidad del overlay: {datos.overlay_intensity ?? 60}%</label>
               <input type="range" min={0} max={100} value={datos.overlay_intensity ?? 60}
                 onChange={e => set('overlay_intensity', parseInt(e.target.value))}
-                className="w-full accent-[#1D9E75]" />
+                className="w-full accent-[var(--accent)]" />
             </div>
           )}
         </div>
@@ -1171,7 +1171,7 @@ function EditorEstilo({ tipo, datos, set }: {
       {/* Tipografía */}
       {tipo !== 'banner_imagen' && (
         <div>
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tipografía</div>
+          <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Tipografía</div>
           <div className="grid grid-cols-2 gap-3">
             {/* Fuente — aplica a toda la sección */}
             <div className="col-span-2">
@@ -1187,7 +1187,7 @@ function EditorEstilo({ tipo, datos, set }: {
                 ))}
               </select>
               {datos.font_family && GOOGLE_FONTS.includes(datos.font_family.split(',')[0].trim()) && (
-                <p className="text-[10px] text-gray-400 mt-1">Google Font — se carga desde internet</p>
+                <p className="text-[10px] text-[var(--ink-soft)] mt-1">Google Font — se carga desde internet</p>
               )}
             </div>
             {['hero', 'productos_destacados', 'categorias_grid', 'galeria_combos'].includes(tipo) && (
@@ -1247,7 +1247,7 @@ function EditorEstilo({ tipo, datos, set }: {
 
       {/* Layout */}
       <div>
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Layout</div>
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Layout</div>
         <div className="grid grid-cols-2 gap-3">
           <SelectField label="Espaciado vertical" value={datos.padding || 'md'} onChange={v => set('padding', v)} options={PADDINGS} />
           <SelectField label="Transición al bloque siguiente" value={datos.transicion_inferior || 'ninguna'} onChange={v => set('transicion_inferior', v)} options={TRANSICIONES} />
@@ -1272,8 +1272,8 @@ function EditorEstilo({ tipo, datos, set }: {
               <label className={labelCls}>Escala general: {Math.round((datos.escala ?? 1) * 100)}%</label>
               <input type="range" min={0.4} max={2} step={0.05} value={datos.escala ?? 1}
                 onChange={e => set('escala', parseFloat(e.target.value))}
-                className="w-full accent-[#1D9E75]" />
-              <p className="text-[10px] text-gray-400 mt-1">Achica o agranda números, ícono, etiqueta y espaciado juntos, en proporción — sin tope mínimo fijo.</p>
+                className="w-full accent-[var(--accent)]" />
+              <p className="text-[10px] text-[var(--ink-soft)] mt-1">Achica o agranda números, ícono, etiqueta y espaciado juntos, en proporción — sin tope mínimo fijo.</p>
             </div>
           )}
           {tipo === 'banner_imagen' && (
@@ -1335,12 +1335,12 @@ function ImagenesEditor({ datos, set }: { datos: Record<string, any>; set: (k: s
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-gray-400">Arrastrá las imágenes dentro del recuadro para reposicionarlas en el bloque.</p>
+      <p className="text-xs text-[var(--ink-soft)]">Arrastrá las imágenes dentro del recuadro para reposicionarlas en el bloque.</p>
 
       <div ref={containerRef}
-        className="relative w-full h-56 bg-gray-100 rounded-xl border border-dashed border-gray-300 overflow-hidden">
+        className="relative w-full h-56 bg-[var(--n-100)] rounded-xl border border-dashed border-[var(--line)] overflow-hidden">
         {imagenes.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400">Sin imágenes todavía</div>
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-[var(--ink-soft)]">Sin imágenes todavía</div>
         )}
         {imagenes.map(img => (
           <img key={img.id} src={img.url} draggable={false}
@@ -1353,16 +1353,16 @@ function ImagenesEditor({ datos, set }: { datos: Record<string, any>; set: (k: s
       </div>
 
       {imagenes.map(img => (
-        <div key={img.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2 border border-gray-100">
+        <div key={img.id} data-testid="imagen-libre-row" className="flex items-center gap-3 bg-[var(--n-50)] rounded-lg p-2 border border-[var(--line)]">
           <img src={img.url} className="w-10 h-10 object-cover rounded flex-shrink-0" />
           <div className="flex-1">
             <label className={labelCls}>Tamaño: {img.escala}%</label>
             <input type="range" min={5} max={100} value={img.escala}
               onChange={e => updateImg(img.id, { escala: parseInt(e.target.value) })}
-              className="w-full accent-[#1D9E75]" />
+              className="w-full accent-[var(--accent)]" />
           </div>
           <button onClick={() => eliminar(img.id)}
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg transition-colors">
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-red-500 border border-[var(--line)] rounded-lg transition-colors">
             <Trash2 size={13} />
           </button>
         </div>
@@ -1384,38 +1384,38 @@ function SeccionCard({ sec, idx, total, onChange, onRemove, onMoveUp, onMoveDown
   const set = (k: string, v: any) => onChange({ ...sec, datos: { ...sec.datos, [k]: v } });
 
   return (
-    <div className={`bg-white border rounded-xl overflow-hidden transition-opacity ${!sec.activo ? 'opacity-50' : 'border-gray-100'}`}>
+    <div className={`bg-white border rounded-xl overflow-hidden transition-opacity ${!sec.activo ? 'opacity-50' : 'border-[var(--line)]'}`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <GripVertical size={16} className="text-gray-300 flex-shrink-0" />
+        <GripVertical size={16} className="text-[var(--n-300)] flex-shrink-0" />
         {/* color swatch del fondo */}
         {sec.datos.bg_color && (
-          <div className="w-4 h-4 rounded border border-gray-200 flex-shrink-0"
+          <div className="w-4 h-4 rounded border border-[var(--line)] flex-shrink-0"
             style={{ backgroundColor: sec.datos.bg_color }} />
         )}
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium">{TIPO_LABELS[sec.tipo as TipoSeccion]}</div>
-          {preview && <div className="text-xs text-gray-400 truncate">{preview}</div>}
+          {preview && <div className="text-xs text-[var(--ink-soft)] truncate">{preview}</div>}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button onClick={onMoveUp} disabled={idx === 0}
-            className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors">
+            className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-30 transition-colors">
             <ChevronUp size={13} />
           </button>
           <button onClick={onMoveDown} disabled={idx === total - 1}
-            className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors">
+            className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-30 transition-colors">
             <ChevronDown size={13} />
           </button>
           <button onClick={() => onChange({ ...sec, activo: !sec.activo })} title={sec.activo ? 'Ocultar' : 'Mostrar'}
-            className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#1D9E75] transition-colors">
+            className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--accent)] transition-colors">
             {sec.activo ? <Eye size={13} /> : <EyeOff size={13} />}
           </button>
           <button onClick={() => setExpandida(e => !e)}
-            className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
+            className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors">
             {expandida ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
           <button onClick={onRemove}
-            className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-200 transition-colors">
+            className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-red-500 hover:border-red-200 transition-colors">
             <Trash2 size={13} />
           </button>
         </div>
@@ -1426,7 +1426,7 @@ function SeccionCard({ sec, idx, total, onChange, onRemove, onMoveUp, onMoveDown
         {expandida && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }} className="overflow-hidden border-t border-gray-50"
+            transition={{ duration: 0.2 }} className="overflow-hidden border-t border-[var(--line)]"
           >
             {/* Tabs Contenido / Estilo / Imágenes */}
             <div className="flex gap-1 px-4 pt-3 pb-2">
@@ -1463,16 +1463,16 @@ function NavbarCard({ datos, set, nombreTienda, tema }: {
     // existentes ubican la primera sección reordenable con el selector
     // '.bg-white.border.rounded-xl.overflow-hidden', y esta card no debe
     // matchear esa consulta (no es una sección reordenable).
-    <div className="bg-white border border-gray-100 rounded-xl">
+    <div className="bg-white border border-[var(--line)] rounded-xl">
       <div className="flex items-center gap-3 px-4 py-3">
-        <Layout size={16} className="text-gray-300 flex-shrink-0" />
+        <Layout size={16} className="text-[var(--n-300)] flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium">Navbar</div>
-          <div className="text-xs text-gray-400 truncate">Fijo arriba de todas las páginas — no se reordena</div>
+          <div className="text-xs text-[var(--ink-soft)] truncate">Fijo arriba de todas las páginas — no se reordena</div>
         </div>
         <button onClick={() => setExpandida(e => !e)}
           aria-label={expandida ? 'Colapsar navbar' : 'Editar navbar'}
-          className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0">
+          className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex-shrink-0">
           {expandida ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </button>
       </div>
@@ -1480,7 +1480,7 @@ function NavbarCard({ datos, set, nombreTienda, tema }: {
         {expandida && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }} className="overflow-hidden border-t border-gray-50 px-4 pb-4 pt-3"
+            transition={{ duration: 0.2 }} className="overflow-hidden border-t border-[var(--line)] px-4 pb-4 pt-3"
           >
             <NavbarEditor datos={datos} set={set} nombreTienda={nombreTienda} tema={tema} />
           </motion.div>
@@ -1511,13 +1511,13 @@ function FeedbackToast({ show, children, className }: { show: boolean; children:
 
 function Toggle({ value, onChange, label, desc }: { value: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
   return (
-    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+    <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
       <div>
         <div className="text-sm font-medium">{label}</div>
-        {desc && <div className="text-xs text-gray-400">{desc}</div>}
+        {desc && <div className="text-xs text-[var(--ink-soft)]">{desc}</div>}
       </div>
       <button onClick={() => onChange(!value)}
-        className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${value ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}>
+        className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${value ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
         <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${value ? 'left-4' : 'left-0.5'}`} />
       </button>
     </div>
@@ -1578,9 +1578,9 @@ function TemaEditor({ form, setForm, onAplicarATodo, onAplicar, aplicando, aplic
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Colores por defecto</div>
-        <p className="text-xs text-gray-400 -mt-2">
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Colores por defecto</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-2">
           Se aplican a todo el sitio salvo que un bloque tenga su propio color configurado.
         </p>
         <div className="grid grid-cols-2 gap-4">
@@ -1590,15 +1590,15 @@ function TemaEditor({ form, setForm, onAplicarATodo, onAplicar, aplicando, aplic
           <ColorField label="Color de acento" value={form.tema_accent_color ?? '#1D9E75'} onChange={v => set('tema_accent_color', v)} />
           <ColorField label='Color de badge (ej. "Apto grabado")' value={form.tema_badge_color ?? '#111111'} onChange={v => set('tema_badge_color', v)} />
         </div>
-        <p className="text-[10px] text-gray-400 -mt-2">
+        <p className="text-[10px] text-[var(--ink-soft)] -mt-2">
           El acento se usa en links y detalles que necesitan destacar (ej. "Ver productos" de Categorías) — no reemplaza el color de letra.
           El color secundario es para texto de menor jerarquía (elegido explícitamente por elemento, no aplicado por opacidad).
           El color de badge es para etiquetas informativas sobre imágenes — deliberadamente distinto del acento, para no confundirse con un llamado a la acción.
         </p>
       </div>
 
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipografía por defecto</div>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Tipografía por defecto</div>
         <div>
           <label className={labelCls}>Fuente de letra</label>
           <select className={selectCls}
@@ -1612,14 +1612,14 @@ function TemaEditor({ form, setForm, onAplicarATodo, onAplicar, aplicando, aplic
             ))}
           </select>
           {form.tema_font_family && GOOGLE_FONTS.includes(form.tema_font_family.split(',')[0].trim()) && (
-            <p className="text-[10px] text-gray-400 mt-1">Google Font — se carga desde internet</p>
+            <p className="text-[10px] text-[var(--ink-soft)] mt-1">Google Font — se carga desde internet</p>
           )}
         </div>
       </div>
 
       {/* Preview */}
-      <div className="rounded-xl overflow-hidden border border-gray-100">
-        <div className="text-[10px] text-gray-400 uppercase tracking-wider px-3 py-1.5 bg-gray-50 border-b border-gray-100 font-semibold">Preview</div>
+      <div className="rounded-xl overflow-hidden border border-[var(--line)]">
+        <div className="text-[10px] text-[var(--ink-soft)] uppercase tracking-wider px-3 py-1.5 bg-[var(--n-50)] border-b border-[var(--line)] font-semibold">Preview</div>
         <div className="px-6 py-8"
           style={{
             backgroundColor: form.tema_bg_color || '#ffffff',
@@ -1631,15 +1631,15 @@ function TemaEditor({ form, setForm, onAplicarATodo, onAplicar, aplicando, aplic
       </div>
 
       {/* Aplicar a los bloques */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-3">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Aplicar a los bloques</div>
-        <p className="text-xs text-gray-400 -mt-1">
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-3">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Aplicar a los bloques</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-1">
           Hace que los bloques, títulos/subtítulos y botones vuelvan a heredar el color y la tipografía de acá arriba,
           en vez de tener los suyos propios. Guarda automáticamente al ejecutarse.
         </p>
         <div className="flex items-center gap-3">
           <button onClick={onAplicar} disabled={aplicando}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 transition-colors">
+            className="bg-[var(--n-100)] hover:bg-[var(--n-200)] text-[var(--ink)] rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 transition-colors">
             Aplicar
           </button>
           <button onClick={onAplicarATodo} disabled={aplicando}
@@ -1647,11 +1647,11 @@ function TemaEditor({ form, setForm, onAplicarATodo, onAplicar, aplicando, aplic
             Aplicar a todo
           </button>
         </div>
-        <p className="text-[10px] text-gray-400">
+        <p className="text-[10px] text-[var(--ink-soft)]">
           <strong>Aplicar</strong>: solo normaliza los bloques/títulos/botones que ya no tenían color propio configurado — no toca lo que personalizaste a mano.<br />
           <strong>Aplicar a todo</strong>: borra el color y la tipografía propios de <em>todos</em> los bloques, títulos y botones, sin excepción. Pide confirmación.
         </p>
-        <FeedbackToast show={aplicadoOk} className="text-xs text-[#1D9E75]">¡Guardado correctamente!</FeedbackToast>
+        <FeedbackToast show={aplicadoOk} className="text-xs text-[var(--accent)]">¡Guardado correctamente!</FeedbackToast>
       </div>
     </div>
   );
@@ -1669,9 +1669,9 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
   return (
     <div className="flex flex-col gap-4">
       {/* Colores */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Colores</div>
-        <p className="text-xs text-gray-400 -mt-2">Vacío = hereda el color del tema global.</p>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Colores</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-2">Vacío = hereda el color del tema global.</p>
         <div className="grid grid-cols-2 gap-4">
           <ColorField label="Color de fondo" value={datos.bg_color || ''} onChange={v => set('bg_color', v)} />
           <ColorField label="Color del texto / íconos" value={datos.texto_color || ''} onChange={v => set('texto_color', v)} />
@@ -1681,7 +1681,7 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
           <div className="flex items-center gap-2">
             <input type="color" value={datos.border_color ?? '#f3f4f6'}
               onChange={e => set('border_color', e.target.value)}
-              className="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer p-0.5 bg-white" />
+              className="w-9 h-9 rounded-lg border border-[var(--line)] cursor-pointer p-0.5 bg-white" />
             <input className={inputCls} value={datos.border_color ?? '#f3f4f6'}
               onChange={e => set('border_color', e.target.value)} placeholder="#f3f4f6" />
           </div>
@@ -1689,8 +1689,8 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
       </div>
 
       {/* Tipografía */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipografía</div>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Tipografía</div>
         <div>
           <label className={labelCls}>Fuente de letra</label>
           <select className={selectCls}
@@ -1703,22 +1703,22 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
               </option>
             ))}
           </select>
-          <p className="text-[10px] text-gray-400 mt-1">Predeterminada = hereda la tipografía del tema global.</p>
+          <p className="text-[10px] text-[var(--ink-soft)] mt-1">Predeterminada = hereda la tipografía del tema global.</p>
         </div>
       </div>
 
       {/* Logo */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Logo</div>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Logo</div>
         <div>
           <label className={labelCls}>URL del logo (imagen)</label>
           <input className={inputCls} value={datos.logo_url ?? ''} placeholder="https://... (dejar vacío para usar el nombre)"
             onChange={e => set('logo_url', e.target.value)} />
-          <p className="text-[10px] text-gray-400 mt-1">Si no se especifica una imagen, se muestra el nombre de la tienda como texto.</p>
+          <p className="text-[10px] text-[var(--ink-soft)] mt-1">Si no se especifica una imagen, se muestra el nombre de la tienda como texto.</p>
         </div>
         {datos.logo_url && (
           <div className="flex items-center gap-3">
-            <img src={datos.logo_url} alt="Logo preview" className="h-10 object-contain border border-gray-100 rounded-lg p-1 bg-white" />
+            <img src={datos.logo_url} alt="Logo preview" className="h-10 object-contain border border-[var(--line)] rounded-lg p-1 bg-white" />
             <button onClick={() => set('logo_url', '')} className="text-xs text-red-500 hover:underline">Quitar imagen</button>
           </div>
         )}
@@ -1735,8 +1735,8 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
       </div>
 
       {/* Visibilidad de íconos */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-3">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Íconos visibles</div>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-3">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Íconos visibles</div>
         <Toggle label="Buscador" desc="Muestra el ícono de búsqueda en la navbar"
           value={bool('mostrar_buscar')} onChange={v => set('mostrar_buscar', v)} />
         <Toggle label="Ícono de usuario" desc="Muestra el ícono de usuario / login"
@@ -1746,19 +1746,19 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
       </div>
 
       {/* Tipo de menú */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipo de menú</div>
-        <p className="text-xs text-gray-400 -mt-2">
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Tipo de menú</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-2">
           En pantallas chicas el menú siempre es hamburguesa (no rompe el layout con muchos links) —
           esta opción solo define cómo se ve en desktop/tablet.
         </p>
         <div className="flex gap-2">
           <button onClick={() => set('tipo_menu', 'tradicional')}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${tipoMenu === 'tradicional' ? 'bg-[#1D9E75] text-white border-[#1D9E75]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${tipoMenu === 'tradicional' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
             Tradicional
           </button>
           <button onClick={() => set('tipo_menu', 'hamburguesa')}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${tipoMenu === 'hamburguesa' ? 'bg-[#1D9E75] text-white border-[#1D9E75]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${tipoMenu === 'hamburguesa' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
             Hamburguesa
           </button>
         </div>
@@ -1770,19 +1770,19 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
       </div>
 
       {/* Posición del ícono hamburguesa */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Posición del ícono hamburguesa</div>
-        <p className="text-xs text-gray-400 -mt-2">
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Posición del ícono hamburguesa</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-2">
           En mobile el menú siempre es hamburguesa (ver arriba) — esta posición aplica ahí, y también en
           desktop/tablet si elegiste el tipo de menú Hamburguesa. El menú se despliega pegado al mismo lado del ícono.
         </p>
         <div className="flex gap-2">
           <button onClick={() => set('menu_posicion', 'izquierda')}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${menuPosicion === 'izquierda' ? 'bg-[#1D9E75] text-white border-[#1D9E75]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${menuPosicion === 'izquierda' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
             Izquierda
           </button>
           <button onClick={() => set('menu_posicion', 'derecha')}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${menuPosicion === 'derecha' ? 'bg-[#1D9E75] text-white border-[#1D9E75]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${menuPosicion === 'derecha' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
             Derecha
           </button>
         </div>
@@ -1792,8 +1792,8 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
         placeholderLabel="Nuevo link" placeholderHref="/" />
 
       {/* Preview */}
-      <div className="rounded-xl overflow-hidden border border-gray-100" data-testid="navbar-preview-editor">
-        <div className="text-[10px] text-gray-400 uppercase tracking-wider px-3 py-1.5 bg-gray-50 border-b border-gray-100 font-semibold">Preview (desktop)</div>
+      <div className="rounded-xl overflow-hidden border border-[var(--line)]" data-testid="navbar-preview-editor">
+        <div className="text-[10px] text-[var(--ink-soft)] uppercase tracking-wider px-3 py-1.5 bg-[var(--n-50)] border-b border-[var(--line)] font-semibold">Preview (desktop)</div>
         <NavbarPreviewBar datos={datos} tema={tema} nombreTienda={nombreTienda} />
       </div>
     </div>
@@ -1874,11 +1874,11 @@ function EnlacesEditor({ titulo, enlaces, onChange, placeholderLabel, placeholde
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-3">
+    <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{titulo}</div>
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">{titulo}</div>
         <button onClick={agregar}
-          className="text-xs font-medium text-[#1D9E75] hover:underline flex items-center gap-1">
+          className="text-xs font-medium text-[var(--accent)] hover:underline flex items-center gap-1">
           <Plus size={12} /> Agregar
         </button>
       </div>
@@ -1886,11 +1886,11 @@ function EnlacesEditor({ titulo, enlaces, onChange, placeholderLabel, placeholde
         <div key={i} className="flex items-center gap-2">
           <div className="flex flex-col flex-shrink-0">
             <button onClick={() => mover(i, -1)} disabled={i === 0} aria-label="Mover arriba"
-              className="w-6 h-4 flex items-center justify-center text-gray-300 hover:text-gray-600 disabled:opacity-20 transition-colors">
+              className="w-6 h-4 flex items-center justify-center text-[var(--n-300)] hover:text-[var(--ink-soft)] disabled:opacity-20 transition-colors">
               <ChevronUp size={11} />
             </button>
             <button onClick={() => mover(i, 1)} disabled={i === enlaces.length - 1} aria-label="Mover abajo"
-              className="w-6 h-4 flex items-center justify-center text-gray-300 hover:text-gray-600 disabled:opacity-20 transition-colors">
+              className="w-6 h-4 flex items-center justify-center text-[var(--n-300)] hover:text-[var(--ink-soft)] disabled:opacity-20 transition-colors">
               <ChevronDown size={11} />
             </button>
           </div>
@@ -1899,7 +1899,7 @@ function EnlacesEditor({ titulo, enlaces, onChange, placeholderLabel, placeholde
           <input className={inputCls} value={enlace.href} placeholder="/ruta o https://..."
             onChange={e => update(i, 'href', e.target.value)} />
           <button onClick={() => eliminar(i)} aria-label="Eliminar enlace"
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 border border-gray-200 rounded-lg transition-colors">
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-red-500 border border-[var(--line)] rounded-lg transition-colors">
             <Trash2 size={13} />
           </button>
         </div>
@@ -1931,9 +1931,9 @@ function FooterEditor({ datos, set, tema }: {
   return (
     <div className="flex flex-col gap-4">
       {/* Colores */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Colores</div>
-        <p className="text-xs text-gray-400 -mt-2">Vacío = hereda el color del tema global.</p>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Colores</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-2">Vacío = hereda el color del tema global.</p>
         <div className="grid grid-cols-2 gap-4">
           <ColorField label="Color de fondo" value={datos.bg_color || ''} onChange={v => set('bg_color', v)} />
           <ColorField label="Color del texto" value={datos.texto_color || ''} onChange={v => set('texto_color', v)} />
@@ -1941,8 +1941,8 @@ function FooterEditor({ datos, set, tema }: {
       </div>
 
       {/* Tipografía */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipografía</div>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Tipografía</div>
         <div>
           <label className={labelCls}>Fuente de letra</label>
           <select className={selectCls}
@@ -1955,13 +1955,13 @@ function FooterEditor({ datos, set, tema }: {
               </option>
             ))}
           </select>
-          <p className="text-[10px] text-gray-400 mt-1">Predeterminada = hereda la tipografía del tema global.</p>
+          <p className="text-[10px] text-[var(--ink-soft)] mt-1">Predeterminada = hereda la tipografía del tema global.</p>
         </div>
       </div>
 
       {/* Contenido */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contenido</div>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Contenido</div>
         <div>
           <label className={labelCls}>Tagline</label>
           <input className={inputCls} value={datos.tagline ?? FOOTER_TAGLINE_DEFAULT}
@@ -1985,14 +1985,14 @@ function FooterEditor({ datos, set, tema }: {
 
       <EnlacesEditor titulo="Redes sociales" enlaces={redes} onChange={v => set('redes', v)}
         placeholderLabel="@usuario" placeholderHref="https://instagram.com/usuario" />
-      <p className="text-[10px] text-gray-400 -mt-3">
+      <p className="text-[10px] text-[var(--ink-soft)] -mt-3">
         Un link a instagram.com muestra automáticamente el ícono de Instagram al lado del texto.
       </p>
 
       {/* Contacto directo */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contacto directo</div>
-        <p className="text-xs text-gray-400 -mt-2">Distinto del botón flotante de WhatsApp — opcional, vacío no se muestra.</p>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Contacto directo</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-2">Distinto del botón flotante de WhatsApp — opcional, vacío no se muestra.</p>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Email</label>
@@ -2010,12 +2010,12 @@ function FooterEditor({ datos, set, tema }: {
       </div>
 
       {/* Métodos de pago */}
-      <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Métodos de pago</div>
-        <p className="text-xs text-gray-400 -mt-2">Se muestran como logos al pie, más grandes que el resto de los elementos secundarios del footer.</p>
+      <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Métodos de pago</div>
+        <p className="text-xs text-[var(--ink-soft)] -mt-2">Se muestran como logos al pie, más grandes que el resto de los elementos secundarios del footer.</p>
         <div className="flex flex-wrap gap-3">
           {METODOS_PAGO_DISPONIBLES.map(m => (
-            <label key={m.value} className="flex items-center gap-2 text-xs border border-gray-200 rounded-lg px-3 py-2 cursor-pointer">
+            <label key={m.value} className="flex items-center gap-2 text-xs border border-[var(--line)] rounded-lg px-3 py-2 cursor-pointer">
               <input type="checkbox" checked={metodosPago.includes(m.value)} onChange={() => toggleMetodoPago(m.value)} />
               {m.label}
             </label>
@@ -2024,8 +2024,8 @@ function FooterEditor({ datos, set, tema }: {
         {metodosPago.map(m => {
           const Logo = PAYMENT_LOGOS[m];
           return (
-            <div key={m} className="flex items-center gap-3 border-t border-gray-100 pt-3">
-              <span className="w-24 flex-shrink-0 text-xs text-gray-500">{PAYMENT_LABELS[m] ?? m}</span>
+            <div key={m} className="flex items-center gap-3 border-t border-[var(--line)] pt-3">
+              <span className="w-24 flex-shrink-0 text-xs text-[var(--ink-soft)]">{PAYMENT_LABELS[m] ?? m}</span>
               {metodosPagoLogos[m] ? (
                 <img src={metodosPagoLogos[m]} alt={m} className="h-8 w-auto object-contain" />
               ) : Logo ? (
@@ -2035,12 +2035,12 @@ function FooterEditor({ datos, set, tema }: {
             </div>
           );
         })}
-        <p className="text-[10px] text-gray-400">Por default se usa un logo genérico incluido. Subí una imagen para reemplazarlo por el logo oficial.</p>
+        <p className="text-[10px] text-[var(--ink-soft)]">Por default se usa un logo genérico incluido. Subí una imagen para reemplazarlo por el logo oficial.</p>
       </div>
 
       {/* Preview */}
-      <div className="rounded-xl overflow-hidden border border-gray-100">
-        <div className="text-[10px] text-gray-400 uppercase tracking-wider px-3 py-1.5 bg-gray-50 border-b border-gray-100 font-semibold">Preview</div>
+      <div className="rounded-xl overflow-hidden border border-[var(--line)]">
+        <div className="text-[10px] text-[var(--ink-soft)] uppercase tracking-wider px-3 py-1.5 bg-[var(--n-50)] border-b border-[var(--line)] font-semibold">Preview</div>
         <div className="px-6 py-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
           style={{ backgroundColor: bg, fontFamily }}>
           <div>
@@ -2071,16 +2071,16 @@ function FooterCard({ datos, set, tema }: {
 }) {
   const [expandida, setExpandida] = useState(false);
   return (
-    <div className="bg-white border border-gray-100 rounded-xl">
+    <div className="bg-white border border-[var(--line)] rounded-xl">
       <div className="flex items-center gap-3 px-4 py-3">
-        <Layout size={16} className="text-gray-300 flex-shrink-0" />
+        <Layout size={16} className="text-[var(--n-300)] flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium">Footer</div>
-          <div className="text-xs text-gray-400 truncate">Fijo al pie de todas las páginas — no se reordena</div>
+          <div className="text-xs text-[var(--ink-soft)] truncate">Fijo al pie de todas las páginas — no se reordena</div>
         </div>
         <button onClick={() => setExpandida(e => !e)}
           aria-label={expandida ? 'Colapsar footer' : 'Editar footer'}
-          className="w-7 h-7 border border-gray-200 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0">
+          className="w-7 h-7 border border-[var(--line)] rounded-lg flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex-shrink-0">
           {expandida ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </button>
       </div>
@@ -2088,7 +2088,7 @@ function FooterCard({ datos, set, tema }: {
         {expandida && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }} className="overflow-hidden border-t border-gray-50 px-4 pb-4 pt-3"
+            transition={{ duration: 0.2 }} className="overflow-hidden border-t border-[var(--line)] px-4 pb-4 pt-3"
           >
             <FooterEditor datos={datos} set={set} tema={tema} />
           </motion.div>
@@ -2374,8 +2374,8 @@ export default function AdminConfiguracion() {
     <div className="p-6 flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4 max-w-6xl">
         <div>
-          <h1 className="text-xl font-medium text-gray-900">Configuración</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Personalizá la tienda y el inicio</p>
+          <h1 className="text-xl font-medium text-[var(--ink)]">Configuración</h1>
+          <p className="text-sm text-[var(--ink-soft)] mt-0.5">Personalizá la tienda y el inicio</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           {hayCambiosSinPublicar && (
@@ -2383,17 +2383,17 @@ export default function AdminConfiguracion() {
               Tenés cambios sin publicar
             </span>
           )}
-          <FeedbackToast show={publicando} className="text-xs text-[#1D9E75]">¡Publicado correctamente!</FeedbackToast>
-          <FeedbackToast show={descartando} className="text-xs text-gray-500">Cambios descartados</FeedbackToast>
+          <FeedbackToast show={publicando} className="text-xs text-[var(--accent)]">¡Publicado correctamente!</FeedbackToast>
+          <FeedbackToast show={descartando} className="text-xs text-[var(--ink-soft)]">Cambios descartados</FeedbackToast>
           <div className="flex gap-2">
             <button onClick={descartarCambios}
               disabled={descartarMutation.isPending || !hayCambiosSinPublicar}
-              className="border border-gray-200 text-gray-600 rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+              className="border border-[var(--line)] text-[var(--ink-soft)] rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--n-50)] disabled:opacity-50">
               Descartar cambios del borrador
             </button>
             <motion.button onClick={publicarCambios} whileTap={{ scale: 0.97 }}
               disabled={publicarMutation.isPending || !hayCambiosSinPublicar}
-              className="bg-[#111111] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-black disabled:opacity-50">
+              className="bg-[var(--ink)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--n-700)] disabled:opacity-50">
               {publicarMutation.isPending ? 'Publicando...' : 'Publicar cambios'}
             </motion.button>
           </div>
@@ -2403,10 +2403,10 @@ export default function AdminConfiguracion() {
       <div className={`flex flex-col ${mostrarPreview ? 'xl:flex-row' : ''} gap-6 items-start`}>
       <div className="flex flex-col gap-6 w-full max-w-3xl flex-shrink-0">
 
-      <div className="flex gap-1 border border-gray-100 rounded-xl p-1 bg-white w-fit">
+      <div className="flex gap-1 border border-[var(--line)] rounded-xl p-1 bg-white w-fit">
         {(['homepage', 'tema', 'tienda', 'paginas'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`relative px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t ? 'bg-[#1D9E75] text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`relative px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t ? 'bg-[var(--accent)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'}`}>
             {t === 'homepage' ? 'Inicio' : t === 'tema' ? 'Tema' : t === 'tienda' ? 'Tienda' : 'Páginas'}
             {/* Tema, Tienda y Páginas comparten el mismo formulario — el
                 punto avisa que hay cambios sin guardar aunque no estés
@@ -2420,7 +2420,7 @@ export default function AdminConfiguracion() {
 
       {tab === 'homepage' && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--ink-soft)]">
             Cada sección tiene dos tabs: <strong>Contenido</strong> (textos, links) y <strong>Estilo</strong> (colores, tipografía, layout).
           </p>
 
@@ -2431,7 +2431,7 @@ export default function AdminConfiguracion() {
 
           <div className="flex flex-col gap-2">
             {seccionesHomepage.length === 0 && (
-              <div className="text-center py-10 text-sm text-gray-400 bg-white border border-dashed border-gray-200 rounded-xl">
+              <div className="text-center py-10 text-sm text-[var(--ink-soft)] bg-white border border-dashed border-[var(--line)] rounded-xl">
                 {cargado ? 'No hay secciones. Agregá una abajo.' : 'Cargando...'}
               </div>
             )}
@@ -2444,15 +2444,15 @@ export default function AdminConfiguracion() {
             ))}
           </div>
 
-          <div className="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-3">
+          <div className="bg-white border border-[var(--line)] rounded-xl p-4 flex items-center gap-3">
             <select value={nuevoTipo} onChange={e => setNuevoTipo(e.target.value as TipoSeccion)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:border-[#1D9E75]">
+              className="border border-[var(--line)] rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:border-[var(--accent)]">
               {(Object.keys(TIPO_LABELS) as TipoSeccion[]).map(t => (
                 <option key={t} value={t}>{TIPO_LABELS[t]}</option>
               ))}
             </select>
             <button onClick={agregarSeccion}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg px-3 py-2 text-sm flex items-center gap-2 font-medium transition-colors flex-shrink-0">
+              className="bg-[var(--n-100)] hover:bg-[var(--n-200)] text-[var(--ink)] rounded-lg px-3 py-2 text-sm flex items-center gap-2 font-medium transition-colors flex-shrink-0">
               <Plus size={14} /> Agregar sección
             </button>
           </div>
@@ -2462,10 +2462,10 @@ export default function AdminConfiguracion() {
           )}
 
           <div className="flex items-center justify-end gap-3">
-            <FeedbackToast show={guardadoOk} className="text-xs text-[#1D9E75]">¡Guardado correctamente!</FeedbackToast>
+            <FeedbackToast show={guardadoOk} className="text-xs text-[var(--accent)]">¡Guardado correctamente!</FeedbackToast>
             <motion.button onClick={() => guardarHomepageMutation.mutate(secciones)} whileTap={{ scale: 0.97 }}
               disabled={guardarHomepageMutation.isPending}
-              className="bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50 flex items-center gap-2">
+              className="bg-[var(--accent)] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 flex items-center gap-2">
               <Save size={14} />
               {guardarHomepageMutation.isPending ? 'Guardando...' : 'Guardar inicio'}
             </motion.button>
@@ -2475,7 +2475,7 @@ export default function AdminConfiguracion() {
 
       {tab === 'tema' && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--ink-soft)]">
             Color de fondo, color de letra y tipografía por defecto de todo el sitio.
           </p>
           <TemaEditor form={configForm} setForm={setConfigForm}
@@ -2489,10 +2489,10 @@ export default function AdminConfiguracion() {
                 Tenés cambios sin guardar
               </span>
             )}
-            <FeedbackToast show={configOk} className="text-xs text-[#1D9E75]">¡Guardado correctamente!</FeedbackToast>
+            <FeedbackToast show={configOk} className="text-xs text-[var(--accent)]">¡Guardado correctamente!</FeedbackToast>
             <motion.button onClick={() => guardarConfigMutation.mutate(configForm)} whileTap={{ scale: 0.97 }}
               disabled={guardarConfigMutation.isPending}
-              className="bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50 flex items-center gap-2">
+              className="bg-[var(--accent)] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 flex items-center gap-2">
               <Save size={14} />
               {guardarConfigMutation.isPending ? 'Guardando...' : 'Guardar tema'}
             </motion.button>
@@ -2504,8 +2504,8 @@ export default function AdminConfiguracion() {
         <div className="flex flex-col gap-4">
 
           {/* Datos generales */}
-          <div className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Datos generales</div>
+          <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+            <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Datos generales</div>
             {[
               { key: 'nombre_tienda', label: 'Nombre de la tienda', placeholder: 'Mate Laser Studio' },
               { key: 'email_contacto', label: 'Email de contacto', placeholder: 'hola@matelaser.com' },
@@ -2524,14 +2524,14 @@ export default function AdminConfiguracion() {
                   onChange={e => setConfigForm(f => ({ ...f, [key]: e.target.value }))} />
               </div>
             ))}
-            <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+            <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
               <div>
                 <div className="text-sm font-medium">Envío gratis activo</div>
-                <div className="text-xs text-gray-400">Cuando el subtotal supera el monto mínimo</div>
+                <div className="text-xs text-[var(--ink-soft)]">Cuando el subtotal supera el monto mínimo</div>
               </div>
               <button
                 onClick={() => setConfigForm(f => ({ ...f, envio_gratis_activo: f.envio_gratis_activo === 'true' ? 'false' : 'true' }))}
-                className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${configForm.envio_gratis_activo === 'true' ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}>
+                className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${configForm.envio_gratis_activo === 'true' ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
                 <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${configForm.envio_gratis_activo === 'true' ? 'left-4' : 'left-0.5'}`} />
               </button>
             </div>
@@ -2543,10 +2543,10 @@ export default function AdminConfiguracion() {
                 Tenés cambios sin guardar
               </span>
             )}
-            <FeedbackToast show={configOk} className="text-xs text-[#1D9E75]">¡Guardado correctamente!</FeedbackToast>
+            <FeedbackToast show={configOk} className="text-xs text-[var(--accent)]">¡Guardado correctamente!</FeedbackToast>
             <motion.button onClick={() => guardarConfigMutation.mutate(configForm)} whileTap={{ scale: 0.97 }}
               disabled={guardarConfigMutation.isPending}
-              className="bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50 flex items-center gap-2">
+              className="bg-[var(--accent)] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 flex items-center gap-2">
               <Save size={14} />
               {guardarConfigMutation.isPending ? 'Guardando...' : 'Guardar configuración'}
             </motion.button>
@@ -2556,7 +2556,7 @@ export default function AdminConfiguracion() {
 
       {tab === 'paginas' && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--ink-soft)]">
             Título y contenido (Markdown) de las páginas legales/de ayuda enlazadas desde el footer. El contenido final se carga acá cuando esté listo — mientras tanto la ruta ya existe y no queda rota.
           </p>
           {[
@@ -2565,8 +2565,8 @@ export default function AdminConfiguracion() {
             { clave: 'pagina_faq', label: 'Preguntas frecuentes' },
             { clave: 'pagina_envios', label: 'Envíos y devoluciones' },
           ].map(({ clave, label }) => (
-            <div key={clave} className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-3">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</div>
+            <div key={clave} className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-3">
+              <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">{label}</div>
               <div>
                 <label className={labelCls}>Título</label>
                 <input className={inputCls} value={configForm[`${clave}_titulo`] ?? ''} placeholder={label}
@@ -2587,10 +2587,10 @@ export default function AdminConfiguracion() {
                 Tenés cambios sin guardar
               </span>
             )}
-            <FeedbackToast show={configOk} className="text-xs text-[#1D9E75]">¡Guardado correctamente!</FeedbackToast>
+            <FeedbackToast show={configOk} className="text-xs text-[var(--accent)]">¡Guardado correctamente!</FeedbackToast>
             <motion.button onClick={() => guardarConfigMutation.mutate(configForm)} whileTap={{ scale: 0.97 }}
               disabled={guardarConfigMutation.isPending}
-              className="bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#0F6E56] disabled:opacity-50 flex items-center gap-2">
+              className="bg-[var(--accent)] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 flex items-center gap-2">
               <Save size={14} />
               {guardarConfigMutation.isPending ? 'Guardando...' : 'Guardar páginas'}
             </motion.button>
@@ -2601,18 +2601,18 @@ export default function AdminConfiguracion() {
 
       {mostrarPreview && (
         <div className="w-full xl:flex-1 xl:sticky xl:top-6 min-w-0" data-testid="navbar-preview-live">
-          <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-            <div className="text-[10px] text-gray-400 uppercase tracking-wider px-3 py-2 bg-gray-50 border-b border-gray-100 font-semibold flex items-center justify-between">
+          <div className="bg-white border border-[var(--line)] rounded-xl overflow-hidden">
+            <div className="text-[10px] text-[var(--ink-soft)] uppercase tracking-wider px-3 py-2 bg-[var(--n-50)] border-b border-[var(--line)] font-semibold flex items-center justify-between">
               <span>Vista previa en vivo — borrador</span>
-              <span className="normal-case font-normal text-gray-300">así lo ven vos, no los clientes</span>
+              <span className="normal-case font-normal text-[var(--n-300)]">así lo ven vos, no los clientes</span>
             </div>
-            <div className="max-h-[calc(100vh-140px)] overflow-y-auto bg-gray-50">
+            <div className="max-h-[calc(100vh-140px)] overflow-y-auto bg-[var(--n-50)]">
               <ScaledPreview>
                 {navbarSec && (
                   <NavbarPreviewBar datos={navbarSec.datos} tema={temaEnVivo} nombreTienda={configForm.nombre_tienda ?? ''} />
                 )}
                 {seccionesPreview.length === 0
-                  ? <div className="text-center py-16 text-sm text-gray-400">No hay secciones activas para mostrar.</div>
+                  ? <div className="text-center py-16 text-sm text-[var(--ink-soft)]">No hay secciones activas para mostrar.</div>
                   : <HomeSecciones secciones={seccionesPreview} tema={temaEnVivo} />
                 }
               </ScaledPreview>

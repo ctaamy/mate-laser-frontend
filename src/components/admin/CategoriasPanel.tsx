@@ -4,14 +4,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, FolderOpen, Folder, X, Check } from 'lucide-react';
 import api from '../../lib/api';
 import type { Categoria } from '../../types/index';
+import AdminButton from './ui/AdminButton';
 
 // Antes vivía en pages/admin/Categorias.tsx como ruta de primer nivel
 // (/admin/categorias). Ahora es un panel reusado dentro del tab "Categorías"
 // de la página de Productos — mismo componente, sin ruta propia.
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-const inputCls = 'border border-gray-200 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-gray-400 transition-colors';
-const labelCls = 'text-xs text-gray-500 mb-1 block font-medium';
+const inputCls = 'border border-[var(--line)] rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-[var(--accent)] transition-colors';
+const labelCls = 'text-xs text-[var(--ink-soft)] mb-1 block font-medium';
 
 function toSlug(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -79,12 +80,12 @@ function CategoriaModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 8 }}
         transition={{ duration: 0.18 }}
-        className="bg-white rounded-2xl w-full max-w-md shadow-xl"
+        className="bg-[var(--panel)] rounded-[var(--radius-card)] w-full max-w-md shadow-xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-sm text-gray-900">{editando ? 'Editar categoría' : 'Nueva categoría'}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={16} /></button>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
+          <h2 className="font-semibold text-sm text-[var(--ink)]">{editando ? 'Editar categoría' : 'Nueva categoría'}</h2>
+          <button onClick={onClose} className="text-[var(--ink-soft)] hover:text-[var(--ink)]"><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
@@ -101,7 +102,7 @@ function CategoriaModal({
             <input className={inputCls} value={form.slug}
               onChange={e => { setSlugManual(true); set('slug', e.target.value); }}
               placeholder="mate" required />
-            <p className="text-[10px] text-gray-400 mt-1">Se usa en la URL: /productos?categoria={form.slug || 'mate'}</p>
+            <p className="text-[10px] text-[var(--ink-soft)] mt-1">Se usa en la URL: /productos?categoria={form.slug || 'mate'}</p>
           </div>
 
           {/* Categoría padre */}
@@ -135,9 +136,9 @@ function CategoriaModal({
             <input className={inputCls} value={form.imagen_configurador_url}
               onChange={e => set('imagen_configurador_url', e.target.value)}
               placeholder="https://..." />
-            <p className="text-[10px] text-gray-400 mt-1">Se muestra en el Paso 1 del configurador si esta categoría es subcategoría de "Mates".</p>
+            <p className="text-[10px] text-[var(--ink-soft)] mt-1">Se muestra en el Paso 1 del configurador si esta categoría es subcategoría de "Mates".</p>
             {form.imagen_configurador_url.trim() && (
-              <img src={form.imagen_configurador_url.trim()} alt="" className="mt-2 w-16 h-16 object-cover rounded-lg border border-gray-100" />
+              <img src={form.imagen_configurador_url.trim()} alt="" className="mt-2 w-16 h-16 object-cover rounded-lg border border-[var(--line)]" />
             )}
           </div>
 
@@ -148,14 +149,12 @@ function CategoriaModal({
           )}
 
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+            <AdminButton type="button" variant="secondary" onClick={onClose} className="flex-1">
               Cancelar
-            </button>
-            <button type="submit" disabled={mutation.isPending}
-              className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+            </AdminButton>
+            <AdminButton type="submit" variant="primary" disabled={mutation.isPending} className="flex-1">
               {mutation.isPending ? 'Guardando...' : <><Check size={14} /> {editando ? 'Guardar' : 'Crear'}</>}
-            </button>
+            </AdminButton>
           </div>
         </form>
       </motion.div>
@@ -171,12 +170,12 @@ function SubcategoriaRow({
     <motion.div
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex items-center gap-3 ml-6 pl-4 py-2.5 border-l border-gray-100 group"
+      className="flex items-center gap-3 ml-6 pl-4 py-2.5 border-l border-[var(--line)] group"
     >
-      <ChevronRight size={12} className="text-gray-300 flex-shrink-0" />
+      <ChevronRight size={12} className="text-[var(--n-300)] flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <span className="text-sm text-gray-700">{cat.nombre}</span>
-        <span className="ml-2 text-[10px] text-gray-400 font-mono">{cat.slug}</span>
+        <span className="text-sm text-[var(--ink)]">{cat.nombre}</span>
+        <span className="ml-2 text-[10px] text-[var(--ink-soft)] font-mono">{cat.slug}</span>
       </div>
       {/* Antes solo visibles con hover (opacity-0 group-hover:opacity-100) —
           en tablet/touch no hay hover real, así que las acciones quedaban
@@ -184,11 +183,11 @@ function SubcategoriaRow({
           la fila de categoría padre (CategoriaRow, arriba). */}
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => onEdit(cat)}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+          className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--n-100)] transition-colors">
           <Pencil size={13} />
         </button>
         <button onClick={() => onDelete(cat)}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+          className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-red-500 hover:bg-red-50 transition-colors">
           <Trash2 size={13} />
         </button>
       </div>
@@ -207,34 +206,34 @@ function CategoriaRow({
   const hijos: Categoria[] = (cat as any).other_categorias ?? [];
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+    <div className="bg-[var(--panel)] border border-[var(--line)] rounded-[var(--radius-card)] overflow-hidden">
       {/* Header categoría padre */}
       <div className="flex items-center gap-3 px-4 py-3 group">
         <button onClick={() => setAbierta(a => !a)}
-          className="text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0">
+          className="text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex-shrink-0">
           {abierta ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
-        {abierta ? <FolderOpen size={16} className="text-gray-400 flex-shrink-0" /> : <Folder size={16} className="text-gray-400 flex-shrink-0" />}
+        {abierta ? <FolderOpen size={16} className="text-[var(--ink-soft)] flex-shrink-0" /> : <Folder size={16} className="text-[var(--ink-soft)] flex-shrink-0" />}
 
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-gray-900">{cat.nombre}</span>
-          <span className="ml-2 text-[10px] text-gray-400 font-mono">{cat.slug}</span>
+          <span className="text-sm font-semibold text-[var(--ink)]">{cat.nombre}</span>
+          <span className="ml-2 text-[10px] text-[var(--ink-soft)] font-mono">{cat.slug}</span>
           {hijos.length > 0 && (
-            <span className="ml-2 text-[10px] text-gray-400">{hijos.length} subcategoría{hijos.length > 1 ? 's' : ''}</span>
+            <span className="ml-2 text-[10px] text-[var(--ink-soft)]">{hijos.length} subcategoría{hijos.length > 1 ? 's' : ''}</span>
           )}
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
           <button onClick={() => onAgregarHijo(cat)}
-            className="h-7 px-2.5 flex items-center gap-1 rounded-lg text-[11px] font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+            className="h-7 px-2.5 flex items-center gap-1 rounded-lg text-[11px] font-medium text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--n-100)] transition-colors">
             <Plus size={11} /> Sub
           </button>
           <button onClick={() => onEdit(cat)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--n-100)] transition-colors">
             <Pencil size={13} />
           </button>
           <button onClick={() => onDelete(cat)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-red-500 hover:bg-red-50 transition-colors">
             <Trash2 size={13} />
           </button>
         </div>
@@ -246,7 +245,7 @@ function CategoriaRow({
           <motion.div
             initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-gray-50 pb-1"
+            className="overflow-hidden border-t border-[var(--line)] pb-1"
           >
             {hijos.map(h => (
               <SubcategoriaRow key={h.id} cat={h} todasPadre={todasPadre} onEdit={onEdit} onDelete={onDelete} />
@@ -301,23 +300,22 @@ export default function CategoriasPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Categorías</h2>
-          <p className="text-sm text-gray-400 mt-0.5">Organizá tus productos en categorías y subcategorías</p>
+          <h2 className="text-lg font-semibold text-[var(--ink)]">Categorías</h2>
+          <p className="text-sm text-[var(--ink-soft)] mt-0.5">Organizá tus productos en categorías y subcategorías</p>
         </div>
-        <button onClick={handleNueva}
-          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-700 transition-colors">
-          <Plus size={15} /> Nueva categoría
-        </button>
+        <AdminButton variant="primary" icon={<Plus size={15} />} onClick={handleNueva}>
+          Nueva categoría
+        </AdminButton>
       </div>
 
       {/* Árbol de categorías */}
       {isLoading ? (
-        <div className="text-sm text-gray-400 py-10 text-center">Cargando...</div>
+        <div className="text-sm text-[var(--ink-soft)] py-10 text-center">Cargando...</div>
       ) : padres.length === 0 ? (
-        <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-14 text-center">
-          <p className="text-sm text-gray-400 mb-3">No hay categorías todavía</p>
+        <div className="bg-[var(--panel)] border border-dashed border-[var(--line)] rounded-[var(--radius-card)] py-14 text-center">
+          <p className="text-sm text-[var(--ink-soft)] mb-3">No hay categorías todavía</p>
           <button onClick={handleNueva}
-            className="text-sm font-medium text-gray-700 underline underline-offset-2">
+            className="text-sm font-medium text-[var(--ink)] underline underline-offset-2">
             Crear la primera
           </button>
         </div>
@@ -337,10 +335,10 @@ export default function CategoriasPanel() {
       )}
 
       {/* Ayuda */}
-      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs text-gray-500 leading-relaxed">
-        <strong className="text-gray-700">Jerarquía:</strong> Las categorías raíz (sin padre) aparecen como secciones principales.
-        Usá <strong className="text-gray-700">+ Sub</strong> para agregar subcategorías dentro de una categoría padre.
-        Ejemplo: <span className="font-mono bg-gray-100 px-1 rounded">Mate</span> → <span className="font-mono bg-gray-100 px-1 rounded">Calabaza</span>, <span className="font-mono bg-gray-100 px-1 rounded">Algarrobo</span>
+      <div className="bg-[var(--n-50)] border border-[var(--line)] rounded-xl p-4 text-xs text-[var(--ink-soft)] leading-relaxed">
+        <strong className="text-[var(--ink)]">Jerarquía:</strong> Las categorías raíz (sin padre) aparecen como secciones principales.
+        Usá <strong className="text-[var(--ink)]">+ Sub</strong> para agregar subcategorías dentro de una categoría padre.
+        Ejemplo: <span className="font-mono bg-[var(--n-100)] px-1 rounded">Mate</span> → <span className="font-mono bg-[var(--n-100)] px-1 rounded">Calabaza</span>, <span className="font-mono bg-[var(--n-100)] px-1 rounded">Algarrobo</span>
       </div>
 
       {/* Modal */}
