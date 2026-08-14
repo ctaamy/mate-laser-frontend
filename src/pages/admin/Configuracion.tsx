@@ -167,7 +167,7 @@ export default function AdminConfiguracion() {
     // preferimos arrancar sin baseline de conflicto antes que colgar la
     // carga del editor — el chequeo de conflicto es una mejora de UX, no
     // algo que deba bloquear el uso normal del builder.
-    api.get('/configuracion/homepage/borrador/meta', { timeout: 4000 })
+    api.get('/configuracion/homepage/borrador/meta', { timeout: 4000, skipAuthRedirect: true } as any)
       .then(({ data }) => { metaBaselineRef.current = data?.actualizado ?? null; })
       .catch(() => { metaBaselineRef.current = null; });
   }, [cargado]);
@@ -223,7 +223,7 @@ export default function AdminConfiguracion() {
       if (metaBaselineRef.current !== null) {
         let metaActual: string | null = metaBaselineRef.current;
         try {
-          const { data } = await api.get('/configuracion/homepage/borrador/meta', { timeout: 4000 });
+          const { data } = await api.get('/configuracion/homepage/borrador/meta', { timeout: 4000, skipAuthRedirect: true } as any);
           metaActual = data?.actualizado ?? null;
         } catch {
           // fail-open (incluye timeout) — ver comentario arriba
@@ -267,6 +267,16 @@ export default function AdminConfiguracion() {
       queryClient.invalidateQueries({ queryKey: ['configuracion', 'estado-publicacion'] });
       setOrdenOk(true);
       setTimeout(() => setOrdenOk(false), 2000);
+      // Este PATCH también actualiza `actualizado` en el borrador, por su
+      // propio camino (no pasa por guardarHomepageMutation) — sin esto, el
+      // baseline de conflicto multi-pestaña queda desactualizado apenas se
+      // arrastra una sección, y el siguiente autosave se compara contra un
+      // valor viejo y dispara el banner de "conflicto" por error, aunque
+      // haya sido la misma pestaña. El endpoint no devuelve `actualizado`
+      // en su respuesta, así que se refresca con un GET liviano aparte.
+      api.get('/configuracion/homepage/borrador/meta', { timeout: 4000, skipAuthRedirect: true } as any)
+        .then(({ data }) => { metaBaselineRef.current = data?.actualizado ?? metaBaselineRef.current; })
+        .catch(() => {});
     },
   });
 

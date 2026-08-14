@@ -31,6 +31,12 @@ function hacerLogoutYRedirigir() {
   }
 }
 
+// `skipAuthRedirect: true` en la config de un request (ej. `api.get(url, {
+// skipAuthRedirect: true })`) opta afuera del refresh-y-redirect-a-login de
+// acá abajo ante un 401 — para checks de "mejor esfuerzo" en segundo plano
+// (ej. metadata de conflicto multi-pestaña del homepage builder) donde un
+// 401 puntual no debería sacar al admin de la página que está editando; el
+// código que dispara ese request ya maneja el error con su propio fail-open.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -39,7 +45,7 @@ api.interceptors.response.use(
     // En rutas de checkout/pago/confirmacion no redirigir al login (guests válidos)
     const esRutaPublica = ['/pago/', '/checkout', '/confirmacion/'].some(r => path.includes(r));
 
-    if (error.response?.status === 401 && !esRutaPublica && !original?._reintentoRefresh) {
+    if (error.response?.status === 401 && !esRutaPublica && !original?._reintentoRefresh && !original?.skipAuthRedirect) {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
         hacerLogoutYRedirigir();
