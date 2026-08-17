@@ -2215,8 +2215,14 @@ export default function AdminConfiguracion() {
   useEffect(() => {
     if (config && Object.keys(configForm).length === 0) {
       const form: Record<string, string> = {};
+      // envio_gratis_activo/monto se excluyen a propósito: se editan en
+      // /admin/envios (PUT /configuracion/envio-gratis, directo a
+      // 'publicado'). Si este loop las hidrata igual, cualquier "Guardar"
+      // acá las reescribe en 'borrador' y resucita el bug que se está
+      // arreglando.
+      const CLAVES_EXCLUIDAS = new Set(['homepage_sections', 'envio_gratis_activo', 'envio_gratis_monto']);
       for (const [k, v] of Object.entries(config)) {
-        if (k !== 'homepage_sections') form[k] = typeof v === 'string' ? v : JSON.stringify(v);
+        if (!CLAVES_EXCLUIDAS.has(k)) form[k] = typeof v === 'string' ? v : JSON.stringify(v);
       }
       setConfigForm(form);
       setConfigFormGuardado(form);
@@ -2512,7 +2518,6 @@ export default function AdminConfiguracion() {
               { key: 'telefono_contacto', label: 'Teléfono / WhatsApp (con código de país)', placeholder: '+5491112345678' },
               { key: 'whatsapp_mensaje', label: 'Mensaje pre-cargado de WhatsApp', placeholder: '¡Hola! Quiero hacer un pedido personalizado 🧉' },
               { key: 'moneda', label: 'Moneda', placeholder: 'ARS' },
-              { key: 'envio_gratis_monto', label: 'Monto mínimo para envío gratis ($)', placeholder: '15000' },
               { key: 'transferencia_banco', label: 'Transferencia — Banco', placeholder: 'Banco Galicia' },
               { key: 'transferencia_titular', label: 'Transferencia — Titular de la cuenta', placeholder: 'Mate Laser Studio' },
               { key: 'transferencia_alias', label: 'Transferencia — Alias', placeholder: 'MATE.LASER.STUDIO' },
@@ -2524,17 +2529,10 @@ export default function AdminConfiguracion() {
                   onChange={e => setConfigForm(f => ({ ...f, [key]: e.target.value }))} />
               </div>
             ))}
-            <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
-              <div>
-                <div className="text-sm font-medium">Envío gratis activo</div>
-                <div className="text-xs text-[var(--ink-soft)]">Cuando el subtotal supera el monto mínimo</div>
-              </div>
-              <button
-                onClick={() => setConfigForm(f => ({ ...f, envio_gratis_activo: f.envio_gratis_activo === 'true' ? 'false' : 'true' }))}
-                className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${configForm.envio_gratis_activo === 'true' ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${configForm.envio_gratis_activo === 'true' ? 'left-4' : 'left-0.5'}`} />
-              </button>
-            </div>
+            {/* Envío gratis (activo + monto mínimo) se edita en /admin/envios,
+                que escribe directo a 'publicado' vía PUT /configuracion/envio-gratis.
+                No vive acá: este formulario guarda en 'borrador' y depende del
+                publish del Page Builder, algo que esas 2 claves no pueden esperar. */}
           </div>
 
           <div className="flex items-center justify-end gap-3">
