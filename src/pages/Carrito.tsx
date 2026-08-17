@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCarritoStore } from '../store/carrito.store';
 import api from '../lib/api';
@@ -14,10 +15,21 @@ export default function Carrito() {
   const [cuponOk, setCuponOk] = useState('');
   const navigate = useNavigate();
 
-  const ENVIO_GRATIS = 15000;
+  // Config real de envío gratis (GET /configuracion, público, lee 'publicado').
+  // Sin certeza de que esté activo y con un monto válido, no se muestra nada:
+  // más vale "A calcular" que prometer un gratis que después no se cobra así.
+  const { data: config } = useQuery<Record<string, string>>({
+    queryKey: ['configuracion'],
+    queryFn: () => api.get('/configuracion').then((r) => r.data),
+  });
+  const montoEnvioGratis = Number(config?.envio_gratis_monto);
+  const envioGratisConfirmado =
+    config?.envio_gratis_activo === 'true' && Number.isFinite(montoEnvioGratis) && montoEnvioGratis > 0;
+
   const sub = subtotal();
   const total = sub - descuento;
-  const faltaParaGratis = Math.max(0, ENVIO_GRATIS - sub);
+  const faltaParaGratis = envioGratisConfirmado ? Math.max(0, montoEnvioGratis - sub) : 0;
+  const alcanzaEnvioGratis = envioGratisConfirmado && sub >= montoEnvioGratis;
 
   const handleCupon = async () => {
     setCuponError('');
@@ -166,8 +178,8 @@ export default function Carrito() {
               </div>
               <div className="flex justify-between">
                 <span className="text-black/45">Envío</span>
-                <span className={sub >= ENVIO_GRATIS ? 'font-medium text-black' : 'text-black/45'}>
-                  {sub >= ENVIO_GRATIS ? 'Gratis' : 'A calcular'}
+                <span className={alcanzaEnvioGratis ? 'font-medium text-black' : 'text-black/45'}>
+                  {alcanzaEnvioGratis ? 'Gratis' : 'A calcular'}
                 </span>
               </div>
               {descuento > 0 && (
@@ -203,13 +215,13 @@ export default function Carrito() {
             {cuponError && <div className="text-xs text-red-500">{cuponError}</div>}
             {cuponOk && <div className="text-xs text-black/60">{cuponOk}</div>}
 
-            {/* ENVÍO GRATIS */}
-            {faltaParaGratis > 0 && (
+            {/* ENVÍO GRATIS — solo si la config real (publicado) lo confirma */}
+            {envioGratisConfirmado && faltaParaGratis > 0 && (
               <div className="border border-black/[0.07] bg-black/[0.02] p-3 text-xs text-black/60">
                 Te faltan <strong className="text-black">${faltaParaGratis.toLocaleString('es-AR')}</strong> para envío gratis
               </div>
             )}
-            {sub >= ENVIO_GRATIS && (
+            {alcanzaEnvioGratis && (
               <div className="border border-black/[0.07] bg-black/[0.02] p-3 text-xs text-black/60">
                 ¡Tenés envío gratis!
               </div>

@@ -30,6 +30,17 @@ export default function ProductoDetalle() {
     enabled: !!slug,
   });
 
+  // Config real de envío gratis (GET /configuracion, público, lee 'publicado').
+  // El cartel "Envío gratis en compras mayores a $X" solo se muestra si esto
+  // confirma que está activo y con un monto válido — nunca un texto fijo.
+  const { data: config } = useQuery<Record<string, string>>({
+    queryKey: ['configuracion'],
+    queryFn: () => api.get('/configuracion').then((r) => r.data),
+  });
+  const montoEnvioGratis = Number(config?.envio_gratis_monto);
+  const envioGratisConfirmado =
+    config?.envio_gratis_activo === 'true' && Number.isFinite(montoEnvioGratis) && montoEnvioGratis > 0;
+
 
   if (isLoading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -390,7 +401,9 @@ export default function ProductoDetalle() {
             {/* Info extra */}
             <div className="flex flex-col gap-3">
               {[
-                { Icon: Truck, bold: 'Envío gratis', rest: 'en compras mayores a $15.000' },
+                ...(envioGratisConfirmado
+                  ? [{ Icon: Truck, bold: 'Envío gratis', rest: `en compras mayores a $${montoEnvioGratis.toLocaleString('es-AR')}` }]
+                  : []),
                 { Icon: Shield, bold: 'Garantía de calidad', rest: 'o te devolvemos el dinero' },
                 { Icon: MessageCircle, bold: 'Consultas por WhatsApp', rest: 'antes y después de tu compra' },
               ].map(({ Icon, bold, rest }) => (
