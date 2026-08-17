@@ -327,9 +327,13 @@ export default function AdminEnvios() {
   const montoVal = monto ?? config?.envio_gratis_monto ?? '15000';
 
   const saveConfigMut = useMutation({
-    mutationFn: () => api.put('/configuracion', {
-      envio_gratis_activo: envioGratisVal,
-      envio_gratis_monto: montoVal,
+    // Endpoint dedicado — escribe directo en 'publicado', no en borrador:
+    // esta pantalla no tiene paso de "Publicar" propio, así que no puede
+    // depender del publish compartido con el Page Builder (ver
+    // ConfiguracionService.updateEnvioGratis).
+    mutationFn: () => api.put('/configuracion/envio-gratis', {
+      activo: envioGratisVal === 'true',
+      monto: Number(montoVal),
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['configuracion'] });
