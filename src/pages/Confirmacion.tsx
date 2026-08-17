@@ -123,7 +123,7 @@ export default function Confirmacion() {
               <>
                 <h1 className="text-2xl font-medium mb-2">Tu pago está en revisión</h1>
                 <p className="text-sm text-gray-500 max-w-md mx-auto">
-                  Mercado Pago está procesando tu pago. Si elegiste efectivo o transferencia, puede tardar hasta 2 días hábiles en acreditarse; si fue con tarjeta, la confirmación suele llegar en minutos. Te avisamos por email en cuanto se confirme — no hace falta que hagas nada más.
+                  Mercado Pago está procesando tu pago. Si elegiste efectivo o transferencia, puede tardar hasta 3 días en acreditarse; si fue con tarjeta, la confirmación suele llegar en minutos. Te avisamos por email en cuanto se confirme — no hace falta que hagas nada más.
                 </p>
               </>
             ) : (
