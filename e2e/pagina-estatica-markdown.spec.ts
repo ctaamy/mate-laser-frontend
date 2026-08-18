@@ -69,6 +69,31 @@ test.describe('PaginaEstatica — renderizado Markdown', () => {
     await expect(page.getByRole('heading', { name: 'Política de privacidad' })).toBeVisible();
     await expect(page.locator('.prose')).toContainText('Este contenido todavía no fue cargado.');
   });
+
+  // Hallazgo #10 del plan de seguridad/performance (2026-08-17): mientras
+  // /configuracion no respondía, el componente mostraba "todavía no fue
+  // cargado" como si fuera el estado real, en vez del estado de carga.
+  test('mientras /configuracion está en vuelo muestra el skeleton, no el fallback', async ({ page }) => {
+    await page.route('**/api/v1/configuracion', async (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await new Promise((r) => setTimeout(r, 1000));
+      return route.fulfill({
+        json: { pagina_faq_titulo: 'Preguntas frecuentes', pagina_faq_markdown: 'Contenido real.' },
+      });
+    });
+
+    await page.goto('/faq');
+
+    // Durante la espera: skeleton visible, sin el placeholder ni el título real.
+    await expect(page.locator('.animate-pulse')).toBeVisible();
+    await expect(page.getByText('Este contenido todavía no fue cargado.')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Preguntas frecuentes' })).toHaveCount(0);
+
+    // Al resolver: contenido real, skeleton fuera.
+    await expect(page.getByRole('heading', { name: 'Preguntas frecuentes' })).toBeVisible();
+    await expect(page.locator('.prose')).toContainText('Contenido real.');
+    await expect(page.locator('.animate-pulse')).toHaveCount(0);
+  });
 });
 
 test.describe('PaginaEstatica — regresión XSS', () => {
