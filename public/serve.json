@@ -1,0 +1,17 @@
+{
+  "headers": [
+    {
+      "source": "**/*",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://sdk.mercadopago.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://api.matelaserstudio.com.ar https://sdk.mercadopago.com https://api.mercadopago.com https://api.mercadolibre.com; frame-src 'self' https://www.mercadopago.com https://www.mercadopago.com.ar; frame-ancestors 'self'"
+        }
+      ]
+    }
+  ]
+}
