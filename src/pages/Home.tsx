@@ -1,14 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'motion/react';
-import api from '../lib/api';
 import { useTemaGlobalData } from '../hooks/useThemeGlobal';
-import { HomeSecciones, type Seccion } from '../components/home/HomeSecciones';
+import { useHomepageSecciones } from '../hooks/useHomepageSecciones';
+import { HomeSecciones } from '../components/home/HomeSecciones';
 
 export default function Home() {
-  const { data: secciones, isLoading } = useQuery<Seccion[]>({
-    queryKey: ['homepage'],
-    queryFn: () => api.get('/configuracion/homepage').then(r => r.data),
-  });
+  const { data: secciones, isLoading } = useHomepageSecciones();
   const tema = useTemaGlobalData();
 
   if (isLoading) return (
