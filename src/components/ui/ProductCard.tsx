@@ -73,6 +73,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
             <motion.img
               src={img1.url}
               alt={img1.alt_texto || producto.nombre}
+              loading="lazy"
               className="absolute inset-0 w-full h-full object-cover"
               animate={{ scale: hovered ? 1.04 : 1 }}
               transition={{ duration: 0.45, ease: 'easeInOut' }}
@@ -181,6 +182,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
           <motion.img
             src={img1.url}
             alt={img1.alt_texto || producto.nombre}
+            loading="lazy"
             className="absolute inset-0 w-full h-full object-cover"
             animate={{ scale: hovered ? 1.04 : 1, opacity: hovered && img2 ? 0 : 1 }}
             transition={{ duration: 0.45, ease: 'easeInOut' }}
@@ -197,6 +199,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
                 key="img2"
                 src={img2.url}
                 alt={img2.alt_texto || producto.nombre}
+                loading="lazy"
                 className="absolute inset-0 w-full h-full object-cover"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, scale: 1.03 }}

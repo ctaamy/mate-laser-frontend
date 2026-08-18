@@ -1242,7 +1242,7 @@ function ImagenesLibres({ imagenes }: { imagenes?: ImagenLibre[] }) {
   return (
     <>
       {imagenes.map(img => (
-        <img key={img.id} src={img.url} alt="" draggable={false}
+        <img key={img.id} src={img.url} alt="" draggable={false} loading="lazy"
           className="absolute pointer-events-none select-none max-w-none"
           style={{ left: `${img.x}%`, top: `${img.y}%`, width: `${img.escala}%`, transform: 'translate(-50%, -50%)' }}
         />

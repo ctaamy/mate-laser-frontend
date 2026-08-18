@@ -431,7 +431,7 @@ function Paso1TipoMate({
             >
               <div className="aspect-[4/3] bg-black/5 flex items-center justify-center overflow-hidden">
                 {cat.imagen_configurador_url ? (
-                  <img src={cat.imagen_configurador_url} alt={cat.nombre} className="w-full h-full object-cover" />
+                  <img src={cat.imagen_configurador_url} alt={cat.nombre} loading="lazy" className="w-full h-full object-cover" />
                 ) : (
                   <Image size={28} className="text-black/20" />
                 )}
@@ -506,7 +506,7 @@ function Paso2MateVariante({
                 className="text-left border border-black/15 hover:border-black/40 p-4 min-h-[44px] transition-colors"
               >
                 {imgPrincipal && (
-                  <img src={imgPrincipal.url} alt={p.nombre} className="w-full h-40 object-cover mb-3" />
+                  <img src={imgPrincipal.url} alt={p.nombre} loading="lazy" className="w-full h-40 object-cover mb-3" />
                 )}
                 <span className="font-medium text-sm block">{p.nombre}</span>
                 <span className="text-xs text-black/50">${Number(p.precio_base).toLocaleString('es-AR')}</span>
@@ -640,7 +640,7 @@ function Paso3Bombilla({
                     s.sinStock ? 'opacity-40 cursor-not-allowed border-black/10' : 'border-black/15 hover:border-black/40'
                   }`}
                 >
-                  {s.imagen_url && <img src={s.imagen_url} alt={s.nombre_producto} className="w-full h-32 object-cover mb-3" />}
+                  {s.imagen_url && <img src={s.imagen_url} alt={s.nombre_producto} loading="lazy" className="w-full h-32 object-cover mb-3" />}
                   <span className="font-medium text-sm block">{s.nombre_producto}</span>
                   {s.etiqueta && <span className="text-xs text-black/50">{s.etiqueta}</span>}
                   <p className="text-xs mt-2 font-medium">
@@ -670,7 +670,7 @@ function Paso3Bombilla({
                     onClick={() => elegirDeGrilla(p)}
                     className="text-left border border-black/15 hover:border-black/40 p-4 min-h-[44px] transition-colors"
                   >
-                    {imgPrincipal && <img src={imgPrincipal.url} alt={p.nombre} className="w-full h-32 object-cover mb-3" />}
+                    {imgPrincipal && <img src={imgPrincipal.url} alt={p.nombre} loading="lazy" className="w-full h-32 object-cover mb-3" />}
                     <span className="font-medium text-sm block">{p.nombre}</span>
                     <span className="text-xs text-black/50">${Number(p.precio_base).toLocaleString('es-AR')}</span>
                   </button>
@@ -908,7 +908,7 @@ function Paso4Grabado({
                   seleccionado ? 'border-black bg-black/[0.03]' : 'border-black/15 hover:border-black/40'
                 }`}
               >
-                <img src={d.imagen_url} alt={d.nombre} className="w-full h-24 object-cover mb-2" />
+                <img src={d.imagen_url} alt={d.nombre} loading="lazy" className="w-full h-24 object-cover mb-2" />
                 <span className="text-xs font-medium flex items-center gap-1">
                   {seleccionado && <Check size={12} />} {d.nombre}
                 </span>
