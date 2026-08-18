@@ -29,7 +29,7 @@ export function ImagenConOverlay({ src, alt, gradiente = 'from-black/75 via-blac
 }) {
   return (
     <>
-      <img src={src} alt={alt}
+      <img src={src} alt={alt} loading="lazy"
         className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
       <div className={`absolute inset-0 bg-gradient-to-t ${gradiente} pointer-events-none`} />
     </>
@@ -52,9 +52,9 @@ export function ComboImagenConOverlay({ mateImg, bombillaImg, anclaje, alt, grad
   return (
     <>
       <div className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-105">
-        <img src={mateImg} alt={alt} className="absolute inset-0 w-full h-full object-cover" />
+        <img src={mateImg} alt={alt} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
         {puedeComponer && (
-          <img src={bombillaImg!} alt="" className="absolute w-1/4"
+          <img src={bombillaImg!} alt="" loading="lazy" className="absolute w-1/4"
             style={{
               left: `${anclaje!.anclaje_x}%`, top: `${anclaje!.anclaje_y}%`,
               transform: `translate(-50%, -50%) rotate(${anclaje!.rotacion}deg) scale(${anclaje!.escala})`,

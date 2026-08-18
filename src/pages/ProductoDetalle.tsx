@@ -169,7 +169,7 @@ export default function ProductoDetalle() {
                     className="relative flex-shrink-0 overflow-hidden transition-opacity"
                     style={{ width: 64, height: 64, opacity: i === imagenActiva ? 1 : 0.45 }}
                   >
-                    <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    <img src={img.url} alt="" loading="lazy" className="w-full h-full object-cover" />
                     {i === imagenActiva && (
                       <motion.div layoutId="thumb-border"
                         className="absolute inset-0 border-2 border-black pointer-events-none" />
