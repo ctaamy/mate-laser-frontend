@@ -1,7 +1,8 @@
 # syntax = docker/dockerfile:1
 
-# Adjust NODE_VERSION as desired
-ARG NODE_VERSION=22.21.1
+# Alineado con la versión de Node que usa el resto del pipeline (CI), no la
+# que propuso el generador de Fly.io por defecto.
+ARG NODE_VERSION=20
 FROM node:${NODE_VERSION}-slim AS base
 
 LABEL fly_launch_runtime="Vite"
@@ -35,11 +36,14 @@ RUN npm prune --omit=dev
 
 
 # Final stage for app image
-FROM nginx
+FROM base
 
-# Copy built application
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy built application (incluye node_modules ya podado, con "serve" adentro
+# — es dependencia de package.json, no devDependency)
+COPY --from=build /app /app
 
-# Start the server by default, this can be overwritten at runtime
-EXPOSE 80
-CMD [ "/usr/sbin/nginx", "-g", "daemon off;" ]
+# "serve" en vez de nginx: lee public/serve.json (copiado a dist/ por Vite en
+# el build) para las cabeceras de seguridad — X-Frame-Options, CSP, HSTS.
+# Con nginx ese archivo se ignora en silencio y quedan sin aplicar.
+EXPOSE 8080
+CMD [ "npx", "serve", "-s", "dist", "-l", "8080" ]
