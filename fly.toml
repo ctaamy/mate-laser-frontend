@@ -7,6 +7,14 @@ app = 'mate-laser-frontend'
 primary_region = 'gru'
 
 [build]
+  # Vite hornea estas dos DENTRO del bundle durante "npm run build" — hace
+  # falta pasarlas acá como build args. Cargarlas solo como "Environment
+  # Variables" en el dashboard de Fly no alcanza: esas llegan al container
+  # recién en runtime, después de que el build ya terminó (por eso el primer
+  # deploy quedó apuntando a localhost:3000).
+  [build.args]
+    VITE_API_URL = 'https://api.matelaserstudio.com.ar/api/v1'
+    VITE_MP_PUBLIC_KEY = 'TEST-95c78e0e-c298-401d-a0c4-d5f9cdb6217d'
 
 [http_service]
   internal_port = 8080
