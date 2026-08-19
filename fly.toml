@@ -1,0 +1,36 @@
+# fly.toml app configuration file generated for mate-laser-frontend on 2026-08-19T22:37:11Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mate-laser-frontend'
+primary_region = 'gru'
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  # A diferencia del backend, acá dejamos 0: es contenido estático detrás de
+  # Cloudflare (que ya cachea la mayoría del tráfico real), y un cold start
+  # de "serve" arrancando es liviano — no vale pagar una máquina despierta
+  # 24/7 solo para esto.
+  min_machines_running = 0
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/'
+    protocol = 'http'
+
+[[vm]]
+  # Servir estáticos con "serve" no necesita 1GB — a diferencia del backend,
+  # acá sí conviene bajarla para ahorrar costo.
+  memory_mb = 256
+  cpu_kind = 'shared'
+  cpus = 1
