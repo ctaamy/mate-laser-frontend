@@ -52,7 +52,11 @@ interface VarianteProducto {
   id: string;
   sku?: string | null;
   precio_override?: number | null;
-  stock: number;
+  // GET /productos/:slug (público) ya no manda el stock exacto — trae
+  // disponible/pocas_unidades/cantidad_maxima (hallazgo #8, Fase 2).
+  disponible?: boolean;
+  pocas_unidades?: boolean;
+  cantidad_maxima?: number;
   activo: boolean;
   variante_valores?: VarianteValor[];
   imagenes_producto?: ImagenProducto | null;
@@ -598,7 +602,7 @@ function Paso3Bombilla({
         imagenes_producto: s.imagen_url ? [{ id: '', url: s.imagen_url, es_principal: true }] : [],
         variantes_producto: [],
       },
-      variante: { id: s.variante_id, precio_override: s.precio, stock: 1, activo: true },
+      variante: { id: s.variante_id, precio_override: s.precio, disponible: true, activo: true },
     });
   };
 
@@ -781,9 +785,10 @@ function SelectorVariante({
       {!isLoading && variantes.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {variantes.map((v) => {
-            const sinStock = !v.activo || v.stock <= 0;
+            const sinStock = !v.activo || !v.disponible;
             const seleccionada = varianteSeleccionada?.id === v.id;
-            const etiqueta = v.variante_valores?.map((vv) => vv.valores_opcion.valor).join(' / ') || v.sku || 'Variante';
+            // v.sku ya no llega del backend público (hallazgo #8) — el fallback queda en 'Variante'.
+            const etiqueta = v.variante_valores?.map((vv) => vv.valores_opcion.valor).join(' / ') || 'Variante';
             return (
               <button
                 key={v.id}
@@ -799,7 +804,9 @@ function SelectorVariante({
                 }`}
               >
                 <span className="text-sm font-medium block">{etiqueta}</span>
-                <span className="text-xs text-black/50">{sinStock ? 'Sin stock' : `Stock: ${v.stock}`}</span>
+                <span className="text-xs text-black/50">
+                  {sinStock ? 'Sin stock' : v.pocas_unidades ? 'Últimas unidades' : 'Disponible'}
+                </span>
               </button>
             );
           })}

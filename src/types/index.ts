@@ -6,9 +6,17 @@ export interface Producto {
   categoria_id?: number;
   precio_base: number;
   precio_tachado?: number;
-  stock: number;
-  stock_alerta: number;
+  // stock/stock_alerta/sku: solo vienen en /productos/admin/* (ver
+  // ProductosService.aVistaPublica en el backend). Los endpoints públicos
+  // (GET /productos, GET /productos/:slug) devuelven en su lugar
+  // disponible/pocas_unidades/cantidad_maxima, sin exponer el número real
+  // (hallazgo #8 del plan de seguridad/performance).
+  stock?: number;
+  stock_alerta?: number;
   sku?: string;
+  disponible?: boolean;
+  pocas_unidades?: boolean;
+  cantidad_maxima?: number;
   material?: string;
   dimensiones?: string;
   peso_kg?: number;
@@ -57,7 +65,11 @@ export interface VarianteProducto {
   /** @deprecated reemplazado por variante_valores */
   atributos: Record<string, any>;
   precio_override?: number;
-  stock: number;
+  // Ídem Producto.stock: solo en admin. Público trae disponible/pocas_unidades/cantidad_maxima.
+  stock?: number;
+  disponible?: boolean;
+  pocas_unidades?: boolean;
+  cantidad_maxima?: number;
   imagen_id?: string;
   imagenes_producto?: ImagenProducto;
   activo: boolean;

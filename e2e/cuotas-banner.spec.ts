@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 
 const PRODUCTO_MOCK = {
   id: 'p1', nombre: 'Mate Imperial', slug: 'mate-imperial',
-  descripcion: 'Mate de acero', precio_base: 15000, stock: 10, stock_alerta: 2,
+  descripcion: 'Mate de acero', precio_base: 15000, disponible: true, pocas_unidades: false, cantidad_maxima: 10,
   apto_grabado: false, colores_disponibles: [],
   personalizado_habilitado: false, personalizado_max_chars: 30,
   activo: true, destacado: true, orden: 1, creado_en: new Date().toISOString(),

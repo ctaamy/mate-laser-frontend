@@ -92,8 +92,8 @@ export default function AdminProductos() {
         categoria_id: producto.categoria_id?.toString() || '',
         precio_base: producto.precio_base.toString(),
         precio_tachado: producto.precio_tachado?.toString() || '',
-        stock: producto.stock.toString(),
-        stock_alerta: producto.stock_alerta.toString(),
+        stock: (producto.stock ?? 0).toString(),
+        stock_alerta: (producto.stock_alerta ?? 0).toString(),
         sku: producto.sku || '',
         material: producto.material || '',
         dimensiones: producto.dimensiones || '',
@@ -249,8 +249,8 @@ export default function AdminProductos() {
                   {p.precio_tachado && <div className="text-xs text-[var(--ink-soft)] line-through">${Number(p.precio_tachado).toLocaleString('es-AR')}</div>}
                 </td>
                 <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${p.stock === 0 ? 'bg-red-100 text-red-600' : p.stock <= p.stock_alerta ? 'bg-amber-100 text-amber-700' : 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'}`}>
-                    {p.stock} u.
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${(p.stock ?? 0) === 0 ? 'bg-red-100 text-red-600' : (p.stock ?? 0) <= (p.stock_alerta ?? 0) ? 'bg-amber-100 text-amber-700' : 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'}`}>
+                    {p.stock ?? 0} u.
                   </span>
                 </td>
                 <td className="px-5 py-3">
