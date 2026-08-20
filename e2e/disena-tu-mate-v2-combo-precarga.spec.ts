@@ -8,9 +8,11 @@ const PRODUCTO_MATE = {
   id: 'mate-1', nombre: 'Mate Imperial', slug: 'mate-imperial', precio_base: 8000, apto_grabado: true,
   costo_grabado: 500, imagenes_producto: [{ id: 'img-1', url: 'https://example.com/mate.jpg', es_principal: true }],
 };
-const VARIANTE_MATE = { id: 'var-mate-1', sku: 'MATE-1', precio_override: null, stock: 5, activo: true, variante_valores: [], imagenes_producto: { id: 'img-1', url: 'https://example.com/mate.jpg', es_principal: true } };
+// Contrato público (hallazgo #8, mismo tratamiento aplicado al combo del
+// configurador): sin sku ni stock exacto, solo disponibilidad derivada.
+const VARIANTE_MATE = { id: 'var-mate-1', precio_override: null, disponible: true, pocas_unidades: false, cantidad_maxima: 5, activo: true, variante_valores: [], imagenes_producto: { id: 'img-1', url: 'https://example.com/mate.jpg', es_principal: true } };
 const PRODUCTO_BOMBILLA = { id: 'bomb-1', nombre: 'Bombilla Acero', slug: 'bombilla-acero', precio_base: 3000, apto_grabado: false, imagenes_producto: [] };
-const VARIANTE_BOMBILLA = { id: 'var-bomb-1', sku: 'BOMB-1', precio_override: null, stock: 10, activo: true, variante_valores: [], imagenes_producto: null };
+const VARIANTE_BOMBILLA = { id: 'var-bomb-1', precio_override: null, disponible: true, pocas_unidades: false, cantidad_maxima: 10, activo: true, variante_valores: [], imagenes_producto: null };
 
 async function mockBase(page: import('@playwright/test').Page) {
   await page.route('**/api/v1/categorias', (route) => route.fulfill({ json: [] }));
