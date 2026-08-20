@@ -1,19 +1,65 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
-import { useState } from 'react';
+import { Trash2, Plus, Minus, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCarritoStore } from '../store/carrito.store';
 import api from '../lib/api';
 
+// Forma resumida de lo que devuelve GET /productos para un item del carrito:
+// nunca el stock exacto, solo disponibilidad derivada (ver hallazgo #8).
+interface DisponibilidadProducto {
+  id: string;
+  disponible: boolean;
+  cantidad_maxima: number;
+  variantes_producto?: { id: string; disponible: boolean; cantidad_maxima: number }[];
+}
+
+// Fase 2 (auditoría carrito): a partir de cuántos días sin tocar el carrito
+// se avisa que puede estar desactualizado (precios, promos, stock). No
+// bloquea ni borra nada — la Fase 1 ya cubre el riesgo real de stock.
+const DIAS_AVISO_CARRITO_VIEJO = 7;
+
 export default function Carrito() {
-  const { items, quitar, actualizarCantidad, subtotal, limpiar } = useCarritoStore();
+  const { items, quitar, actualizarCantidad, subtotal, limpiar, sincronizarDisponibilidad, actualizadoEn } = useCarritoStore();
   const [cupon, setCupon] = useState('');
   const [descuento, setDescuento] = useState(0);
   const [cuponId, setCuponId] = useState('');
   const [cuponError, setCuponError] = useState('');
   const [cuponOk, setCuponOk] = useState('');
   const navigate = useNavigate();
+
+  // Fase 1 (auditoría carrito): el carrito persiste en localStorage sin
+  // vencimiento — un item agregado hace días puede no reflejar el stock
+  // real. Al entrar acá se revalida contra el catálogo (nunca contra el
+  // stock exacto, ver hallazgo #8) y se ajusta cantidad/disponibilidad.
+  const idsUnicos = [...new Set(items.map((i) => i.producto_id))];
+  const { data: disponibilidad, isFetching: revisandoStock } = useQuery<{ data: DisponibilidadProducto[] }>({
+    queryKey: ['carrito-disponibilidad', idsUnicos],
+    queryFn: () => api.get('/productos', { params: { ids: idsUnicos.join(',') } }).then((r) => r.data),
+    enabled: idsUnicos.length > 0,
+  });
+
+  useEffect(() => {
+    if (!disponibilidad) return;
+    const actualizaciones = disponibilidad.data.flatMap((p) => [
+      { producto_id: p.id, variante_id: undefined, stock: p.cantidad_maxima, disponible: p.disponible },
+      ...(p.variantes_producto ?? []).map((v) => ({
+        producto_id: p.id,
+        variante_id: v.id,
+        stock: v.cantidad_maxima,
+        disponible: v.disponible,
+      })),
+    ]);
+    sincronizarDisponibilidad(actualizaciones);
+    // sincronizarDisponibilidad es estable (viene de zustand); solo debe
+    // re-ejecutarse cuando llega una respuesta nueva del catálogo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disponibilidad]);
+
+  const haySinStock = items.some((i) => i.disponible === false);
+  const diasDesdeActualizacion = Math.floor((Date.now() - actualizadoEn) / (1000 * 60 * 60 * 24));
+  const carritoViejo = diasDesdeActualizacion >= DIAS_AVISO_CARRITO_VIEJO;
 
   // Config real de envío gratis (GET /configuracion, público, lee 'publicado').
   // Sin certeza de que esté activo y con un monto válido, no se muestra nada:
@@ -62,6 +108,13 @@ export default function Carrito() {
   return (
     <div className="flujo-compra max-w-6xl mx-auto px-6 py-10">
 
+      {carritoViejo && (
+        <div className="flex items-center gap-2 border border-amber-200 bg-amber-50 text-amber-800 px-4 py-2.5 text-xs mb-6">
+          <AlertTriangle size={13} className="flex-shrink-0" />
+          Este carrito tiene {diasDesdeActualizacion} días sin cambios — los precios y promociones pueden haber cambiado. Ya revisamos el stock por vos, pero te recomendamos repasar los productos antes de continuar.
+        </div>
+      )}
+
       {/* STEPS */}
       <div className="flex items-center justify-center gap-2 mb-10 text-xs">
         {STEPS.map((step, i) => (
@@ -107,6 +160,12 @@ export default function Carrito() {
                 {/* Info + controles */}
                 <div className="flex-1 flex flex-col justify-between gap-2 min-w-0">
                   <div>
+                    {item.disponible === false && (
+                      <div className="flex items-center gap-1.5 text-[11px] font-medium text-red-600 mb-1.5">
+                        <AlertTriangle size={11} className="flex-shrink-0" />
+                        Sin stock disponible — quitalo o esperá a que vuelva
+                      </div>
+                    )}
                     <div className="text-sm font-semibold text-black leading-tight">{item.nombre_producto}</div>
                     {item.variante_descripcion && (
                       <div className="text-[11px] text-black/40 mt-0.5">{item.variante_descripcion}</div>
@@ -227,11 +286,18 @@ export default function Carrito() {
               </div>
             )}
 
+            {haySinStock && (
+              <div className="flex items-center gap-1.5 text-xs text-red-600">
+                <AlertTriangle size={12} className="flex-shrink-0" />
+                Tenés productos sin stock — quitalos para continuar
+              </div>
+            )}
             <button
               onClick={() => navigate('/checkout')}
-              className="w-full bg-black text-white py-3 text-sm font-semibold tracking-[0.04em] hover:bg-black/80 transition-colors"
+              disabled={haySinStock || revisandoStock}
+              className="w-full bg-black text-white py-3 text-sm font-semibold tracking-[0.04em] hover:bg-black/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Continuar con el envío →
+              {revisandoStock ? 'Revisando stock…' : 'Continuar con el envío →'}
             </button>
             <Link to="/productos" className="text-center text-xs text-black/35 hover:text-black transition-colors">
               ← Seguir comprando
