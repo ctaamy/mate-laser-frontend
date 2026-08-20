@@ -8,6 +8,7 @@ import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
 import AdminModal from '../../components/admin/ui/AdminModal';
 import { AdminInput, AdminLabel } from '../../components/admin/ui/AdminInput';
+import { useDirtyGuard } from '../../hooks/useDirtyGuard';
 
 interface Categoria {
   id: number;
@@ -102,6 +103,8 @@ export default function AdminPromocionesBancarias() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [promoEditando, setPromoEditando] = useState<PromocionBancaria | null>(null);
   const [form, setForm] = useState(FORM_VACIO);
+  // Evita perder lo cargado si se hace click afuera del modal por error.
+  const { marcarSnapshot, confirmarCierre } = useDirtyGuard<typeof FORM_VACIO>();
 
   const { data: promos, isLoading, isError } = useQuery<PromocionBancaria[]>({
     queryKey: ['admin-promociones-bancarias'],
@@ -118,11 +121,19 @@ export default function AdminPromocionesBancarias() {
     queryFn: () => api.get('/productos/admin/todos?limit=100').then(r => r.data.data),
   });
 
+  // Cierre tras guardado exitoso: ya no hay nada que perder, no pasa por el
+  // guard de cambios sin guardar.
+  const cerrarModalTrasGuardar = () => {
+    setModalAbierto(false);
+    setPromoEditando(null);
+    setForm(FORM_VACIO);
+  };
+
   const crearMutation = useMutation({
     mutationFn: (data: any) => api.post('/promociones-bancarias', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-promociones-bancarias'] });
-      cerrarModal();
+      cerrarModalTrasGuardar();
     },
   });
 
@@ -130,7 +141,7 @@ export default function AdminPromocionesBancarias() {
     mutationFn: ({ id, data }: { id: number; data: any }) => api.put(`/promociones-bancarias/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-promociones-bancarias'] });
-      cerrarModal();
+      cerrarModalTrasGuardar();
     },
   });
 
@@ -142,7 +153,7 @@ export default function AdminPromocionesBancarias() {
   const abrirModal = (promo?: PromocionBancaria) => {
     if (promo) {
       setPromoEditando(promo);
-      setForm({
+      const formCargado = {
         banco: promo.banco,
         tarjetas: promo.tarjetas.join(', '),
         cuotas: String(promo.cuotas),
@@ -153,15 +164,22 @@ export default function AdminPromocionesBancarias() {
         aplica_a_todos: promo.aplica_a_todos,
         categoria_ids: promo.categorias.map(c => c.categoria_id),
         producto_ids: promo.productos.map(p => p.producto_id),
-      });
+      };
+      setForm(formCargado);
+      marcarSnapshot(formCargado);
     } else {
       setPromoEditando(null);
       setForm(FORM_VACIO);
+      marcarSnapshot(FORM_VACIO);
     }
     setModalAbierto(true);
   };
 
+  // Backdrop-click, botón × y "Cancelar" pasan los tres por acá (ver
+  // AdminModal.tsx) — si hay cambios sin guardar, confirma antes de
+  // descartar.
   const cerrarModal = () => {
+    if (!confirmarCierre(form)) return;
     setModalAbierto(false);
     setPromoEditando(null);
     setForm(FORM_VACIO);

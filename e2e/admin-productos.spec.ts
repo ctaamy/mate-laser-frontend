@@ -59,6 +59,49 @@ test.describe('Admin — editar producto', () => {
     await expect(page.getByText(/error|no se pudo/i)).not.toBeVisible();
   });
 
+  test('click afuera del modal con cambios sin guardar pide confirmación antes de cerrar', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page);
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+
+    await page.getByPlaceholder('Mate acero grabado personalizado').fill('Mate Imperial Grabado PRO');
+
+    let dialogVisto = false;
+    page.once('dialog', async (dialog) => {
+      dialogVisto = true;
+      expect(dialog.type()).toBe('confirm');
+      await dialog.dismiss(); // cancelar → el modal debe seguir abierto con los datos
+    });
+
+    // Click en el backdrop, fuera del contenido del modal
+    await page.mouse.click(5, 5);
+    await page.waitForTimeout(200);
+
+    expect(dialogVisto).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+    await expect(page.getByPlaceholder('Mate acero grabado personalizado')).toHaveValue('Mate Imperial Grabado PRO');
+  });
+
+  test('click afuera del modal sin cambios cierra directo, sin pedir confirmación', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page);
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+
+    let dialogVisto = false;
+    page.once('dialog', async (dialog) => { dialogVisto = true; await dialog.dismiss(); });
+
+    await page.mouse.click(5, 5);
+
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).not.toBeVisible();
+    expect(dialogVisto).toBe(false);
+  });
+
   test('toggle apto_grabado: muestra/oculta costo de grabado y colores', async ({ page }) => {
     await loginComoAdmin(page);
     await mockBackendAdminProductos(page);
