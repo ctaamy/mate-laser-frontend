@@ -34,8 +34,10 @@ COPY . .
 # container ya corriendo, después de que el build ya terminó).
 ARG VITE_API_URL
 ARG VITE_MP_PUBLIC_KEY
+ARG VITE_UMAMI_WEBSITE_ID
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_MP_PUBLIC_KEY=$VITE_MP_PUBLIC_KEY
+ENV VITE_UMAMI_WEBSITE_ID=$VITE_UMAMI_WEBSITE_ID
 
 # Build application
 RUN npm run build

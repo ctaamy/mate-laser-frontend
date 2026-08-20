@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Copy, Check, Image, Shapes, Layers, Plus, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
@@ -10,15 +10,35 @@ import ActivoBadge from '../../components/ui/ActivoBadge';
 import AdminButton from '../../components/admin/ui/AdminButton';
 import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
+import { AdminInput, AdminSelect } from '../../components/admin/ui/AdminInput';
 import { useDirtyGuard } from '../../hooks/useDirtyGuard';
 
 interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; datos: Record<string, any>; }
+
+// Fila-separador de categoría para la vista "Por categoría" — un <tr> de
+// ancho completo (colSpan 7 = misma cantidad de columnas que AdminTable acá)
+// seguido de las filas de producto del grupo, como children del mismo tbody.
+function FragmentGrupo({ nombre, cantidad, children }: { nombre: string; cantidad: number; children: ReactNode }) {
+  return (
+    <>
+      <tr className="bg-[var(--n-50)]">
+        <td colSpan={7} className="px-5 py-2 text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">
+          {nombre} <span className="font-normal normal-case">({cantidad})</span>
+        </td>
+      </tr>
+      {children}
+    </>
+  );
+}
 
 export default function AdminProductos() {
   const queryClient = useQueryClient();
   // Tab de página (Productos / Categorías) — no confundir con tabModal, que
   // son las tabs internas del modal de edición de un producto puntual.
   const [tabPagina, setTabPagina] = useState<'productos' | 'categorias'>('productos');
+  const [busqueda, setBusqueda] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [vista, setVista] = useState<'lista' | 'agrupada'>('lista');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [tabModal, setTabModal] = useState<'datos' | 'imagenes' | 'variantes'>('datos');
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
@@ -68,6 +88,35 @@ export default function AdminProductos() {
     queryFn: () => api.get(`/imagenes/producto/${productoEditando!.id}`).then(r => r.data),
     enabled: !!productoEditando?.id,
   });
+
+  const normalizar = (s: string) =>
+    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const productosFiltrados = (productos ?? []).filter((p) => {
+    if (categoriaFiltro && p.categoria_id?.toString() !== categoriaFiltro) return false;
+    if (!busqueda.trim()) return true;
+    const q = normalizar(busqueda.trim());
+    return normalizar(p.nombre).includes(q)
+      || normalizar(p.sku || '').includes(q)
+      || normalizar(p.slug).includes(q);
+  });
+
+  // Agrupa por categoría (orden = orden de `categorias`, "Sin categoría" al
+  // final) — solo para la vista agrupada; la vista lista usa el array plano.
+  const gruposPorCategoria = (() => {
+    const mapa = new Map<string, { nombre: string; items: Producto[] }>();
+    for (const p of productosFiltrados) {
+      const key = p.categoria_id?.toString() ?? '__sin_categoria__';
+      const nombre = (p as any).categorias?.nombre || 'Sin categoría';
+      if (!mapa.has(key)) mapa.set(key, { nombre, items: [] });
+      mapa.get(key)!.items.push(p);
+    }
+    return Array.from(mapa.values()).sort((a, b) => {
+      if (a.nombre === 'Sin categoría') return 1;
+      if (b.nombre === 'Sin categoría') return -1;
+      return a.nombre.localeCompare(b.nombre, 'es');
+    });
+  })();
 
   // Solo secciones activas de tipo productos_destacados
   const seccionesProductos = todasSecciones.filter(
@@ -213,6 +262,62 @@ export default function AdminProductos() {
 
   const inputClass = 'border border-[var(--line)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent)] w-full';
 
+  // Fila de producto — compartida entre la vista lista y la vista agrupada
+  // por categoría (Fase: filtros del listado de Productos).
+  const renderFilaProducto = (p: Producto) => (
+    <tr key={p.id} className="border-t border-[var(--line)] hover:bg-[var(--n-50)] transition-colors">
+      <td className="px-5 py-3">
+        <div className="text-sm font-medium text-[var(--ink)]">{p.nombre}</div>
+        <div className="text-xs text-[var(--ink-soft)]">{p.sku || p.slug}</div>
+      </td>
+      <td className="px-5 py-3 text-sm text-[var(--ink-soft)]">{(p as any).categorias?.nombre || '—'}</td>
+      <td className="px-5 py-3">
+        <div className="text-sm font-medium text-[var(--ink)]">${Number(p.precio_base).toLocaleString('es-AR')}</div>
+        {p.precio_tachado && <div className="text-xs text-[var(--ink-soft)] line-through">${Number(p.precio_tachado).toLocaleString('es-AR')}</div>}
+      </td>
+      <td className="px-5 py-3">
+        <span className={`text-xs px-2 py-1 rounded-full font-medium ${(p.stock ?? 0) === 0 ? 'bg-red-100 text-red-600' : (p.stock ?? 0) <= (p.stock_alerta ?? 0) ? 'bg-amber-100 text-amber-700' : 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'}`}>
+          {p.stock ?? 0} u.
+        </span>
+      </td>
+      <td className="px-5 py-3">
+        {p.apto_grabado ? (
+          <div>
+            <span className="text-xs bg-[var(--accent-soft)] text-[var(--accent-hover)] px-2 py-1 rounded-full flex items-center gap-1 w-fit">
+              <Check size={10} /> Sí
+            </span>
+            {Number((p as any).costo_grabado) > 0 && (
+              <div className="text-xs text-[var(--ink-soft)] mt-1">+${Number((p as any).costo_grabado).toLocaleString('es-AR')}</div>
+            )}
+          </div>
+        ) : <span className="text-xs text-[var(--n-300)]">—</span>}
+      </td>
+      <td className="px-5 py-3">
+        <ActivoBadge activo={p.activo} />
+      </td>
+      <td className="px-5 py-3">
+        <div className="flex items-center gap-1">
+          <AdminButton variant="ghost" size="sm" onClick={() => abrirModal(p)} aria-label="Editar">
+            <Pencil size={13} />
+          </AdminButton>
+          <AdminButton variant="ghost" size="sm" aria-label="Duplicar">
+            <Copy size={13} />
+          </AdminButton>
+          <AdminButton
+            variant="danger" size="sm"
+            disabled={eliminarMutation.isPending && eliminarMutation.variables === p.id}
+            onClick={() => {
+              if (confirm(`¿Eliminar "${p.nombre}"? Esta acción no se puede deshacer.`)) eliminarMutation.mutate(p.id);
+            }}
+            aria-label="Eliminar"
+          >
+            <Trash2 size={13} />
+          </AdminButton>
+        </div>
+      </td>
+    </tr>
+  );
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -246,7 +351,35 @@ export default function AdminProductos() {
           <button onClick={() => setAvisoPublicar(false)} className="text-xs text-amber-700 hover:underline flex-shrink-0">Cerrar</button>
         </div>
       )}
-      <div className="flex justify-end items-center mb-4">
+      <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <AdminInput
+            fullWidth={false}
+            className="w-64"
+            placeholder="Buscar por nombre, SKU o slug..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          <AdminSelect
+            fullWidth={false}
+            className="w-48"
+            value={categoriaFiltro}
+            onChange={(e) => setCategoriaFiltro(e.target.value)}
+          >
+            <option value="">Todas las categorías</option>
+            {categorias?.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </AdminSelect>
+          <div className="flex gap-1 border border-[var(--line)] rounded-lg p-1 bg-[var(--panel)]">
+            <button onClick={() => setVista('lista')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${vista === 'lista' ? 'bg-[var(--accent)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'}`}>
+              Lista
+            </button>
+            <button onClick={() => setVista('agrupada')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${vista === 'agrupada' ? 'bg-[var(--accent)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'}`}>
+              Por categoría
+            </button>
+          </div>
+        </div>
         <AdminButton variant="primary" icon={<Plus size={16} />} onClick={() => abrirModal()}>
           Nuevo producto
         </AdminButton>
@@ -257,62 +390,20 @@ export default function AdminProductos() {
           columns={['Producto', 'Categoría', 'Precio', 'Stock', 'Láser', 'Estado', 'Acciones']}
           isLoading={productosLoading}
           isError={productosError}
-          isEmpty={!productos || productos.length === 0}
-          emptyMessage={<>No hay productos. <button onClick={() => abrirModal()} className="text-[var(--accent)] underline">Crear el primero</button></>}
+          isEmpty={productosFiltrados.length === 0}
+          emptyMessage={
+            productos && productos.length > 0
+              ? 'No hay productos que coincidan con la búsqueda o el filtro.'
+              : <>No hay productos. <button onClick={() => abrirModal()} className="text-[var(--accent)] underline">Crear el primero</button></>
+          }
         >
-            {productos?.map((p) => (
-              <tr key={p.id} className="border-t border-[var(--line)] hover:bg-[var(--n-50)] transition-colors">
-                <td className="px-5 py-3">
-                  <div className="text-sm font-medium text-[var(--ink)]">{p.nombre}</div>
-                  <div className="text-xs text-[var(--ink-soft)]">{p.sku || p.slug}</div>
-                </td>
-                <td className="px-5 py-3 text-sm text-[var(--ink-soft)]">{(p as any).categorias?.nombre || '—'}</td>
-                <td className="px-5 py-3">
-                  <div className="text-sm font-medium text-[var(--ink)]">${Number(p.precio_base).toLocaleString('es-AR')}</div>
-                  {p.precio_tachado && <div className="text-xs text-[var(--ink-soft)] line-through">${Number(p.precio_tachado).toLocaleString('es-AR')}</div>}
-                </td>
-                <td className="px-5 py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${(p.stock ?? 0) === 0 ? 'bg-red-100 text-red-600' : (p.stock ?? 0) <= (p.stock_alerta ?? 0) ? 'bg-amber-100 text-amber-700' : 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'}`}>
-                    {p.stock ?? 0} u.
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  {p.apto_grabado ? (
-                    <div>
-                      <span className="text-xs bg-[var(--accent-soft)] text-[var(--accent-hover)] px-2 py-1 rounded-full flex items-center gap-1 w-fit">
-                        <Check size={10} /> Sí
-                      </span>
-                      {Number((p as any).costo_grabado) > 0 && (
-                        <div className="text-xs text-[var(--ink-soft)] mt-1">+${Number((p as any).costo_grabado).toLocaleString('es-AR')}</div>
-                      )}
-                    </div>
-                  ) : <span className="text-xs text-[var(--n-300)]">—</span>}
-                </td>
-                <td className="px-5 py-3">
-                  <ActivoBadge activo={p.activo} />
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-1">
-                    <AdminButton variant="ghost" size="sm" onClick={() => abrirModal(p)} aria-label="Editar">
-                      <Pencil size={13} />
-                    </AdminButton>
-                    <AdminButton variant="ghost" size="sm" aria-label="Duplicar">
-                      <Copy size={13} />
-                    </AdminButton>
-                    <AdminButton
-                      variant="danger" size="sm"
-                      disabled={eliminarMutation.isPending && eliminarMutation.variables === p.id}
-                      onClick={() => {
-                        if (confirm(`¿Eliminar "${p.nombre}"? Esta acción no se puede deshacer.`)) eliminarMutation.mutate(p.id);
-                      }}
-                      aria-label="Eliminar"
-                    >
-                      <Trash2 size={13} />
-                    </AdminButton>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {vista === 'lista'
+              ? productosFiltrados.map((p) => renderFilaProducto(p))
+              : gruposPorCategoria.map((grupo) => (
+                  <FragmentGrupo key={grupo.nombre} nombre={grupo.nombre} cantidad={grupo.items.length}>
+                    {grupo.items.map((p) => renderFilaProducto(p))}
+                  </FragmentGrupo>
+                ))}
         </AdminTable>
       </AdminCard>
       </>
