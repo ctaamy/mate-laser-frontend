@@ -10,6 +10,7 @@ import ActivoBadge from '../../components/ui/ActivoBadge';
 import AdminButton from '../../components/admin/ui/AdminButton';
 import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
+import { useDirtyGuard } from '../../hooks/useDirtyGuard';
 
 interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; datos: Record<string, any>; }
 
@@ -36,6 +37,10 @@ export default function AdminProductos() {
     personalizado_habilitado: false, personalizado_max_chars: '30',
     personalizado_placeholder: '', activo: true, destacado: false,
   });
+  // Evita perder lo cargado si se hace click afuera del modal por error —
+  // ver bug reportado: el modal se cerraba solo con cualquier click en el
+  // backdrop, sin avisar, perdiendo todo el formulario.
+  const { marcarSnapshot, confirmarCierre } = useDirtyGuard<typeof form>();
 
   const { data: productos, isLoading: productosLoading, isError: productosError } = useQuery<Producto[]>({
     queryKey: ['admin-productos-lista'],
@@ -85,7 +90,7 @@ export default function AdminProductos() {
         .filter(s => (s.datos.productos_ids ?? []).includes(producto.id))
         .map(s => s.id);
       setSeccionesSeleccionadas(enSecciones);
-      setForm({
+      const formCargado = {
         nombre: producto.nombre,
         slug: producto.slug,
         descripcion: producto.descripcion || '',
@@ -108,24 +113,42 @@ export default function AdminProductos() {
         personalizado_placeholder: producto.personalizado_placeholder || '',
         activo: producto.activo,
         destacado: producto.destacado,
-      });
+      };
+      setForm(formCargado);
+      marcarSnapshot(formCargado);
     } else {
       setProductoEditando(null);
       setSeccionesSeleccionadas([]);
-      setForm({
+      const formVacio = {
         nombre: '', slug: '', descripcion: '', categoria_id: '',
         precio_base: '', precio_tachado: '', stock: '0', stock_alerta: '5',
         sku: '', material: '', dimensiones: '', peso_kg: '',
         apto_grabado: false, costo_grabado: '0', colores_disponibles: '',
         personalizado_habilitado: false, personalizado_max_chars: '30',
         personalizado_placeholder: '', activo: true, destacado: false,
-      });
+      };
+      setForm(formVacio);
+      marcarSnapshot(formVacio);
     }
     setTabModal('datos');
     setModalAbierto(true);
   };
 
-  const cerrarModal = () => { setModalAbierto(false); setProductoEditando(null); };
+  // Backdrop-click, botón × y "Cancelar" pasan los tres por acá — si hay
+  // cambios sin guardar respecto al snapshot tomado al abrir, confirma antes
+  // de descartar.
+  const cerrarModal = () => {
+    if (!confirmarCierre(form)) return;
+    setModalAbierto(false);
+    setProductoEditando(null);
+  };
+
+  // Para usar después de un guardado exitoso: ya no hay nada que perder, así
+  // que cierra directo sin pasar por el guard de cambios sin guardar.
+  const cerrarModalTrasGuardar = () => {
+    setModalAbierto(false);
+    setProductoEditando(null);
+  };
 
   const guardarSecciones = async (productoId: string) => {
     // Siempre fetch fresh para no sobreescribir cambios recientes con datos
@@ -173,12 +196,12 @@ export default function AdminProductos() {
         await api.put(`/productos/${productoEditando.id}`, data);
         await guardarSecciones(productoEditando.id);
         queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
-        cerrarModal();
+        cerrarModalTrasGuardar();
       } else {
         const res = await api.post('/productos', data);
         await guardarSecciones(res.data.id);
         queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
-        cerrarModal();
+        cerrarModalTrasGuardar();
       }
     } finally {
       setGuardando(false);
