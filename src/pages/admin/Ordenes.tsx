@@ -34,6 +34,7 @@ function cobradoDe(orden: Orden): number {
 export default function AdminOrdenes() {
   const queryClient = useQueryClient();
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroCanal, setFiltroCanal] = useState('');
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null);
   const [nuevoEstado, setNuevoEstado] = useState('');
   const [tracking, setTracking] = useState('');
@@ -73,10 +74,11 @@ export default function AdminOrdenes() {
   const [metodoNuevoPago, setMetodoNuevoPago] = useState('efectivo');
 
   const { data: ordenes, isLoading, isError } = useQuery({
-    queryKey: ['admin-ordenes-lista', filtroEstado],
+    queryKey: ['admin-ordenes-lista', filtroEstado, filtroCanal],
     queryFn: () => {
       const params = new URLSearchParams({ limit: '100' });
       if (filtroEstado) params.set('estado', filtroEstado);
+      if (filtroCanal) params.set('canal', filtroCanal);
       return api.get(`/ordenes?${params}`).then(r => r.data.data);
     },
   });
@@ -307,6 +309,11 @@ export default function AdminOrdenes() {
           <AdminButton variant="primary" onClick={() => setModalVentaManualAbierto(true)}>
             + Cargar venta manual
           </AdminButton>
+          <AdminSelect value={filtroCanal} onChange={e => setFiltroCanal(e.target.value)} fullWidth={false}>
+            <option value="">Todos los canales</option>
+            <option value="web">Web</option>
+            <option value="admin_manual">Manual</option>
+          </AdminSelect>
           <AdminSelect value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} fullWidth={false}>
             <option value="">Todos los estados</option>
             {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
@@ -325,12 +332,19 @@ export default function AdminOrdenes() {
           {ordenes?.map((orden: any) => (
             <tr key={orden.id} className="border-t border-[var(--line)] hover:bg-[var(--n-50)] transition-colors">
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)] font-mono">
-                #{orden.id.slice(0, 8).toUpperCase()}
-                {orden.canal === 'admin_manual' && (
-                  <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--ink)] bg-[var(--n-100)] px-1.5 py-0.5 rounded">Manual</span>
-                )}
-                {(orden.items_orden ?? []).some((i: any) => i.combo_id) && (
-                  <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--accent)] bg-[var(--accent-soft)] px-1.5 py-0.5 rounded">Combo</span>
+                <div>
+                  #{orden.id.slice(0, 8).toUpperCase()}
+                  {orden.canal === 'admin_manual' && (
+                    <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--ink)] bg-[var(--n-100)] px-1.5 py-0.5 rounded">Manual</span>
+                  )}
+                  {(orden.items_orden ?? []).some((i: any) => i.combo_id) && (
+                    <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--accent)] bg-[var(--accent-soft)] px-1.5 py-0.5 rounded">Combo</span>
+                  )}
+                </div>
+                {orden.cargado_por && (
+                  <div className="text-[10px] font-sans normal-case text-[var(--ink-soft)] mt-0.5">
+                    por {orden.cargado_por.nombre || orden.cargado_por.email}
+                  </div>
                 )}
               </td>
               <td className="px-5 py-3 text-sm text-[var(--ink)]">

@@ -154,6 +154,7 @@ export interface Orden {
   // mano en el admin — presencial, redes, feria). Ver CLAUDE.md.
   canal?: string;
   cargado_por_id?: string;
+  cargado_por?: { id: string; email: string; nombre?: string; apellido?: string };
   items_orden?: ItemOrden[];
   pagos?: Pago[];
   envios_orden?: { tracking_number?: string; estado?: string }[];

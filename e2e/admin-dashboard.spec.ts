@@ -42,4 +42,39 @@ test.describe('Admin — Dashboard — métricas de ventas', () => {
     const cardVentasHoy = page.getByText('Ventas hoy', { exact: true }).locator('..').locator('..');
     await expect(cardVentasHoy.getByText('$0')).toBeVisible();
   });
+
+  // Fase 3: desglose online/manual — opcional, no reemplaza "Ventas históricas".
+  test('con ventas manuales cargadas, muestra el desglose online vs. manual', async ({ page }) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes/estadisticas', (route) =>
+      route.fulfill({ json: {
+        ventas_totales: 100000, ventas_hoy: 0, ordenes_totales: 20, ordenes_pendientes: 0,
+        ventas_totales_manual: 30000, ventas_totales_web: 70000, ordenes_totales_manual: 6,
+      } }),
+    );
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [] } }));
+    await page.route('**/api/v1/productos/admin/todos**', (route) => route.fulfill({ json: { data: [] } }));
+
+    await page.goto('/admin');
+
+    await expect(page.getByText('$70.000', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText('$30.000', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText('(6 órdenes)', { exact: false })).toBeVisible();
+  });
+
+  test('sin ventas manuales, no muestra el desglose (no ensucia el dashboard)', async ({ page }) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes/estadisticas', (route) =>
+      route.fulfill({ json: {
+        ventas_totales: 950000, ventas_hoy: 12000, ordenes_totales: 137, ordenes_pendientes: 4,
+        ventas_totales_manual: 0, ventas_totales_web: 950000, ordenes_totales_manual: 0,
+      } }),
+    );
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [] } }));
+    await page.route('**/api/v1/productos/admin/todos**', (route) => route.fulfill({ json: { data: [] } }));
+
+    await page.goto('/admin');
+
+    await expect(page.getByText('cargadas a mano', { exact: false })).not.toBeVisible();
+  });
 });

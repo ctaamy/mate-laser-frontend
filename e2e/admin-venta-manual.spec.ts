@@ -238,3 +238,35 @@ test.describe('Admin — Órdenes — anular una venta manual (Fase 2)', () => {
     await expect(page.getByRole('button', { name: 'Anular venta' })).not.toBeVisible();
   });
 });
+
+test.describe('Admin — Órdenes — filtro por canal (Fase 3)', () => {
+  test('el selector de canal manda ?canal=admin_manual al backend', async ({ page }) => {
+    await loginComoAdmin(page);
+
+    let ultimaUrl = '';
+    await page.route('**/api/v1/ordenes?**', (route) => {
+      ultimaUrl = route.request().url();
+      route.fulfill({ json: { data: [] } });
+    });
+
+    await page.goto('/admin/ordenes');
+    await page.getByText('Todos los canales', { exact: true }).locator('..').selectOption('admin_manual');
+
+    await expect.poll(() => ultimaUrl).toContain('canal=admin_manual');
+  });
+
+  test('muestra quién cargó una venta manual ("por <admin>")', async ({ page }) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({
+      json: { data: [{
+        id: 'orden-manual-2', canal: 'admin_manual', estado: 'pagado', total: 8000, metodo_pago: 'efectivo',
+        creado_en: new Date().toISOString(), direccion_envio: { tipo: 'venta_manual' },
+        cargado_por: { id: 'admin-1', email: 'admin@test.com', nombre: 'Admin', apellido: 'Test' },
+      }] },
+    }));
+
+    await page.goto('/admin/ordenes');
+
+    await expect(page.getByText('por Admin', { exact: false })).toBeVisible();
+  });
+});

@@ -162,6 +162,18 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* DESGLOSE POR CANAL (Fase 3) — opcional: solo se muestra si hay
+          ventas manuales cargadas, para no ensuciar el dashboard de tiendas
+          que todavía no usaron la función. "Ventas históricas" arriba sigue
+          sumando ambos canales, sin cambios. */}
+      {!!stats?.ventas_totales_manual && (
+        <p className="text-xs text-[var(--ink-soft)] -mt-4">
+          De las ventas históricas: <span className="font-medium text-[var(--ink)]">${stats.ventas_totales_web.toLocaleString('es-AR')}</span> online
+          {' · '}
+          <span className="font-medium text-[var(--ink)]">${stats.ventas_totales_manual.toLocaleString('es-AR')}</span> cargadas a mano ({stats.ordenes_totales_manual} {stats.ordenes_totales_manual === 1 ? 'orden' : 'órdenes'})
+        </p>
+      )}
+
       {/* ÚLTIMAS ÓRDENES */}
       <AdminCard padded={false}>
         <div className="px-5 py-4 border-b border-[var(--line)] flex justify-between items-center">
