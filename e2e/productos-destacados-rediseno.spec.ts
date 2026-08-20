@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 
 const PRODUCTO = {
   id: 'p1', nombre: 'Mate Imperial Grabado', slug: 'mate-imperial-grabado',
-  precio_base: 15000, precio_tachado: 20000, stock: 5, stock_alerta: 2,
+  precio_base: 15000, precio_tachado: 20000, disponible: true, pocas_unidades: false, cantidad_maxima: 5,
   apto_grabado: true, colores_disponibles: [], personalizado_habilitado: false,
   personalizado_max_chars: 0, activo: true, destacado: true, orden: 0, creado_en: new Date().toISOString(),
   imagenes_producto: [{ id: 'i1', url: 'https://example.com/mate.jpg', alt_texto: 'Mate Imperial', orden: 0 }],

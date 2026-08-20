@@ -18,7 +18,7 @@ import { test, expect } from '@playwright/test';
 const PRODUCTO_MOCK = {
   id: 'p1', nombre: 'Mate Imperial Grabado', slug: 'mate-imperial-grabado',
   descripcion: 'Mate de acero con grabado láser personalizado',
-  precio_base: 15000, stock: 10, stock_alerta: 2,
+  precio_base: 15000, disponible: true, pocas_unidades: false, cantidad_maxima: 10,
   apto_grabado: true, colores_disponibles: ['negro', 'blanco'],
   personalizado_habilitado: true, personalizado_max_chars: 20,
   personalizado_placeholder: 'Ej: Para Juan', activo: true, destacado: true,

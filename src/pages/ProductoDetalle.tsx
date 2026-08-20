@@ -77,9 +77,14 @@ export default function ProductoDetalle() {
       })
     : undefined;
 
-  const stockDisponible = varianteSeleccionada ? varianteSeleccionada.stock : producto.stock;
+  // Hallazgo #8 (Fase 2): el público ya no recibe el stock exacto, solo
+  // disponible/pocas_unidades/cantidad_maxima (ver types/index.ts).
+  const fuenteStock = varianteSeleccionada ?? producto;
+  const disponible = fuenteStock.disponible ?? false;
+  const pocasUnidades = fuenteStock.pocas_unidades ?? false;
+  const cantidadMaxima = fuenteStock.cantidad_maxima ?? 0;
   const imagenVariante = varianteSeleccionada?.imagenes_producto;
-  const puedeAgregar = stockDisponible > 0 && (!tieneVariantes || !!varianteSeleccionada);
+  const puedeAgregar = disponible && (!tieneVariantes || !!varianteSeleccionada);
 
   const varianteDescripcion = varianteSeleccionada
     ? tiposOpcion
@@ -100,7 +105,7 @@ export default function ProductoDetalle() {
       color: quierePersonalizar ? (colorSeleccionado || undefined) : undefined,
       texto_grabado: quierePersonalizar ? (textoGrabado || undefined) : undefined,
       imagen_url: imagenVariante?.url ?? producto.imagenes_producto?.[0]?.url,
-      stock: stockDisponible,
+      stock: cantidadMaxima,
     });
     setAgregado(true);
     setTimeout(() => setAgregado(false), 2000);
@@ -347,11 +352,13 @@ export default function ProductoDetalle() {
 
             {/* Stock */}
             <div className="flex items-center gap-2 text-[11px] font-medium">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${stockDisponible > 0 ? 'bg-black' : 'bg-black/20'}`} />
-              <span className={stockDisponible > 0 ? 'text-black/60' : 'text-black/25'}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${disponible ? (pocasUnidades ? 'bg-amber-500' : 'bg-black') : 'bg-black/20'}`} />
+              <span className={disponible ? (pocasUnidades ? 'text-amber-600' : 'text-black/60') : 'text-black/25'}>
                 {!tieneVariantes || varianteSeleccionada
-                  ? stockDisponible > 0
-                    ? 'Stock disponible · Entrega en 3–5 días hábiles'
+                  ? disponible
+                    ? pocasUnidades
+                      ? '¡Últimas unidades! · Entrega en 3–5 días hábiles'
+                      : 'Stock disponible · Entrega en 3–5 días hábiles'
                     : 'Sin stock disponible'
                   : 'Seleccioná una opción para ver el stock'}
               </span>
@@ -366,7 +373,7 @@ export default function ProductoDetalle() {
                   <Minus size={12} />
                 </button>
                 <span className="w-8 text-center text-sm font-semibold text-black select-none">{cantidad}</span>
-                <button onClick={() => setCantidad(Math.min(stockDisponible, cantidad + 1))}
+                <button onClick={() => setCantidad(Math.min(cantidadMaxima, cantidad + 1))}
                   className="w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
                   <Plus size={12} />
                 </button>

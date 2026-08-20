@@ -22,7 +22,9 @@ const TIPO_COLOR = {
 const VARIANTE_NATURAL = {
   id: 'variante-natural',
   producto_id: PRODUCTO_MOCK.id,
-  stock: 8,
+  disponible: true,
+  pocas_unidades: false,
+  cantidad_maxima: 8,
   imagen_id: 'img-natural',
   imagenes_producto: IMG_NATURAL,
   activo: true,
@@ -32,7 +34,9 @@ const VARIANTE_NATURAL = {
 const VARIANTE_NEGRO = {
   id: 'variante-negro',
   producto_id: PRODUCTO_MOCK.id,
-  stock: 0,
+  disponible: false,
+  pocas_unidades: false,
+  cantidad_maxima: 0,
   imagen_id: 'img-negro',
   imagenes_producto: IMG_NEGRO,
   activo: true,

@@ -21,8 +21,10 @@ export const PRODUCTO_MOCK = {
   slug: 'mate-imperial-grabado',
   descripcion: 'Mate de acero con grabado láser personalizado',
   precio_base: 8000,
-  stock: 10,
-  stock_alerta: 2,
+  // Contrato público (hallazgo #8, Fase 2): sin stock exacto, solo disponibilidad derivada.
+  disponible: true,
+  pocas_unidades: false,
+  cantidad_maxima: 10,
   apto_grabado: true,
   personalizado_habilitado: true,
   personalizado_max_chars: 20,
