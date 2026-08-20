@@ -9,6 +9,10 @@ const ESTADO_COLOR: Record<string, string> = {
   entregado: 'bg-[#E1F5EE] text-[#0F6E56]',
   cancelado: 'bg-red-100 text-red-600',
   rechazado: 'bg-red-100 text-red-600',
+  // Exclusivos de ventas manuales (canal='admin_manual') — ver
+  // OrdenesService.crearVentaManual/registrarPago.
+  pendiente_pago: 'bg-gray-100 text-gray-600',
+  pago_parcial: 'bg-amber-100 text-amber-700',
 };
 
 export default function EstadoBadge({ estado }: { estado: string }) {

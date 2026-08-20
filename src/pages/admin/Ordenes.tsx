@@ -8,9 +8,27 @@ import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
 import AdminModal from '../../components/admin/ui/AdminModal';
 import { AdminInput, AdminSelect, AdminTextarea, AdminLabel } from '../../components/admin/ui/AdminInput';
-import type { Orden } from '../../types';
+import type { Orden, Producto } from '../../types';
 
-const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado'];
+const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
+
+// Métodos válidos para venta manual — debe coincidir con METODOS_VENTA_MANUAL
+// del backend (mate-laser-backend/src/common/metodos-pago.ts). Excluye
+// mercadopago a propósito.
+const METODOS_VENTA_MANUAL = ['efectivo', 'transferencia', 'otro'];
+
+interface ItemVentaManual {
+  producto_id: string;
+  variante_id?: string;
+  nombre_producto: string;
+  color?: string;
+  precio_unitario: number;
+  cantidad: number;
+}
+
+function cobradoDe(orden: Orden): number {
+  return (orden.pagos ?? []).filter(p => p.estado === 'aprobado').reduce((acc, p) => acc + Number(p.monto), 0);
+}
 
 export default function AdminOrdenes() {
   const queryClient = useQueryClient();
@@ -21,6 +39,23 @@ export default function AdminOrdenes() {
   const [trackingUrl, setTrackingUrl] = useState('');
   const [notas, setNotas] = useState('');
 
+  // --- Venta manual (fuera de la web) ---
+  const [modalVentaManualAbierto, setModalVentaManualAbierto] = useState(false);
+  const [ventaItems, setVentaItems] = useState<ItemVentaManual[]>([]);
+  const [itemProductoId, setItemProductoId] = useState('');
+  const [itemVarianteId, setItemVarianteId] = useState('');
+  const [itemCantidad, setItemCantidad] = useState(1);
+  const [itemPrecio, setItemPrecio] = useState<number | ''>('');
+  const [metodoPagoManual, setMetodoPagoManual] = useState('efectivo');
+  const [montoPagado, setMontoPagado] = useState<number | ''>('');
+  const [nombreCliente, setNombreCliente] = useState('');
+  const [telefonoCliente, setTelefonoCliente] = useState('');
+  const [notasManual, setNotasManual] = useState('');
+
+  // Registrar pago (saldar seña pendiente)
+  const [montoNuevoPago, setMontoNuevoPago] = useState<number | ''>('');
+  const [metodoNuevoPago, setMetodoNuevoPago] = useState('efectivo');
+
   const { data: ordenes, isLoading, isError } = useQuery({
     queryKey: ['admin-ordenes-lista', filtroEstado],
     queryFn: () => {
@@ -28,6 +63,12 @@ export default function AdminOrdenes() {
       if (filtroEstado) params.set('estado', filtroEstado);
       return api.get(`/ordenes?${params}`).then(r => r.data.data);
     },
+  });
+
+  const { data: productos } = useQuery<Producto[]>({
+    queryKey: ['productos-admin-todos'],
+    queryFn: () => api.get('/productos/admin/todos?limit=200').then(r => r.data.data),
+    enabled: modalVentaManualAbierto,
   });
 
   const actualizarMutation = useMutation({
@@ -43,12 +84,30 @@ export default function AdminOrdenes() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] }),
   });
 
+  const crearVentaManualMutation = useMutation({
+    mutationFn: (data: any) => api.post('/ordenes/venta-manual', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
+      cerrarModalVentaManual();
+    },
+  });
+
+  const registrarPagoMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.post(`/ordenes/${id}/registrar-pago`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
+      setOrdenSeleccionada(null);
+      setMontoNuevoPago('');
+    },
+  });
+
   const abrirDetalle = (orden: Orden) => {
     setOrdenSeleccionada(orden);
     setNuevoEstado(orden.estado);
     setTracking(orden.numero_seguimiento || '');
     setTrackingUrl(orden.url_seguimiento || '');
     setNotas(orden.notas || '');
+    setMetodoNuevoPago(orden.metodo_pago || 'efectivo');
   };
 
   const handleActualizar = () => {
@@ -70,6 +129,81 @@ export default function AdminOrdenes() {
     confirmarPagoMutation.mutate(orden.id);
   };
 
+  const productoSeleccionado = productos?.find(p => p.id === itemProductoId);
+  const varianteSeleccionada = productoSeleccionado?.variantes_producto?.find(v => v.id === itemVarianteId);
+
+  const cerrarModalVentaManual = () => {
+    setModalVentaManualAbierto(false);
+    setVentaItems([]);
+    setItemProductoId('');
+    setItemVarianteId('');
+    setItemCantidad(1);
+    setItemPrecio('');
+    setMetodoPagoManual('efectivo');
+    setMontoPagado('');
+    setNombreCliente('');
+    setTelefonoCliente('');
+    setNotasManual('');
+  };
+
+  const handleSeleccionarProducto = (id: string) => {
+    setItemProductoId(id);
+    setItemVarianteId('');
+    const producto = productos?.find(p => p.id === id);
+    setItemPrecio(producto ? Number(producto.precio_base) : '');
+  };
+
+  const handleSeleccionarVariante = (id: string) => {
+    setItemVarianteId(id);
+    const variante = productoSeleccionado?.variantes_producto?.find(v => v.id === id);
+    if (variante?.precio_override != null) setItemPrecio(Number(variante.precio_override));
+  };
+
+  const handleAgregarItem = () => {
+    if (!productoSeleccionado || itemPrecio === '' || itemCantidad < 1) return;
+    setVentaItems(prev => [...prev, {
+      producto_id: productoSeleccionado.id,
+      variante_id: itemVarianteId || undefined,
+      nombre_producto: productoSeleccionado.nombre + (varianteSeleccionada?.color ? ` (${varianteSeleccionada.color})` : ''),
+      color: varianteSeleccionada?.color,
+      precio_unitario: Number(itemPrecio),
+      cantidad: itemCantidad,
+    }]);
+    setItemProductoId('');
+    setItemVarianteId('');
+    setItemCantidad(1);
+    setItemPrecio('');
+  };
+
+  const handleQuitarItem = (idx: number) => {
+    setVentaItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const totalVentaManual = ventaItems.reduce((acc, i) => acc + i.precio_unitario * i.cantidad, 0);
+
+  const handleCrearVentaManual = () => {
+    if (ventaItems.length === 0) return;
+    crearVentaManualMutation.mutate({
+      items: ventaItems,
+      metodo_pago: metodoPagoManual,
+      monto_pagado: montoPagado === '' ? 0 : Number(montoPagado),
+      nombre_cliente: nombreCliente || undefined,
+      telefono_cliente: telefonoCliente || undefined,
+      notas: notasManual || undefined,
+    });
+  };
+
+  const handleRegistrarPago = () => {
+    if (!ordenSeleccionada || montoNuevoPago === '' || Number(montoNuevoPago) <= 0) return;
+    registrarPagoMutation.mutate({
+      id: ordenSeleccionada.id,
+      data: { monto: Number(montoNuevoPago), metodo_pago: metodoNuevoPago },
+    });
+  };
+
+  const esVentaManualPendiente = ordenSeleccionada?.canal === 'admin_manual'
+    && (ordenSeleccionada.estado === 'pendiente_pago' || ordenSeleccionada.estado === 'pago_parcial');
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -77,10 +211,15 @@ export default function AdminOrdenes() {
           <h1 className="text-xl font-medium text-[var(--ink)]">Órdenes</h1>
           <p className="text-sm text-[var(--ink-soft)] mt-0.5">{ordenes?.length || 0} órdenes</p>
         </div>
-        <AdminSelect value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} fullWidth={false}>
-          <option value="">Todos los estados</option>
-          {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
-        </AdminSelect>
+        <div className="flex items-center gap-3">
+          <AdminButton variant="primary" onClick={() => setModalVentaManualAbierto(true)}>
+            + Cargar venta manual
+          </AdminButton>
+          <AdminSelect value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} fullWidth={false}>
+            <option value="">Todos los estados</option>
+            {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
+          </AdminSelect>
+        </div>
       </div>
 
       <AdminCard padded={false}>
@@ -95,14 +234,24 @@ export default function AdminOrdenes() {
             <tr key={orden.id} className="border-t border-[var(--line)] hover:bg-[var(--n-50)] transition-colors">
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)] font-mono">
                 #{orden.id.slice(0, 8).toUpperCase()}
+                {orden.canal === 'admin_manual' && (
+                  <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--ink)] bg-[var(--n-100)] px-1.5 py-0.5 rounded">Manual</span>
+                )}
                 {(orden.items_orden ?? []).some((i: any) => i.combo_id) && (
                   <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--accent)] bg-[var(--accent-soft)] px-1.5 py-0.5 rounded">Combo</span>
                 )}
               </td>
               <td className="px-5 py-3 text-sm text-[var(--ink)]">
-                {orden.usuarios ? `${orden.usuarios.nombre} ${orden.usuarios.apellido}` : 'Invitado'}
+                {orden.usuarios ? `${orden.usuarios.nombre} ${orden.usuarios.apellido}` : (orden.direccion_envio?.nombre || 'Invitado')}
               </td>
-              <td className="px-5 py-3 text-sm font-medium text-[var(--ink)]">${Number(orden.total).toLocaleString('es-AR')}</td>
+              <td className="px-5 py-3 text-sm font-medium text-[var(--ink)]">
+                ${Number(orden.total).toLocaleString('es-AR')}
+                {(orden.estado === 'pago_parcial' || orden.estado === 'pendiente_pago') && (
+                  <div className="text-[11px] font-normal text-[var(--ink-soft)]">
+                    saldo ${(Number(orden.total) - cobradoDe(orden)).toLocaleString('es-AR')}
+                  </div>
+                )}
+              </td>
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)] capitalize">{orden.metodo_pago || '—'}</td>
               <td className="px-5 py-3">
                 <EstadoBadge estado={orden.estado} />
@@ -176,32 +325,75 @@ export default function AdminOrdenes() {
               </div>
             </div>
 
-            <div>
-              <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Envío</div>
-              <div className="bg-[var(--n-50)] rounded-[var(--radius-el)] px-3 py-2.5 text-sm text-[var(--ink)] flex flex-col gap-1">
-                <div>
-                  <span className="text-[var(--ink-soft)]">Destinatario: </span>
-                  {ordenSeleccionada.nombre_cliente} {ordenSeleccionada.apellido_cliente}
-                  {ordenSeleccionada.telefono_cliente && ` · ${ordenSeleccionada.telefono_cliente}`}
+            {ordenSeleccionada.canal === 'admin_manual' ? (
+              <div>
+                <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Venta manual</div>
+                <div className="bg-[var(--n-50)] rounded-[var(--radius-el)] px-3 py-2.5 text-sm text-[var(--ink)] flex flex-col gap-1">
+                  {ordenSeleccionada.direccion_envio?.nombre && (
+                    <div><span className="text-[var(--ink-soft)]">Cliente: </span>{ordenSeleccionada.direccion_envio.nombre}{ordenSeleccionada.direccion_envio.telefono && ` · ${ordenSeleccionada.direccion_envio.telefono}`}</div>
+                  )}
+                  <div><span className="text-[var(--ink-soft)]">Cobrado: </span>${cobradoDe(ordenSeleccionada).toLocaleString('es-AR')} de ${Number(ordenSeleccionada.total).toLocaleString('es-AR')}</div>
                 </div>
-                <div>
-                  <span className="text-[var(--ink-soft)]">Modalidad: </span>
-                  {ordenSeleccionada.direccion_envio?.tipo === 'retiro'
-                    ? 'Retiro en local'
-                    : ordenSeleccionada.metodo_envio_nombre || ordenSeleccionada.metodos_envio?.nombre || 'Envío a domicilio'}
-                </div>
-                {ordenSeleccionada.direccion_envio && (
-                  <ResumenDireccionEnvio direccion={ordenSeleccionada.direccion_envio} variant="admin" />
-                )}
-                {ordenSeleccionada.envios_orden?.[0] && (
-                  <div className="pt-1 mt-1 border-t border-[var(--line)]">
-                    <span className="text-[var(--ink-soft)]">Tracking (proveedor): </span>
-                    {ordenSeleccionada.envios_orden[0].tracking_number || '—'}
-                    {ordenSeleccionada.envios_orden[0].estado && ` · ${ordenSeleccionada.envios_orden[0].estado}`}
-                  </div>
-                )}
               </div>
-            </div>
+            ) : (
+              <div>
+                <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Envío</div>
+                <div className="bg-[var(--n-50)] rounded-[var(--radius-el)] px-3 py-2.5 text-sm text-[var(--ink)] flex flex-col gap-1">
+                  <div>
+                    <span className="text-[var(--ink-soft)]">Destinatario: </span>
+                    {ordenSeleccionada.nombre_cliente} {ordenSeleccionada.apellido_cliente}
+                    {ordenSeleccionada.telefono_cliente && ` · ${ordenSeleccionada.telefono_cliente}`}
+                  </div>
+                  <div>
+                    <span className="text-[var(--ink-soft)]">Modalidad: </span>
+                    {ordenSeleccionada.direccion_envio?.tipo === 'retiro'
+                      ? 'Retiro en local'
+                      : ordenSeleccionada.metodo_envio_nombre || ordenSeleccionada.metodos_envio?.nombre || 'Envío a domicilio'}
+                  </div>
+                  {ordenSeleccionada.direccion_envio && (
+                    <ResumenDireccionEnvio direccion={ordenSeleccionada.direccion_envio} variant="admin" />
+                  )}
+                  {ordenSeleccionada.envios_orden?.[0] && (
+                    <div className="pt-1 mt-1 border-t border-[var(--line)]">
+                      <span className="text-[var(--ink-soft)]">Tracking (proveedor): </span>
+                      {ordenSeleccionada.envios_orden[0].tracking_number || '—'}
+                      {ordenSeleccionada.envios_orden[0].estado && ` · ${ordenSeleccionada.envios_orden[0].estado}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {esVentaManualPendiente && (
+              <div>
+                <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Registrar pago</div>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <AdminLabel>Monto</AdminLabel>
+                    <AdminInput
+                      type="number"
+                      min={0}
+                      value={montoNuevoPago}
+                      onChange={e => setMontoNuevoPago(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder={`Saldo: $${(Number(ordenSeleccionada.total) - cobradoDe(ordenSeleccionada)).toLocaleString('es-AR')}`}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <AdminLabel>Medio de pago</AdminLabel>
+                    <AdminSelect value={metodoNuevoPago} onChange={e => setMetodoNuevoPago(e.target.value)}>
+                      {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                    </AdminSelect>
+                  </div>
+                  <AdminButton
+                    variant="primary"
+                    disabled={registrarPagoMutation.isPending || montoNuevoPago === ''}
+                    onClick={handleRegistrarPago}
+                  >
+                    {registrarPagoMutation.isPending ? 'Guardando...' : 'Registrar'}
+                  </AdminButton>
+                </div>
+              </div>
+            )}
 
             <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider -mb-2 pt-2 border-t border-[var(--line)]">Gestión</div>
 
@@ -225,6 +417,123 @@ export default function AdminOrdenes() {
             </div>
           </div>
         )}
+      </AdminModal>
+
+      {/* MODAL CARGAR VENTA MANUAL */}
+      <AdminModal
+        open={modalVentaManualAbierto}
+        onClose={cerrarModalVentaManual}
+        title="Cargar venta manual"
+        maxWidth="lg"
+        footer={<>
+          <AdminButton variant="secondary" onClick={cerrarModalVentaManual}>Cancelar</AdminButton>
+          <AdminButton
+            variant="primary"
+            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0}
+            onClick={handleCrearVentaManual}
+          >
+            {crearVentaManualMutation.isPending ? 'Guardando...' : 'Cargar venta'}
+          </AdminButton>
+        </>}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-xs text-[var(--ink-soft)]">
+            Para ventas realizadas fuera de la web (presencial, redes, feria). Descuenta stock al cargarla, aunque solo se haya cobrado una seña.
+          </p>
+
+          <div>
+            <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Productos</div>
+            <div className="flex flex-col gap-2">
+              {ventaItems.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-3 rounded-[var(--radius-el)] px-3 py-2 bg-[var(--n-50)]">
+                  <div className="text-sm text-[var(--ink)]">
+                    {item.nombre_producto} — {item.cantidad} × ${item.precio_unitario.toLocaleString('es-AR')}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-[var(--ink)]">${(item.precio_unitario * item.cantidad).toLocaleString('es-AR')}</span>
+                    <button onClick={() => handleQuitarItem(idx)} className="text-xs text-[var(--error)] hover:underline">Quitar</button>
+                  </div>
+                </div>
+              ))}
+              {ventaItems.length === 0 && (
+                <div className="text-xs text-[var(--ink-soft)]">Todavía no agregaste productos.</div>
+              )}
+            </div>
+
+            <div className="flex gap-2 items-end mt-3 flex-wrap">
+              <div className="flex-1 min-w-[10rem]">
+                <AdminLabel>Producto</AdminLabel>
+                <AdminSelect value={itemProductoId} onChange={e => handleSeleccionarProducto(e.target.value)}>
+                  <option value="">Elegir producto...</option>
+                  {productos?.map(p => <option key={p.id} value={p.id}>{p.nombre}{p.stock != null ? ` (stock: ${p.stock})` : ''}</option>)}
+                </AdminSelect>
+              </div>
+              {!!productoSeleccionado?.variantes_producto?.length && (
+                <div className="flex-1 min-w-[8rem]">
+                  <AdminLabel>Variante</AdminLabel>
+                  <AdminSelect value={itemVarianteId} onChange={e => handleSeleccionarVariante(e.target.value)}>
+                    <option value="">Sin variante</option>
+                    {productoSeleccionado.variantes_producto.map(v => (
+                      <option key={v.id} value={v.id}>{v.color || v.id.slice(0, 8)} (stock: {v.stock ?? 0})</option>
+                    ))}
+                  </AdminSelect>
+                </div>
+              )}
+              <div className="w-20">
+                <AdminLabel>Cant.</AdminLabel>
+                <AdminInput type="number" min={1} value={itemCantidad} onChange={e => setItemCantidad(Number(e.target.value) || 1)} />
+              </div>
+              <div className="w-28">
+                <AdminLabel>Precio unit.</AdminLabel>
+                <AdminInput type="number" min={0} value={itemPrecio} onChange={e => setItemPrecio(e.target.value === '' ? '' : Number(e.target.value))} />
+              </div>
+              <AdminButton variant="secondary" disabled={!productoSeleccionado || itemPrecio === ''} onClick={handleAgregarItem}>
+                Agregar
+              </AdminButton>
+            </div>
+          </div>
+
+          <div className="text-right text-sm font-medium text-[var(--ink)] pt-2 border-t border-[var(--line)]">
+            Total: ${totalVentaManual.toLocaleString('es-AR')}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <AdminLabel>Medio de pago</AdminLabel>
+              <AdminSelect value={metodoPagoManual} onChange={e => setMetodoPagoManual(e.target.value)}>
+                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+              </AdminSelect>
+            </div>
+            <div>
+              <AdminLabel>Monto cobrado ahora</AdminLabel>
+              <AdminInput
+                type="number"
+                min={0}
+                value={montoPagado}
+                onChange={e => setMontoPagado(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder={`Total: $${totalVentaManual.toLocaleString('es-AR')}`}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-[var(--ink-soft)] -mt-2">
+            Dejalo vacío o en $0 si todavía no cobraste nada (queda "pendiente de pago"). Si cobrás menos que el total, queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <AdminLabel>Cliente (opcional)</AdminLabel>
+              <AdminInput value={nombreCliente} onChange={e => setNombreCliente(e.target.value)} placeholder="Nombre" />
+            </div>
+            <div>
+              <AdminLabel>Teléfono (opcional)</AdminLabel>
+              <AdminInput value={telefonoCliente} onChange={e => setTelefonoCliente(e.target.value)} placeholder="Ej: 1122334455" />
+            </div>
+          </div>
+          <div>
+            <AdminLabel>Notas internas</AdminLabel>
+            <AdminTextarea value={notasManual} onChange={e => setNotasManual(e.target.value)} className="h-16" placeholder="Ej: entregado en feria de Palermo" />
+          </div>
+        </div>
       </AdminModal>
     </div>
   );

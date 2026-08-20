@@ -124,6 +124,11 @@ export interface DireccionEnvio {
   especificaciones?: string;
   dni_receptor?: string;
   entre_calles?: string;
+  // Solo para tipo 'venta_manual' (ver OrdenesService.crearVentaManual en
+  // el backend) — nombre/telefono de contacto del cliente, opcionales.
+  nombre?: string;
+  telefono?: string;
+  email?: string;
 }
 
 export interface Orden {
@@ -145,6 +150,10 @@ export interface Orden {
   email_cliente?: string;
   telefono_cliente?: string;
   creado_en: string;
+  // 'web' (checkout público, default) o 'admin_manual' (venta cargada a
+  // mano en el admin — presencial, redes, feria). Ver CLAUDE.md.
+  canal?: string;
+  cargado_por_id?: string;
   items_orden?: ItemOrden[];
   pagos?: Pago[];
   envios_orden?: { tracking_number?: string; estado?: string }[];
