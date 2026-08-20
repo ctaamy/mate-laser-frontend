@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
@@ -8,7 +8,8 @@ import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
 import AdminModal from '../../components/admin/ui/AdminModal';
 import { AdminInput, AdminSelect, AdminTextarea, AdminLabel } from '../../components/admin/ui/AdminInput';
-import type { Orden, Producto } from '../../types';
+import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type Localidad } from '../../lib/georef';
+import type { Orden, Producto, MetodoEnvio } from '../../types';
 
 const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
 
@@ -52,6 +53,21 @@ export default function AdminOrdenes() {
   const [telefonoCliente, setTelefonoCliente] = useState('');
   const [notasManual, setNotasManual] = useState('');
 
+  // Método de envío (opcional) — mismo patrón que el checkout público:
+  // Georef con fallback a texto libre si la API externa falla/tarda.
+  const [metodoEnvioId, setMetodoEnvioId] = useState<number | ''>('');
+  const [calleEnvio, setCalleEnvio] = useState('');
+  const [pisoEnvio, setPisoEnvio] = useState('');
+  const [cpEnvio, setCpEnvio] = useState('');
+  const [ciudadEnvio, setCiudadEnvio] = useState('');
+  const [provinciaEnvio, setProvinciaEnvio] = useState('');
+  const [partidoEnvio, setPartidoEnvio] = useState<string | undefined>(undefined);
+  const [especificacionesEnvio, setEspecificacionesEnvio] = useState('');
+  const [provincias, setProvincias] = useState<Provincia[] | null>(null);
+  const [provinciasFallback, setProvinciasFallback] = useState(false);
+  const [localidades, setLocalidades] = useState<Localidad[] | null>(null);
+  const [ciudadFallback, setCiudadFallback] = useState(false);
+
   // Registrar pago (saldar seña pendiente)
   const [montoNuevoPago, setMontoNuevoPago] = useState<number | ''>('');
   const [metodoNuevoPago, setMetodoNuevoPago] = useState('efectivo');
@@ -70,6 +86,35 @@ export default function AdminOrdenes() {
     queryFn: () => api.get('/productos/admin/todos?limit=200').then(r => r.data.data),
     enabled: modalVentaManualAbierto,
   });
+
+  const { data: metodosEnvio } = useQuery<MetodoEnvio[]>({
+    queryKey: ['envios-activos'],
+    queryFn: () => api.get('/envios').then(r => r.data),
+    enabled: modalVentaManualAbierto,
+  });
+
+  useEffect(() => {
+    if (!modalVentaManualAbierto) return;
+    obtenerProvincias().then(data => {
+      if (data) setProvincias(data);
+      else setProvinciasFallback(true);
+    });
+  }, [modalVentaManualAbierto]);
+
+  useEffect(() => {
+    if (!provinciaEnvio) { setLocalidades(null); return; }
+    setCiudadFallback(false);
+    obtenerLocalidadesPorProvincia(provinciaEnvio).then(data => {
+      if (data) setLocalidades(data);
+      else { setLocalidades(null); setCiudadFallback(true); }
+    });
+  }, [provinciaEnvio]);
+
+  const handleSeleccionarCiudadEnvio = (nombreCiudad: string) => {
+    setCiudadEnvio(nombreCiudad);
+    const localidad = localidades?.find(l => l.nombre === nombreCiudad);
+    setPartidoEnvio(localidad?.partido);
+  };
 
   const actualizarMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/ordenes/${id}`, data),
@@ -98,6 +143,14 @@ export default function AdminOrdenes() {
       queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
       setOrdenSeleccionada(null);
       setMontoNuevoPago('');
+    },
+  });
+
+  const anularVentaManualMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/ordenes/${id}/anular-venta-manual`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
+      setOrdenSeleccionada(null);
     },
   });
 
@@ -144,6 +197,14 @@ export default function AdminOrdenes() {
     setNombreCliente('');
     setTelefonoCliente('');
     setNotasManual('');
+    setMetodoEnvioId('');
+    setCalleEnvio('');
+    setPisoEnvio('');
+    setCpEnvio('');
+    setCiudadEnvio('');
+    setProvinciaEnvio('');
+    setPartidoEnvio(undefined);
+    setEspecificacionesEnvio('');
   };
 
   const handleSeleccionarProducto = (id: string) => {
@@ -179,7 +240,21 @@ export default function AdminOrdenes() {
     setVentaItems(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const totalVentaManual = ventaItems.reduce((acc, i) => acc + i.precio_unitario * i.cantidad, 0);
+  const subtotalVentaManual = ventaItems.reduce((acc, i) => acc + i.precio_unitario * i.cantidad, 0);
+
+  const metodoEnvioSeleccionado = metodosEnvio?.find(m => m.id === metodoEnvioId);
+  const esRetiroEnvio = metodoEnvioSeleccionado?.proveedor === 'retiro';
+
+  // Previsualización del costo real (misma fuente que usa el checkout
+  // público, POST /envios/calcular) -- el backend siempre recalcula esto
+  // en el submit, así que acá es solo informativo, no editable.
+  const { data: costosEnvioPreview } = useQuery({
+    queryKey: ['envios-calcular-venta-manual', metodoEnvioId, partidoEnvio, cpEnvio, subtotalVentaManual],
+    queryFn: () => api.post('/envios/calcular', { partido: partidoEnvio, codigo_postal: cpEnvio, subtotal: subtotalVentaManual }).then(r => r.data),
+    enabled: !!metodoEnvioId && !esRetiroEnvio && subtotalVentaManual > 0,
+  });
+  const costoEnvioPreview = esRetiroEnvio ? 0 : (costosEnvioPreview?.find((c: any) => c.id === metodoEnvioId)?.costo ?? 0);
+  const totalVentaManual = subtotalVentaManual + (metodoEnvioId ? costoEnvioPreview : 0);
 
   const handleCrearVentaManual = () => {
     if (ventaItems.length === 0) return;
@@ -190,6 +265,16 @@ export default function AdminOrdenes() {
       nombre_cliente: nombreCliente || undefined,
       telefono_cliente: telefonoCliente || undefined,
       notas: notasManual || undefined,
+      metodo_envio_id: metodoEnvioId || undefined,
+      direccion_envio: (metodoEnvioId && !esRetiroEnvio) ? {
+        calle: calleEnvio,
+        piso: pisoEnvio || undefined,
+        cp: cpEnvio,
+        ciudad: ciudadEnvio,
+        provincia: provinciaEnvio,
+        partido: partidoEnvio,
+        especificaciones: especificacionesEnvio || undefined,
+      } : undefined,
     });
   };
 
@@ -201,8 +286,15 @@ export default function AdminOrdenes() {
     });
   };
 
+  const handleAnularVentaManual = () => {
+    if (!ordenSeleccionada) return;
+    if (!confirm(`¿Anulás la venta #${ordenSeleccionada.id.slice(0, 8).toUpperCase()}? Se restaura el stock vendido y se cancelan los pagos cobrados. No se puede deshacer.`)) return;
+    anularVentaManualMutation.mutate(ordenSeleccionada.id);
+  };
+
   const esVentaManualPendiente = ordenSeleccionada?.canal === 'admin_manual'
     && (ordenSeleccionada.estado === 'pendiente_pago' || ordenSeleccionada.estado === 'pago_parcial');
+  const esVentaManualAnulable = ordenSeleccionada?.canal === 'admin_manual' && ordenSeleccionada.estado !== 'cancelado';
 
   return (
     <div className="p-6">
@@ -286,6 +378,16 @@ export default function AdminOrdenes() {
         onClose={() => setOrdenSeleccionada(null)}
         title={ordenSeleccionada ? `Orden #${ordenSeleccionada.id.slice(0, 8).toUpperCase()}` : ''}
         footer={<>
+          {esVentaManualAnulable && (
+            <AdminButton
+              variant="danger"
+              className="mr-auto"
+              disabled={anularVentaManualMutation.isPending}
+              onClick={handleAnularVentaManual}
+            >
+              {anularVentaManualMutation.isPending ? 'Anulando...' : 'Anular venta'}
+            </AdminButton>
+          )}
           <AdminButton variant="secondary" onClick={() => setOrdenSeleccionada(null)}>Cancelar</AdminButton>
           <AdminButton variant="primary" disabled={actualizarMutation.isPending} onClick={handleActualizar}>
             {actualizarMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
@@ -333,6 +435,26 @@ export default function AdminOrdenes() {
                     <div><span className="text-[var(--ink-soft)]">Cliente: </span>{ordenSeleccionada.direccion_envio.nombre}{ordenSeleccionada.direccion_envio.telefono && ` · ${ordenSeleccionada.direccion_envio.telefono}`}</div>
                   )}
                   <div><span className="text-[var(--ink-soft)]">Cobrado: </span>${cobradoDe(ordenSeleccionada).toLocaleString('es-AR')} de ${Number(ordenSeleccionada.total).toLocaleString('es-AR')}</div>
+                  {ordenSeleccionada.metodo_envio_nombre ? (
+                    <>
+                      <div className="pt-1 mt-1 border-t border-[var(--line)]">
+                        <span className="text-[var(--ink-soft)]">Envío: </span>{ordenSeleccionada.metodo_envio_nombre}
+                        {' · '}${Number(ordenSeleccionada.costo_envio).toLocaleString('es-AR')}
+                      </div>
+                      {ordenSeleccionada.direccion_envio?.calle && (
+                        <ResumenDireccionEnvio direccion={ordenSeleccionada.direccion_envio} variant="admin" />
+                      )}
+                      {ordenSeleccionada.envios_orden?.[0] && (
+                        <div className="pt-1 mt-1 border-t border-[var(--line)]">
+                          <span className="text-[var(--ink-soft)]">Tracking (proveedor): </span>
+                          {ordenSeleccionada.envios_orden[0].tracking_number || '—'}
+                          {ordenSeleccionada.envios_orden[0].estado && ` · ${ordenSeleccionada.envios_orden[0].estado}`}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="pt-1 mt-1 border-t border-[var(--line)] text-[var(--ink-soft)]">Sin envío — retiro/entrega en mano.</div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -491,6 +613,53 @@ export default function AdminOrdenes() {
                 Agregar
               </AdminButton>
             </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Envío (opcional)</div>
+            <AdminLabel>Método de envío</AdminLabel>
+            <AdminSelect value={metodoEnvioId} onChange={e => setMetodoEnvioId(e.target.value === '' ? '' : Number(e.target.value))}>
+              <option value="">Sin envío (retiro informal / entrega en mano)</option>
+              {metodosEnvio?.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+            </AdminSelect>
+
+            {!!metodoEnvioId && !esRetiroEnvio && (
+              <div className="flex flex-col gap-3 mt-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <AdminLabel>Provincia</AdminLabel>
+                    {provinciasFallback || !provincias ? (
+                      <AdminInput value={provinciaEnvio} onChange={e => { setProvinciaEnvio(e.target.value); setCiudadEnvio(''); setPartidoEnvio(undefined); }} placeholder="Buenos Aires" />
+                    ) : (
+                      <AdminSelect value={provinciaEnvio} onChange={e => { setProvinciaEnvio(e.target.value); setCiudadEnvio(''); setPartidoEnvio(undefined); }}>
+                        <option value="">Seleccioná</option>
+                        {provincias.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                      </AdminSelect>
+                    )}
+                  </div>
+                  <div>
+                    <AdminLabel>Ciudad / Localidad</AdminLabel>
+                    {ciudadFallback || !provinciaEnvio || !localidades ? (
+                      <AdminInput value={ciudadEnvio} onChange={e => handleSeleccionarCiudadEnvio(e.target.value)} placeholder="Buenos Aires" />
+                    ) : (
+                      <AdminSelect value={ciudadEnvio} onChange={e => handleSeleccionarCiudadEnvio(e.target.value)}>
+                        <option value="">Seleccioná</option>
+                        {localidades.map(l => <option key={l.id} value={l.nombre}>{l.nombre}</option>)}
+                      </AdminSelect>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-3">
+                  <AdminInput value={calleEnvio} onChange={e => setCalleEnvio(e.target.value)} placeholder="Calle y número" />
+                  <AdminInput value={pisoEnvio} onChange={e => setPisoEnvio(e.target.value)} placeholder="Piso/depto (opcional)" />
+                  <AdminInput className="w-24" value={cpEnvio} onChange={e => setCpEnvio(e.target.value)} placeholder="CP" />
+                </div>
+                <AdminInput value={especificacionesEnvio} onChange={e => setEspecificacionesEnvio(e.target.value)} placeholder="Referencias / especificaciones (opcional)" />
+                <p className="text-xs text-[var(--ink-soft)]">
+                  Costo de envío estimado: <span className="font-medium text-[var(--ink)]">${costoEnvioPreview.toLocaleString('es-AR')}</span> — se recalcula al guardar.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="text-right text-sm font-medium text-[var(--ink)] pt-2 border-t border-[var(--line)]">
