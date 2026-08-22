@@ -1,40 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 190">
-  <!-- Arco circular abierto -->
-  <path d="M40,150 A82,82 0 1 1 148,58" fill="none" stroke="#863bff" stroke-width="7" stroke-linecap="round"/>
-  <path d="M32,150 A94,94 0 1 1 158,50" fill="none" stroke="#863bff" stroke-width="7" stroke-linecap="round"/>
-
-  <!-- Bombilla -->
-  <circle cx="112" cy="60" r="4" fill="#863bff"/>
-  <path d="M95,86 L108,62" fill="none" stroke="#863bff" stroke-width="7" stroke-linecap="round"/>
-  <path d="M116,58 L134,34" fill="none" stroke="#863bff" stroke-width="7" stroke-linecap="round"/>
-
-  <!-- Mate (gourd) -->
-  <path d="M74,90
-           C70,96 69,100 71,106
-           C64,118 62,138 64,150
-           C67,164 78,172 99,172
-           C120,172 131,164 134,150
-           C136,138 134,118 127,106
-           C129,100 128,96 124,90
-           Z" fill="#863bff"/>
-  <!-- Boca del mate (borde) -->
-  <ellipse cx="99" cy="90" rx="25" ry="9" fill="#863bff"/>
-  <ellipse cx="99" cy="88" rx="19" ry="6" fill="#fff"/>
-
-  <!-- Base -->
-  <line x1="20" y1="172" x2="182" y2="172" stroke="#863bff" stroke-width="6" stroke-linecap="round"/>
-
-  <!-- Corte láser -->
-  <line x1="148" y1="108" x2="148" y2="140" stroke="#863bff" stroke-width="6" stroke-linecap="round"/>
-  <line x1="163" y1="102" x2="163" y2="146" stroke="#863bff" stroke-width="6" stroke-linecap="round"/>
-  <line x1="138" y1="122" x2="158" y2="122" stroke="#863bff" stroke-width="6" stroke-linecap="round"/>
-  <line x1="153" y1="128" x2="173" y2="128" stroke="#863bff" stroke-width="6" stroke-linecap="round"/>
-  <polygon points="155,146 171,146 163,164" fill="#863bff"/>
-  <g stroke="#863bff" stroke-width="4" stroke-linecap="round">
-    <line x1="163" y1="172" x2="163" y2="184"/>
-    <line x1="150" y1="168" x2="140" y2="178"/>
-    <line x1="176" y1="168" x2="186" y2="178"/>
-    <line x1="146" y1="158" x2="132" y2="162"/>
-    <line x1="180" y1="158" x2="194" y2="162"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#863bff"/>
+  <text x="32" y="34" text-anchor="middle" dominant-baseline="central"
+        font-family="Arial, Helvetica, sans-serif" font-weight="700"
+        font-size="24" letter-spacing="-1" fill="#fff">MLS</text>
 </svg>
