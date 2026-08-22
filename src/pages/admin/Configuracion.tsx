@@ -1724,8 +1724,9 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
         )}
         <div>
           <label className={labelCls}>Altura del logo (px)</label>
-          <input className={inputCls} type="number" min={20} max={80} value={datos.logo_alto ?? '32'}
+          <input className={inputCls} type="number" min={20} max={120} value={datos.logo_alto ?? '32'}
             onChange={e => set('logo_alto', e.target.value)} placeholder="32" />
+          <p className="text-[10px] text-[var(--ink-soft)] mt-1">La barra de navegación se agranda automáticamente para acompañar logos grandes. En mobile el logo nunca supera 40px para que la barra no ocupe demasiada pantalla.</p>
         </div>
         <SeccionImageUploader
           value={datos.logo_url ?? ''}
