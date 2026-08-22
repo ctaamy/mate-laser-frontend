@@ -129,6 +129,12 @@ export default function Navbar() {
   const navBorder: string = navDatos.border_color || config?.navbar_border_color || '#f3f4f6';
   const logoUrl: string = navDatos.logo_url || config?.navbar_logo_url || '';
   const logoAlto: number = parseInt(navDatos.logo_alto ?? config?.navbar_logo_alto ?? '32') || 32;
+  // Alto de la barra: se adapta al logo configurado (con aire arriba/abajo)
+  // en vez de quedar fijo en 64px — así un logo grande no se recorta ni
+  // desborda. Nunca baja de 64px (el mínimo de siempre, con solo texto).
+  // El menú desplegable de mobile usa este mismo valor para su offset
+  // (antes hardcodeado a top-16) para no desalinearse si la barra crece.
+  const navAltura: number = Math.max(64, logoUrl ? logoAlto + 24 : 64);
   const mostrarBuscar: boolean = boolFrom(navDatos.mostrar_buscar, config?.navbar_mostrar_buscar);
   const mostrarUsuario: boolean = boolFrom(navDatos.mostrar_usuario, config?.navbar_mostrar_usuario);
   const mostrarCarrito: boolean = boolFrom(navDatos.mostrar_carrito, config?.navbar_mostrar_carrito);
@@ -205,39 +211,49 @@ export default function Navbar() {
           fontFamily: navFontFamily,
         }}
       >
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-6" style={{ height: navAltura }}>
 
           {/* Logo — agrupado con la hamburguesa cuando su posición es
               "izquierda", para que no se desancle del borde izquierdo. */}
           <div className="flex items-center gap-3">
           {menuPosicion === 'izquierda' && botonHamburguesa}
-          <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
-            {logoUrl
-              ? <motion.img
-                  src={logoUrl} alt={nombreTienda}
-                  style={{ height: logoAlto }}
-                  className="object-contain"
-                  whileHover={{ scale: 1.04 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+          <Link to="/" className="flex-shrink-0 flex items-center gap-2.5 group">
+            {logoUrl && (
+              // Cap responsive: en mobile nunca supera 40px aunque el admin
+              // configure un logo grande para desktop — evita que la barra
+              // se vuelva gigante en pantallas chicas. En sm+ usa el alto
+              // configurado tal cual.
+              <motion.img
+                src={logoUrl} alt={nombreTienda}
+                style={{ height: logoAlto }}
+                className="object-contain w-auto max-h-10 sm:max-h-none flex-shrink-0"
+                whileHover={{ scale: 1.04 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              />
+            )}
+            {/* Nombre de la tienda: siempre visible, con o sin logo, para
+                que la marca "Mate Laser" quede identificable de un vistazo
+                aunque el logo sea solo un ícono/isotipo. */}
+            <motion.div className="flex items-center gap-1.5 notranslate" translate="no" whileHover={{ x: 2 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+              <span className="text-[15px] sm:text-[17px] tracking-tight font-semibold leading-none" style={{ color: navColor }}>
+                {palabraClave}
+              </span>
+              {resto && (
+                <span className="text-[15px] sm:text-[17px] tracking-tight font-light leading-none" style={{ color: navColor, opacity: 0.45 }}>
+                  {resto}
+                </span>
+              )}
+              {/* Punto decorativo — solo cuando no hay logo propio, para no
+                  competir visualmente con una imagen de marca real. */}
+              {!logoUrl && (
+                <motion.span
+                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: navColor, opacity: 0.3 }}
+                  animate={{ opacity: [0.3, 0.8, 0.3] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
                 />
-              : <motion.div className="flex items-center gap-1.5" whileHover={{ x: 2 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
-                  <span className="text-[17px] tracking-tight font-semibold leading-none" style={{ color: navColor }}>
-                    {palabraClave}
-                  </span>
-                  {resto && (
-                    <span className="text-[17px] tracking-tight font-light leading-none" style={{ color: navColor, opacity: 0.45 }}>
-                      {resto}
-                    </span>
-                  )}
-                  {/* Punto decorativo */}
-                  <motion.span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: navColor, opacity: 0.3 }}
-                    animate={{ opacity: [0.3, 0.8, 0.3] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                </motion.div>
-            }
+              )}
+            </motion.div>
           </Link>
           </div>
 
@@ -423,7 +439,8 @@ export default function Navbar() {
           <>
             {/* Capa invisible para cerrar al clickear afuera */}
             <motion.div
-              className={`fixed inset-0 top-16 z-30 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
+              className={`fixed inset-x-0 bottom-0 z-30 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
+              style={{ top: navAltura }}
               onClick={() => setMenuOpen(false)}
             />
 
@@ -433,10 +450,10 @@ export default function Navbar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              className={`fixed top-16 z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)]
+              className={`fixed z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)]
                 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}
                 ${menuPosicion === 'izquierda' ? 'left-3' : 'right-3'}`}
-              style={{ backgroundColor: navBg, borderColor: navBorder, fontFamily: navFontFamily }}
+              style={{ top: navAltura, backgroundColor: navBg, borderColor: navBorder, fontFamily: navFontFamily }}
             >
               <nav className="px-4 py-3 flex flex-col gap-1">
                 {navLinks.map((link, i) => {
