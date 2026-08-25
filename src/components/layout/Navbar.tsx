@@ -218,28 +218,16 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
           {menuPosicion === 'izquierda' && botonHamburguesa}
           <Link to="/" className="flex-shrink-0 flex items-center gap-2.5 group">
-            {logoUrl && (
-              // Cap responsive: en mobile nunca supera 40px aunque el admin
-              // configure un logo grande para desktop — evita que la barra
-              // se vuelva gigante en pantallas chicas. En sm+ usa el alto
-              // configurado tal cual.
-              <motion.img
-                src={logoUrl} alt={nombreTienda}
-                style={{ height: logoAlto }}
-                className="object-contain w-auto max-h-10 sm:max-h-none flex-shrink-0"
-                whileHover={{ scale: 1.04 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-              />
-            )}
-            {/* Nombre de la tienda: siempre visible, con o sin logo, para
-                que la marca "Mate Laser" quede identificable de un vistazo
-                aunque el logo sea solo un ícono/isotipo. */}
+            {/* Nombre de la tienda: va primero (invertido respecto del logo)
+                y más grande, para que la marca se lea de un vistazo. El alto
+                del bloque no cambia — sigue determinado por navAltura/logoAlto,
+                el texto solo crece dentro del mismo alto (leading-none + items-center). */}
             <motion.div className="flex items-center gap-1.5 notranslate" translate="no" whileHover={{ x: 2 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
-              <span className="text-[15px] sm:text-[17px] tracking-tight font-semibold leading-none" style={{ color: navColor }}>
+              <span className="text-xl sm:text-2xl tracking-tight font-bold leading-none" style={{ color: navColor }}>
                 {palabraClave}
               </span>
               {resto && (
-                <span className="text-[15px] sm:text-[17px] tracking-tight font-light leading-none" style={{ color: navColor, opacity: 0.45 }}>
+                <span className="text-xl sm:text-2xl tracking-tight font-light leading-none" style={{ color: navColor, opacity: 0.45 }}>
                   {resto}
                 </span>
               )}
@@ -254,13 +242,26 @@ export default function Navbar() {
                 />
               )}
             </motion.div>
+            {logoUrl && (
+              // Cap responsive: en mobile nunca supera 40px aunque el admin
+              // configure un logo grande para desktop — evita que la barra
+              // se vuelva gigante en pantallas chicas. En sm+ usa el alto
+              // configurado tal cual.
+              <motion.img
+                src={logoUrl} alt={nombreTienda}
+                style={{ height: logoAlto }}
+                className="object-contain w-auto max-h-10 sm:max-h-none flex-shrink-0"
+                whileHover={{ scale: 1.04 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              />
+            )}
           </Link>
           </div>
 
           {/* Links — desktop con pill hover (solo en modo Tradicional; en
               Hamburguesa se agrupan en el mismo menú desplegable que mobile) */}
           {tipoMenu === 'tradicional' && (
-          <div className="hidden md:flex items-center gap-0.5" onMouseLeave={() => setHoveredLink(null)}>
+          <div className="hidden md:flex items-center gap-1" onMouseLeave={() => setHoveredLink(null)}>
             {navLinks.map(link => {
               const active = location.pathname === link.href ||
                 (link.href !== '/' && location.pathname + location.search === link.href);
@@ -270,31 +271,41 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   to={link.href}
-                  className="relative px-4 py-2 text-sm rounded-xl select-none"
+                  className="relative px-5 py-2.5 text-base rounded-xl select-none"
                   style={{
-                    color: active ? navColor : isHovered ? navColor : `${navColor}70`,
-                    fontWeight: active ? 600 : 400,
-                    transition: 'color 0.15s',
+                    color: active ? navColor : isHovered ? navColor : `${navColor}80`,
+                    fontWeight: active ? 700 : isHovered ? 600 : 500,
+                    transition: 'color 0.15s, font-weight 0.15s',
                   }}
                   onMouseEnter={() => setHoveredLink(link.href)}
                 >
-                  {/* Pill de hover */}
+                  {/* Fondo de hover — bien visible para que quede claro dónde
+                      está el mouse (antes era casi imperceptible: 0.06 de opacidad) */}
                   {isHovered && !active && (
                     <motion.span
                       layoutId="hover-pill"
                       className="absolute inset-0 rounded-xl"
-                      style={{ backgroundColor: navColor, opacity: 0.06 }}
+                      style={{ backgroundColor: navColor, opacity: 0.14 }}
                       initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.06 }}
+                      animate={{ opacity: 0.14 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.15 }}
                     />
                   )}
-                  {/* Indicador activo (underline animado) */}
+                  {/* Estado activo: fondo sólido + underline, para distinguirlo
+                      claramente del simple hover */}
+                  {active && (
+                    <motion.span
+                      layoutId="active-bg"
+                      className="absolute inset-0 rounded-xl"
+                      style={{ backgroundColor: navColor, opacity: 0.1 }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
                   {active && (
                     <motion.span
                       layoutId="active-underline"
-                      className="absolute bottom-1 left-4 right-4 h-[2px] rounded-full"
+                      className="absolute bottom-1.5 left-5 right-5 h-[3px] rounded-full"
                       style={{ backgroundColor: navColor }}
                       transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     />
@@ -307,16 +318,37 @@ export default function Navbar() {
           )}
 
           {/* Acciones */}
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-3">
             {mostrarBuscar && (
-              <IconBtn
-                onClick={() => setSearchOpen(s => !s)}
-                active={searchOpen}
-                navColor={navColor}
-                navBg={navBg}
-              >
-                {searchOpen ? <X size={16} /> : <Search size={16} />}
-              </IconBtn>
+              <>
+                {/* Desktop/tablet: buscador fijo en el mismo lugar del ícono,
+                    siempre expandido con estilo propio (píldora blanca) que
+                    no depende del color del navbar — así se lee igual de
+                    claro sobre cualquier fondo. */}
+                <form onSubmit={handleSearch} className="hidden md:flex">
+                  <div className="relative">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500" />
+                    <input
+                      value={searchQ}
+                      onChange={e => setSearchQ(e.target.value)}
+                      placeholder="Buscar"
+                      className="w-64 lg:w-80 text-[15px] rounded-full pl-11 pr-4 py-3 outline-none bg-white text-gray-900 placeholder:text-gray-500 shadow-sm"
+                    />
+                  </div>
+                </form>
+
+                {/* Mobile: se mantiene el ícono + panel desplegable, por espacio */}
+                <div className="md:hidden">
+                  <IconBtn
+                    onClick={() => setSearchOpen(s => !s)}
+                    active={searchOpen}
+                    navColor={navColor}
+                    navBg={navBg}
+                  >
+                    {searchOpen ? <X size={16} /> : <Search size={16} />}
+                  </IconBtn>
+                </div>
+              </>
             )}
 
             {mostrarUsuario && (
@@ -394,7 +426,7 @@ export default function Navbar() {
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              className="overflow-hidden"
+              className="overflow-hidden md:hidden"
               style={{ borderTop: `1px solid ${navBorder}` }}
             >
               <form onSubmit={handleSearch} className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3">
