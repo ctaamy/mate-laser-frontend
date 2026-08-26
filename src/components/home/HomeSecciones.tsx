@@ -229,8 +229,11 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
   // Herencia: Slide → Bloque → Tema (mismo mecanismo heredaDeBloque que el
   // resto de la cadena; "bloque" ya resolvió su propia herencia del tema).
   const { bg, tc, fontFamily } = heredaDeBloque(slide, bloque);
-  const titulo = slide.titulo || 'Mates únicos,\nhechos a tu medida';
-  const lineas = titulo.split('\n');
+  // Sin fallback a un texto predefinido: un slide sin título/subtítulo debe
+  // verse en blanco, no "recuperar" un placeholder — el default solo existe
+  // una vez, al crear el slide (ver SLIDE_DEFAULT en Configuracion.tsx).
+  const titulo = slide.titulo || '';
+  const lineas = titulo ? titulo.split('\n') : [];
   const tieneImagen = !!slide.imagen_url;
   const botonesResueltos = resolverBotones(slide);
   const botones = botonesResueltos.length ? botonesResueltos : [{ texto: 'Ver colección', link: '/productos' }];
@@ -266,7 +269,7 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
 
   const textoColumna = (
     <motion.div
-      className={`flex-1 flex flex-col justify-center px-8 md:px-16 lg:px-24 py-20 ${esBackground ? 'relative z-10' : ''}`}
+      className={`flex-1 flex flex-col justify-center px-6 md:px-16 lg:px-24 py-10 md:py-20 ${esBackground ? 'relative z-10' : ''}`}
       style={{ textAlign: datos.alineacion || undefined }}
       initial="hidden" animate="visible" variants={STAGGER}
     >
@@ -278,25 +281,29 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
         </motion.p>
       )}
 
-      <h1 className="leading-[1.04] tracking-tight mb-6"
-        style={{ fontSize: tituloFontSize, fontWeight: tituloFontWeight, fontFamily: titulo_.fontFamily }}>
-        {lineas.map((linea, li) => (
-          <motion.span key={li} className="block" variants={FADE_UP}
-            transition={{ ...T, delay: li * 0.1 }}
-            style={{ color: titulo_.tc }}>
-            {linea}
-          </motion.span>
-        ))}
-      </h1>
+      {!!lineas.length && (
+        <h1 className="leading-[1.04] tracking-tight mb-6"
+          style={{ fontSize: tituloFontSize, fontWeight: tituloFontWeight, fontFamily: titulo_.fontFamily }}>
+          {lineas.map((linea, li) => (
+            <motion.span key={li} className="block" variants={FADE_UP}
+              transition={{ ...T, delay: li * 0.1 }}
+              style={{ color: titulo_.tc }}>
+              {linea}
+            </motion.span>
+          ))}
+        </h1>
+      )}
 
-      <motion.p variants={FADE_UP} transition={{ ...T, delay: 0.2 }}
-        className="leading-relaxed mb-10 max-w-xs"
-        style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily, fontWeight: subtituloFontWeight, fontSize: subtituloFontSize }}>
-        {slide.subtitulo || 'Personalizamos cada pieza con tu diseño.'}
-      </motion.p>
+      {!!slide.subtitulo && (
+        <motion.p variants={FADE_UP} transition={{ ...T, delay: 0.2 }}
+          className="leading-relaxed mb-10 max-w-xs"
+          style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily, fontWeight: subtituloFontWeight, fontSize: subtituloFontSize }}>
+          {slide.subtitulo}
+        </motion.p>
+      )}
 
       <motion.div variants={FADE_UP} transition={{ ...T, delay: 0.3 }}
-        className="flex flex-wrap gap-3" style={{ justifyContent: justifyDeAlineacion(datos.alineacion) }}>
+        className="flex flex-wrap gap-3" style={{ justifyContent: justifyDeAlineacion(datos.boton_posicion || datos.alineacion) }}>
         {botones.map((boton, bi) => {
           const esPrimario = bi === 0;
           const r = heredaDeBloque(boton, esPrimario ? defaultsBotonPrimario : defaultsBotonSecundario);
@@ -305,7 +312,7 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
             <Link key={bi} to={boton.link || '/productos'}
               className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-80"
               style={{ backgroundColor: r.bg, color: r.tc, fontFamily: r.fontFamily }}>
-              {boton.texto || 'Ver colección'} <ArrowRight size={14} />
+              {boton.texto} <ArrowRight size={14} />
             </Link>
           ) : (
             <Link key={bi} to={boton.link || '/'}
@@ -348,9 +355,16 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
 
           {tieneImagen && (
             <div className={
+              // h-[42%] (del hero, no del viewport) en vez de max-h: la imagen
+              // es "absolute", no aporta altura propia al contenedor — con
+              // solo un max-height el contenedor colapsaba a 0 en mobile
+              // (flex-col). Porcentaje y no vh: así funciona igual si el
+              // admin puso un "Alto mínimo" propio en px en vez del 90vh
+              // default. En md+ el layout pasa a fila y min-h-full la estira
+              // contra el hero.
               imagePosition === 'contained'
-                ? 'relative md:w-[52%] max-h-[38vh] md:max-h-none md:min-h-full overflow-hidden flex-shrink-0 m-4 md:my-6 md:mr-6 rounded-xl shadow-sm'
-                : 'relative md:w-[52%] max-h-[38vh] md:max-h-none md:min-h-full overflow-hidden flex-shrink-0'
+                ? 'relative h-[42%] md:h-auto md:w-[52%] md:min-h-full overflow-hidden flex-shrink-0 m-4 md:my-6 md:mr-6 rounded-xl shadow-sm'
+                : 'relative h-[42%] md:h-auto md:w-[52%] md:min-h-full overflow-hidden flex-shrink-0'
             }>
               <motion.img
                 key={slide.imagen_url}
@@ -413,7 +427,12 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
     if (current >= total) setCurrent(0);
   }, [total, current]);
 
-  const tc = slides[Math.min(current, total - 1)]?.texto_color || bloque.tc;
+  const slideActual = slides[Math.min(current, total - 1)];
+  const tc = slideActual?.texto_color || bloque.tc;
+  // Solo compensar la posición de las flechas cuando el slide activo realmente
+  // apila una imagen abajo en mobile — con "background" la imagen ya cubre
+  // todo el alto (top-1/2 normal sirve), y sin imagen no hay nada contra qué centrar.
+  const flechasSobreImagenMobile = !!slideActual?.imagen_url && (datos.image_position || 'bleed') !== 'background';
 
   return (
     <div className="relative w-full overflow-hidden" style={{ minHeight }}
@@ -430,8 +449,12 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
             { fn: prev, Icon: ChevronLeft, side: 'left-5' },
             { fn: next, Icon: ChevronRight, side: 'right-5' },
           ].map(({ fn, Icon, side }) => (
+            // En mobile el layout apila texto arriba / imagen abajo (h-[42%]):
+            // centradas a top-1/2 de todo el bloque quedaban a mitad de camino
+            // entre texto e imagen, tapando el botón. Se centran contra la
+            // imagen (el 42% inferior) en mobile, y contra todo el alto en md+.
             <button key={side} onClick={fn}
-              className={`absolute ${side} top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center border transition-all`}
+              className={`absolute ${side} ${flechasSobreImagenMobile ? 'top-[calc(100%-21%)] md:top-1/2' : 'top-1/2'} -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center border transition-all`}
               style={{ borderColor: `${tc}25`, color: tc, backgroundColor: `${tc}08`, backdropFilter: 'blur(8px)' }}
               onMouseEnter={e => (e.currentTarget.style.backgroundColor = `${tc}18`)}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = `${tc}08`)}

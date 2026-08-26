@@ -229,6 +229,14 @@ const ALINEACIONES = [
   { value: 'right', label: 'Derecha' },
 ];
 
+// Para "Posición de los botones" del hero: igual que ALINEACIONES pero con
+// una opción extra para heredar la alineación del texto (comportamiento
+// histórico, antes de que el botón pudiera moverse por separado).
+const ALINEACIONES_CON_HEREDAR = [
+  { value: '', label: 'Igual que la alineación del texto' },
+  ...ALINEACIONES,
+];
+
 // Dos estilos para productos_destacados: "carrusel" (cards con texto
 // superpuesto, deslizable en mobile) y "grid" (cards tipo catálogo, siempre
 // 2 columnas fijas, sin scroll) — para poder combinar dos bloques, uno de
@@ -1253,6 +1261,9 @@ function EditorEstilo({ tipo, datos, set }: {
           <SelectField label="Transición al bloque siguiente" value={datos.transicion_inferior || 'ninguna'} onChange={v => set('transicion_inferior', v)} options={TRANSICIONES} />
           {tipo !== 'banner_imagen' && tipo !== 'texto_libre' && (
             <SelectField label="Alineación" value={datos.alineacion || 'left'} onChange={v => set('alineacion', v)} options={ALINEACIONES} />
+          )}
+          {tipo === 'hero' && (
+            <SelectField label="Posición de los botones" value={datos.boton_posicion || ''} onChange={v => set('boton_posicion', v)} options={ALINEACIONES_CON_HEREDAR} />
           )}
           {tipo === 'como_funciona' && (
             <SelectField label="Espaciado título → subtítulo" value={datos.titulo_subtitulo_gap || 'sm'} onChange={v => set('titulo_subtitulo_gap', v)} options={PADDINGS} />
