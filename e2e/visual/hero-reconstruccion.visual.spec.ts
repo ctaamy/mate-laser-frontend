@@ -37,6 +37,7 @@ test.describe('Visual — Hero reconstruido', () => {
       },
     });
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView/slide del Hero, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('hero-bleed-left.png');
   });
 
