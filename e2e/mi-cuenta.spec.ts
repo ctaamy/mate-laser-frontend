@@ -95,7 +95,15 @@ test.describe('Mi cuenta — ownership, edición y estado vacío', () => {
 
     await page.goto('/mi-cuenta');
 
-    const inputNombre = page.locator('input').nth(1); // 0: email disabled, 1: nombre
+    // Antes: page.locator('input').nth(1) — selector frágil por índice. El
+    // rediseño del navbar (PR #24/#29) agregó un <input> de búsqueda visible
+    // en desktop que pasó a ser el primer <input> de la página, corriendo
+    // todos los índices (nth(1) apuntaba al email disabled en vez de a
+    // "Nombre"). MiCuenta.tsx no usa <label htmlFor>, así que se ubica por
+    // el texto de la label y su input hermano — mismo patrón que
+    // bugfix-color-hero.spec.ts para los campos de color del admin.
+    // Ver ctaamy/mate-laser-frontend#31.
+    const inputNombre = page.getByText('Nombre', { exact: true }).locator('..').locator('input');
     await inputNombre.fill('Tamara');
     await page.getByRole('button', { name: /guardar cambios/i }).click();
 
