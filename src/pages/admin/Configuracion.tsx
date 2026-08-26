@@ -100,9 +100,11 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
     bg_color: '#111111', texto_color: '#ffffff',
   },
   banner_texto: {
-    texto: '',
+    items: [''],
+    separador: '—',
     bg_color: '#1D9E75', texto_color: '#ffffff',
     font_size: 'sm', font_weight: 'medium', alineacion: 'center', padding: 'sm',
+    velocidad: 28, opacidad: 100,
   },
   productos_destacados: {
     titulo: 'Lo más vendido', cantidad: 8,
@@ -950,25 +952,74 @@ function EditorContenido({ tipo, datos, set }: {
     </div>
   );
 
-  if (tipo === 'banner_texto') return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <label className={labelCls}>Texto del banner</label>
-        <input className={inputCls} value={datos.texto || ''} onChange={e => set('texto', e.target.value)} placeholder="Ej: Envío gratis a partir de $15.000" />
-      </div>
-      <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
-        <div>
-          <div className="text-sm font-medium">Modo ticker (marquee)</div>
-          <div className="text-xs text-[var(--ink-soft)]">Texto en movimiento continuo</div>
+  if (tipo === 'banner_texto') {
+    // Compat: secciones viejas guardaban un único "texto" en vez de la
+    // lista "items" — se migra en memoria al abrir el editor, sin tocar lo
+    // guardado hasta que el usuario edite algo.
+    const items: string[] = datos.items?.length ? datos.items : (datos.texto ? [datos.texto] : ['']);
+    const update = (next: string[]) => set('items', next);
+    const cambiar = (i: number, v: string) => update(items.map((t, idx) => idx === i ? v : t));
+    const agregar = () => update([...items, '']);
+    const eliminar = (i: number) => update(items.filter((_, idx) => idx !== i));
+    const mover = (i: number, dir: -1 | 1) => {
+      const next = [...items];
+      [next[i], next[i + dir]] = [next[i + dir], next[i]];
+      update(next);
+    };
+
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-[var(--ink-soft)]">Textos del banner ({items.length}). Con más de uno, se muestran separados entre sí (y se van alternando en el modo ticker).</p>
+          <button onClick={agregar} className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
+            <Plus size={12} /> Agregar texto
+          </button>
         </div>
-        <button
-          onClick={() => set('marquee', !datos.marquee)}
-          className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${datos.marquee ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
-          <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${datos.marquee ? 'left-4' : 'left-0.5'}`} />
-        </button>
+        {items.map((t, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input className={inputCls} value={t} onChange={e => cambiar(i, e.target.value)} placeholder="Ej: Envío gratis a partir de $15.000" />
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button onClick={() => mover(i, -1)} disabled={i === 0}
+                className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                <ChevronUp size={13} />
+              </button>
+              <button onClick={() => mover(i, 1)} disabled={i === items.length - 1}
+                className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                <ChevronDown size={13} />
+              </button>
+              <button onClick={() => eliminar(i)} disabled={items.length <= 1}
+                className="w-7 h-7 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 disabled:opacity-20 rounded transition-colors">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+        ))}
+        <div>
+          <label className={labelCls}>Separador entre textos</label>
+          <input className={inputCls} value={datos.separador ?? '—'} onChange={e => set('separador', e.target.value)} placeholder="—" />
+        </div>
+        <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
+          <div>
+            <div className="text-sm font-medium">Modo ticker (marquee)</div>
+            <div className="text-xs text-[var(--ink-soft)]">Texto en movimiento continuo</div>
+          </div>
+          <button
+            onClick={() => set('marquee', !datos.marquee)}
+            className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${datos.marquee ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
+            <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${datos.marquee ? 'left-4' : 'left-0.5'}`} />
+          </button>
+        </div>
+        {datos.marquee && (
+          <div>
+            <label className={labelCls}>Velocidad del recorrido: {datos.velocidad ?? 28}s por vuelta (menor = más rápido)</label>
+            <input type="range" min={6} max={60} step={1} value={datos.velocidad ?? 28}
+              onChange={e => set('velocidad', parseInt(e.target.value))}
+              className="w-full accent-[var(--accent)]" />
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  }
 
   if (tipo === 'productos_destacados') return (
     <div className="flex flex-col gap-3">
@@ -1260,6 +1311,15 @@ function EditorEstilo({ tipo, datos, set }: {
             )}
             {tipo === 'banner_texto' && (
               <SelectField label="Peso tipográfico" value={datos.font_weight || 'medium'} onChange={v => set('font_weight', v)} options={PESOS} />
+            )}
+            {tipo === 'banner_texto' && (
+              <div className="col-span-2">
+                <label className={labelCls}>Opacidad del texto: {datos.opacidad ?? 100}%</label>
+                <input type="range" min={20} max={100} step={5} value={datos.opacidad ?? 100}
+                  onChange={e => set('opacidad', parseInt(e.target.value))}
+                  className="w-full accent-[var(--accent)]" />
+                <p className="text-[10px] text-[var(--ink-soft)] mt-1">100% = texto sólido. Antes se aplicaba una opacidad fija que no se podía sacar ni poniendo negrita — ahora arranca en 100% y la bajás solo si querés un look más sutil.</p>
+              </div>
             )}
           </div>
         </div>
