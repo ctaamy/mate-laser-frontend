@@ -83,7 +83,7 @@ function DatosPersonales() {
         </div>
       )}
 
-      <form onSubmit={handleGuardar} className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4 max-w-md">
+      <form onSubmit={handleGuardar} data-testid="form-datos-personales" className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4 max-w-md">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Email</label>
           <input value={usuario?.email ?? ''} disabled className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500" />

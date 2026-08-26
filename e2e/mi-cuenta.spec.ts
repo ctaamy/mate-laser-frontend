@@ -95,7 +95,11 @@ test.describe('Mi cuenta — ownership, edición y estado vacío', () => {
 
     await page.goto('/mi-cuenta');
 
-    const inputNombre = page.locator('input').nth(1); // 0: email disabled, 1: nombre
+    // Escopado por data-testid: `input`/`form` a nivel de página también
+    // matchean el buscador del navbar (que también es un <form>), que se
+    // renderiza antes en el DOM.
+    const form = page.getByTestId('form-datos-personales');
+    const inputNombre = form.locator('input').nth(1); // 0: email disabled, 1: nombre
     await inputNombre.fill('Tamara');
     await page.getByRole('button', { name: /guardar cambios/i }).click();
 
