@@ -223,8 +223,8 @@ function resolverOverlay(datos: Record<string, any>): { direction: string; inten
   return { direction: 'left', intensity: 60 };
 }
 
-function HeroSlideContent({ slide, dir, bloque, datos }: {
-  slide: HeroSlide; dir: number; bloque: EstiloBloque; datos: Record<string, any>;
+function HeroSlideContent({ slide, dir, bloque, datos, total }: {
+  slide: HeroSlide; dir: number; bloque: EstiloBloque; datos: Record<string, any>; total: number;
 }) {
   // Herencia: Slide → Bloque → Tema (mismo mecanismo heredaDeBloque que el
   // resto de la cadena; "bloque" ya resolvió su propia herencia del tema).
@@ -239,6 +239,17 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
   const botones = botonesResueltos.length ? botonesResueltos : [{ texto: 'Ver colección', link: '/productos' }];
   const imagePosition = datos.image_position || 'bleed';
   const overlay = resolverOverlay(datos);
+  const justifyBotones = justifyDeAlineacion(datos.boton_posicion || datos.alineacion);
+  // Bugfix: con más de un slide, los controles del carrusel (flechas, dots,
+  // contador) son absolutos y fijos sobre el hero — el bloque de texto no
+  // reservaba espacio para ellos, así que el CTA podía quedar tapado sin
+  // importar la posición elegida. "evitarChoqueDerecha" cubre el caso más
+  // agudo: sin imagen, la columna de texto ocupa el 100% del hero, y un CTA
+  // a la derecha choca de lleno con la flecha "siguiente" y con el número
+  // decorativo "01" (ambos anclados al borde derecho). Con imagen, la
+  // columna de texto ya está acotada por el ancho de la columna y no llega
+  // a ese borde, así que no hace falta.
+  const evitarChoqueDerecha = !tieneImagen && justifyBotones === 'flex-end';
 
   // Tipografía por elemento (eyebrow/título/subtítulo), configurable desde
   // el bloque y siempre resuelta con heredaDeBloque — el color por defecto
@@ -269,7 +280,29 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
 
   const textoColumna = (
     <motion.div
-      className={`flex-1 flex flex-col justify-center px-6 md:px-16 lg:px-24 py-10 md:py-20 ${esBackground ? 'relative z-10' : ''}`}
+      className={[
+        'flex-1 flex flex-col justify-center pt-10 md:pt-20',
+        'pl-6 md:pl-16 lg:pl-24',
+        // pr por separado de pl (no como px-*): cuando hay que reforzarlo para
+        // esquivar la flecha/el número decorativo, un pr-* extra conviviendo
+        // con un px-* de igual especificidad no garantiza cuál gana en la
+        // cascada de Tailwind (depende del orden interno de generación, no
+        // del orden en el className) — separarlos evita que dos clases
+        // compitan por la misma propiedad.
+        // 128px fijo (no responsive): la flecha mide siempre lo mismo en px
+        // (right-5 + w-9 ≈ 56px) en cualquier breakpoint sin lg — medido
+        // contra el DOM real, no calculado a mano, porque el offset del hero
+        // dentro del layout no es 0 y a mano daba mal.
+        evitarChoqueDerecha && total > 1 ? 'pr-32' : 'pr-6 md:pr-16',
+        // pr extra en lg+: despeja el costado derecho (flecha "siguiente" +
+        // número decorativo "01") cuando el CTA se manda a la derecha sin
+        // imagen — el número solo existe desde lg (`hidden lg:flex`).
+        evitarChoqueDerecha ? 'lg:pr-[38%]' : 'lg:pr-24',
+        // pb extra: despeja la franja de dots/contador (bottom-8) cuando hay
+        // carrusel — sin esto el CTA podía terminar tapado por esos controles.
+        total > 1 ? 'pb-20 md:pb-28' : 'pb-10 md:pb-20',
+        esBackground ? 'relative z-10' : '',
+      ].filter(Boolean).join(' ')}
       style={{ textAlign: datos.alineacion || undefined }}
       initial="hidden" animate="visible" variants={STAGGER}
     >
@@ -303,7 +336,10 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
       )}
 
       <motion.div variants={FADE_UP} transition={{ ...T, delay: 0.3 }}
-        className="flex flex-wrap gap-3" style={{ justifyContent: justifyDeAlineacion(datos.boton_posicion || datos.alineacion) }}>
+        // z-30: por encima del z-20 de los controles del carrusel (flechas/
+        // dots/contador) — red de seguridad para que el CTA nunca quede
+        // tapado si igual llegara a rozar esa franja.
+        className="flex flex-wrap gap-3 relative z-30" style={{ justifyContent: justifyBotones }}>
         {botones.map((boton, bi) => {
           const esPrimario = bi === 0;
           const r = heredaDeBloque(boton, esPrimario ? defaultsBotonPrimario : defaultsBotonSecundario);
@@ -449,7 +485,7 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
 
       <AnimatePresence mode="sync">
-        <HeroSlideContent key={current} slide={slides[Math.min(current, total - 1)]} dir={dir} bloque={bloque} datos={datos} />
+        <HeroSlideContent key={current} slide={slides[Math.min(current, total - 1)]} dir={dir} bloque={bloque} datos={datos} total={total} />
       </AnimatePresence>
 
       {total > 1 && (
