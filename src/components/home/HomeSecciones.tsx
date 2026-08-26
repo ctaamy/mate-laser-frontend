@@ -1072,7 +1072,7 @@ function SeccionCtaBanner({ datos, tema }: { datos: Record<string, any>; tema: T
               <Link key={bi} to={boton.link || '/productos'}
                 className="inline-flex items-center gap-2 px-6 py-3.5 text-sm font-bold transition-opacity hover:opacity-80"
                 style={{ backgroundColor: r.bg, color: r.tc, fontFamily: r.fontFamily }}>
-                {boton.texto || 'Ver colección'} <ArrowRight size={14} />
+                {boton.texto} <ArrowRight size={14} />
               </Link>
             ) : (
               <Link key={bi} to={boton.link || '/'}
