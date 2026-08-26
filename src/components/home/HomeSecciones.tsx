@@ -77,6 +77,20 @@ function justifyDeAlineacion(alineacion?: string): string | undefined {
   return alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : 'flex-start';
 }
 
+// Fase 2 (hero): anclaje vertical del bloque de texto — antes fijo en
+// "justify-center" (centrado siempre), sin forma de moverlo. Mismo mapeo que
+// justifyDeAlineacion pero para el eje vertical, como clase Tailwind (no
+// style inline) porque conviven en el mismo className que pt/pb/pl/pr.
+// soloDesdeMd: cuando hay imagen apilada (ver "anclajeSoloDesdeMd" en
+// HeroSlideContent), el anclaje elegido solo es seguro desde md: — en
+// mobile se fuerza "center" (el comportamiento ya estable de antes de
+// esta fase) sin importar lo configurado.
+function justifyVerticalDeAnclaje(anclaje: string | undefined, soloDesdeMd: boolean): string {
+  const clase = anclaje === 'top' ? 'justify-start' : anclaje === 'bottom' ? 'justify-end' : 'justify-center';
+  if (!soloDesdeMd || clase === 'justify-center') return clase;
+  return `justify-center md:${clase}`;
+}
+
 // ── Herencia genérica: Tema → Bloque → Elemento (título/subtítulo/botón) ────
 // Un solo mecanismo para toda la cadena: si el elemento no define su propio
 // bg_color/texto_color/font_family, hereda del bloque (que a su vez ya
@@ -277,11 +291,26 @@ function HeroSlideContent({ slide, dir, bloque, datos, total }: {
   const exit  = { opacity: 0, x: dir > 0 ? -48 : 48 };
 
   const esBackground = imagePosition === 'background' && tieneImagen;
+  // Bugfix (Fase 2): con imagen apilada (no "background"), en mobile el
+  // texto no tiene una altura propia fija — es "flex-1" compitiendo por
+  // espacio contra la imagen (h-[42%], fija) dentro del alto total del
+  // hero. Si el contenido del texto es más alto que ese ~58% teórico,
+  // desborda; con anclaje_vertical "bottom" ese desborde empuja el CTA
+  // hacia abajo, justo a la franja donde la flecha "siguiente" se
+  // reposiciona para centrarse sobre la imagen (flechasSobreImagenMobile
+  // en SeccionHero) — verificado con overlap real, no hipotético. En
+  // desktop (md:flex-row) el texto tiene el alto completo del hero
+  // (columna al lado de la imagen, sin competir por espacio), así que ahí
+  // el anclaje elegido es seguro. Con imagen "background" tampoco aplica:
+  // la imagen es absolute (no ocupa espacio en el flujo), el texto ya
+  // tiene el 100% del alto en cualquier breakpoint.
+  const anclajeSoloDesdeMd = tieneImagen && !esBackground;
 
   const textoColumna = (
     <motion.div
       className={[
-        'flex-1 flex flex-col justify-center pt-10 md:pt-20',
+        'flex-1 flex flex-col pt-10 md:pt-20',
+        justifyVerticalDeAnclaje(datos.anclaje_vertical, anclajeSoloDesdeMd),
         'pl-6 md:pl-16 lg:pl-24',
         // pr por separado de pl (no como px-*): cuando hay que reforzarlo para
         // esquivar la flecha/el número decorativo, un pr-* extra conviviendo
