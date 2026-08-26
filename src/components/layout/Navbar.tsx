@@ -138,6 +138,19 @@ export default function Navbar() {
   const mostrarBuscar: boolean = boolFrom(navDatos.mostrar_buscar, config?.navbar_mostrar_buscar);
   const mostrarUsuario: boolean = boolFrom(navDatos.mostrar_usuario, config?.navbar_mostrar_usuario);
   const mostrarCarrito: boolean = boolFrom(navDatos.mostrar_carrito, config?.navbar_mostrar_carrito);
+  // Modo del buscador en desktop/tablet (Fase 2 — antes era fijo "siempre
+  // visible" sin forma de volver atrás): 'siempre_visible' es la píldora
+  // expandida por defecto; 'icono' devuelve el comportamiento previo
+  // (ícono que abre un panel desplegable), igual que en mobile siempre.
+  const buscadorModo: 'siempre_visible' | 'icono' = navDatos.buscador_modo === 'icono' ? 'icono' : 'siempre_visible';
+  // Colores del buscador: 'fijo' es la píldora blanca (no depende del tema,
+  // se lee igual sobre cualquier navbar); 'heredar' usa los mismos colores
+  // configurados para el navbar (bg_color/texto_color/border_color).
+  const buscadorColores: 'fijo' | 'heredar' = navDatos.buscador_colores === 'heredar' ? 'heredar' : 'fijo';
+  const searchBg = buscadorColores === 'heredar' ? `${navColor}0d` : '#ffffff';
+  const searchTextColor = buscadorColores === 'heredar' ? navColor : '#111827';
+  const searchIconColor = buscadorColores === 'heredar' ? `${navColor}80` : '#6b7280';
+  const searchBorder = buscadorColores === 'heredar' ? navBorder : 'transparent';
 
   useEffect(() => {
     if (navFontFamily) cargarGoogleFont(navFontFamily);
@@ -321,24 +334,30 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             {mostrarBuscar && (
               <>
-                {/* Desktop/tablet: buscador fijo en el mismo lugar del ícono,
-                    siempre expandido con estilo propio (píldora blanca) que
-                    no depende del color del navbar — así se lee igual de
-                    claro sobre cualquier fondo. */}
-                <form onSubmit={handleSearch} className="hidden md:flex">
-                  <div className="relative">
-                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500" />
-                    <input
-                      value={searchQ}
-                      onChange={e => setSearchQ(e.target.value)}
-                      placeholder="Buscar"
-                      className="w-64 lg:w-80 text-[15px] rounded-full pl-11 pr-4 py-3 outline-none bg-white text-gray-900 placeholder:text-gray-500 shadow-sm"
-                    />
-                  </div>
-                </form>
+                {/* Desktop/tablet, modo "siempre visible" (default): buscador
+                    fijo en el lugar del ícono, expandido. Colores según
+                    buscadorColores — 'fijo' es una píldora blanca que no
+                    depende del tema; 'heredar' usa los colores del navbar. */}
+                {buscadorModo === 'siempre_visible' && (
+                  <form onSubmit={handleSearch} className="hidden md:flex">
+                    <div className="relative">
+                      <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                        style={{ color: searchIconColor }} />
+                      <input
+                        value={searchQ}
+                        onChange={e => setSearchQ(e.target.value)}
+                        placeholder="Buscar"
+                        className="w-64 lg:w-80 text-[15px] rounded-full pl-11 pr-4 py-3 outline-none shadow-sm"
+                        style={{ backgroundColor: searchBg, color: searchTextColor, border: `1px solid ${searchBorder}` }}
+                      />
+                    </div>
+                  </form>
+                )}
 
-                {/* Mobile: se mantiene el ícono + panel desplegable, por espacio */}
-                <div className="md:hidden">
+                {/* Mobile siempre, y también desktop/tablet si el modo elegido
+                    es "icono" (vuelve al comportamiento previo: ícono que abre
+                    un panel desplegable debajo de la barra). */}
+                <div className={buscadorModo === 'icono' ? '' : 'md:hidden'}>
                   <IconBtn
                     onClick={() => setSearchOpen(s => !s)}
                     active={searchOpen}
@@ -426,7 +445,7 @@ export default function Navbar() {
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              className="overflow-hidden md:hidden"
+              className={`overflow-hidden ${buscadorModo === 'icono' ? '' : 'md:hidden'}`}
               style={{ borderTop: `1px solid ${navBorder}` }}
             >
               <form onSubmit={handleSearch} className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3">

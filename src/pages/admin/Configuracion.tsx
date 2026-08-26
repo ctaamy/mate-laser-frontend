@@ -1738,13 +1738,53 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
       {/* Visibilidad de íconos */}
       <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-3">
         <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Íconos visibles</div>
-        <Toggle label="Buscador" desc="Muestra el ícono de búsqueda en la navbar"
+        <Toggle label="Buscador" desc="Muestra el buscador en la navbar"
           value={bool('mostrar_buscar')} onChange={v => set('mostrar_buscar', v)} />
         <Toggle label="Ícono de usuario" desc="Muestra el ícono de usuario / login"
           value={bool('mostrar_usuario')} onChange={v => set('mostrar_usuario', v)} />
         <Toggle label="Carrito" desc="Muestra el ícono del carrito con badge de items"
           value={bool('mostrar_carrito')} onChange={v => set('mostrar_carrito', v)} />
       </div>
+
+      {/* Buscador — modo y colores (Fase 2: antes esto estaba hardcodeado en
+          el componente, sin forma de cambiarlo desde acá) */}
+      {bool('mostrar_buscar') && (
+        <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+          <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Buscador</div>
+          <div>
+            <label className={labelCls}>Modo en desktop/tablet</label>
+            <p className="text-xs text-[var(--ink-soft)] -mt-1 mb-2">
+              En mobile siempre es un ícono que abre un panel (por espacio) — esto solo define desktop/tablet.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => set('buscador_modo', 'siempre_visible')}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${(datos.buscador_modo ?? 'siempre_visible') === 'siempre_visible' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
+                Siempre visible
+              </button>
+              <button onClick={() => set('buscador_modo', 'icono')}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${datos.buscador_modo === 'icono' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
+                Ícono
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Colores</label>
+            <p className="text-xs text-[var(--ink-soft)] -mt-1 mb-2">
+              "Fijo" es una píldora blanca que se lee igual sobre cualquier fondo de navbar. "Heredar" toma los colores configurados arriba en "Colores".
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => set('buscador_colores', 'fijo')}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${(datos.buscador_colores ?? 'fijo') === 'fijo' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
+                Fijo (blanco)
+              </button>
+              <button onClick={() => set('buscador_colores', 'heredar')}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium border transition-colors ${datos.buscador_colores === 'heredar' ? 'bg-[var(--accent)] text-white border-[var(--accent)]' : 'border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--n-50)]'}`}>
+                Heredar del navbar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tipo de menú */}
       <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
@@ -1850,16 +1890,31 @@ function NavbarPreviewBar({ datos, tema, nombreTienda }: {
         </div>
       )}
       <div className="flex items-center gap-3">
-        {/* Buscador — píldora blanca fija siempre expandida, igual que en
-            el sitio (no un ícono suelto: ver Navbar.tsx). */}
+        {/* Buscador — refleja buscador_modo/buscador_colores del editor,
+            igual que en el sitio (ver Navbar.tsx). Este preview es siempre
+            "desktop", así que el modo "icono" también se ve como ícono acá
+            (en el sitio real ese es el comportamiento en desktop/tablet). */}
         {bool('mostrar_buscar') && (
-          <div className="relative flex-shrink-0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <div className="w-32 text-xs rounded-full pl-8 pr-3 py-2 bg-white text-gray-500">Buscar</div>
-          </div>
+          datos.buscador_modo === 'icono' ? (
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ color: texto }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+          ) : (
+            <div className="relative flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: datos.buscador_colores === 'heredar' ? `${texto}80` : '#6b7280' }}>
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <div className="w-32 text-xs rounded-full pl-8 pr-3 py-2"
+                style={{
+                  backgroundColor: datos.buscador_colores === 'heredar' ? `${texto}0d` : '#ffffff',
+                  color: datos.buscador_colores === 'heredar' ? texto : '#6b7280',
+                }}>
+                Buscar
+              </div>
+            </div>
+          )
         )}
         {bool('mostrar_usuario') && <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ color: texto }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>

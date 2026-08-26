@@ -132,6 +132,77 @@ test.describe('Admin — Links del navbar (agregar / quitar / reordenar)', () =>
   });
 });
 
+// Fase 2 de la auditoría del rediseño del navbar: el buscador siempre visible
+// (píldora blanca) había quedado hardcodeado sin forma de volver al modo
+// ícono ni de tomar los colores propios del navbar — ver Configuracion.tsx
+// (sección "Buscador" del NavbarEditor) y Navbar.tsx (buscadorModo/buscadorColores).
+test.describe('Admin — Buscador (modo y colores)', () => {
+  test('cambiar a modo "Ícono" se refleja al instante en el preview y persiste', async ({ page }) => {
+    await loginComoAdmin(page);
+    let putBody: any = null;
+    await mockHomepage(page, [NAVBAR_TRADICIONAL], (body) => { putBody = body; });
+    await mockConfig(page);
+
+    await page.goto('/admin/configuracion');
+    await page.getByRole('button', { name: 'Editar navbar' }).click();
+
+    const previewEditor = page.getByTestId('navbar-preview-editor');
+
+    // Default: "Siempre visible" — el preview muestra la píldora con texto "Buscar"
+    await expect(previewEditor.getByText('Buscar', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Ícono', exact: true }).click();
+
+    // El preview cambia al instante: ya no hay texto "Buscar", solo el ícono
+    await expect(previewEditor.getByText('Buscar', { exact: true })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Guardar inicio' }).click();
+    await expect(page.getByText('¡Guardado correctamente!')).toBeVisible();
+
+    const navSec = (putBody.secciones as any[]).find((s) => s.tipo === 'navbar');
+    expect(navSec.datos.buscador_modo).toBe('icono');
+  });
+
+  test('el toggle "Buscador" oculta también los controles de modo/colores', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockHomepage(page, [NAVBAR_TRADICIONAL]);
+    await mockConfig(page);
+
+    await page.goto('/admin/configuracion');
+    await page.getByRole('button', { name: 'Editar navbar' }).click();
+
+    await expect(page.getByText('Modo en desktop/tablet')).toBeVisible();
+
+    // Apaga el toggle "Buscador" (localizado por su descripción, ya que el
+    // label "Buscador" también es el título de la card de modo/colores)
+    await page.getByText('Muestra el buscador en la navbar').locator('../..').getByRole('button').click();
+
+    await expect(page.getByText('Modo en desktop/tablet')).toHaveCount(0);
+  });
+});
+
+test.describe('Sitio público — Buscador (modo "icono" en desktop)', () => {
+  test('con buscador_modo "icono", en desktop se ve el ícono en vez de la píldora expandida', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) =>
+      route.fulfill({ json: [{ ...NAVBAR_TRADICIONAL, datos: { ...NAVBAR_TRADICIONAL.datos, buscador_modo: 'icono' } }] }),
+    );
+    await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
+
+    await page.goto('/');
+
+    // Ya no está la píldora siempre expandida...
+    await expect(page.getByPlaceholder('Buscar')).toHaveCount(0);
+
+    // ...sino un botón con el ícono de lupa que, al clickearlo, abre el
+    // panel desplegable de búsqueda (mismo comportamiento que mobile).
+    const botonBuscar = page.locator('nav button:has(svg.lucide-search)');
+    await expect(botonBuscar).toBeVisible();
+    await botonBuscar.click();
+    await expect(page.getByPlaceholder('¿Qué estás buscando?')).toBeVisible();
+  });
+});
+
 test.describe('Sitio público — mobile siempre usa hamburguesa', () => {
   test('con tipo_menu "tradicional", en viewport mobile igual se muestra el botón de hamburguesa (no los links inline)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 700 });
