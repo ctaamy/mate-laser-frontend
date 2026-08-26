@@ -1252,6 +1252,9 @@ function EditorEstilo({ tipo, datos, set }: {
             {tipo === 'hero' && (
               <SelectField label="Fuente eyebrow (opcional, pisa la fuente del bloque)" value={datos.eyebrow_font_family || ''} onChange={v => { set('eyebrow_font_family', v); cargarGoogleFont(v); }} options={FUENTES} />
             )}
+            {tipo === 'hero' && (
+              <SelectField label="Tamaño del botón" value={datos.boton_size || 'sm'} onChange={v => set('boton_size', v)} options={SIZES} />
+            )}
             {tipo === 'banner_texto' && (
               <SelectField label="Tamaño texto" value={datos.font_size || 'sm'} onChange={v => set('font_size', v)} options={SIZES} />
             )}
