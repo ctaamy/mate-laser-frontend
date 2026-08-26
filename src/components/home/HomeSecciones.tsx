@@ -644,7 +644,14 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
 // ─────────────────────────────────────────────────────────────────────────────
 function SeccionBannerTexto({ datos, tema }: { datos: Record<string, any>; tema: TemaGlobal }) {
   const { bg, tc, fontFamily, minHeight } = estiloHeredado(datos, tema);
-  const texto = datos.texto || '';
+  // Compat: secciones viejas guardaban un único "texto" en vez de la lista
+  // "items" (múltiples textos, editable desde el admin). Se descartan los
+  // vacíos para no mostrar un separador colgando sin nada al lado.
+  const items: string[] = (datos.items?.length ? datos.items : (datos.texto ? [datos.texto] : []))
+    .filter((t: string) => t?.trim());
+  if (items.length === 0) return null;
+
+  const separador = datos.separador || '—';
   // Bugfix: font_size/font_weight/padding se guardaban pero nunca se leían.
   // Anclado en 'sm' (11px) porque ese es el valor con el que ya nacían las
   // secciones existentes (TIPO_DEFAULTS) — así no cambia nada por defecto.
@@ -652,20 +659,38 @@ function SeccionBannerTexto({ datos, tema }: { datos: Record<string, any>; tema:
   const fontWeight = datos.font_weight ? PESO_NUM[datos.font_weight] : undefined;
   const padding = paddingVertical(datos.padding, [1.25, 1.25], 'sm');
   const justifyContent = justifyDeAlineacion(datos.alineacion) || 'center';
+  // Bugfix: antes se forzaba una opacidad fija (60/FF hex en el ticker,
+  // 0.5 en el modo estático) sin importar el peso elegido — un texto en
+  // negrita seguía viéndose lavado. Ahora es 100% (texto sólido) por
+  // defecto y editable en el tab Estilo; el separador decorativo queda
+  // siempre un poco más sutil que el texto, en proporción a esa opacidad.
+  const opacidad = (datos.opacidad ?? 100) / 100;
+  const velocidad = datos.velocidad || 28;
 
   if (datos.marquee) {
+    // El bloque de items se repite varias veces para llenar pantallas
+    // anchas, y ese tramo repetido se duplica una vez más: al animar de 0%
+    // a -50% la segunda copia entra justo cuando la primera termina de
+    // salir, dando un loop continuo sin salto — funciona con cualquier
+    // cantidad de textos, no solo con uno repetido.
+    const REPETICIONES = 6;
+    const bloque = Array.from({ length: REPETICIONES }, () => items).flat();
     return (
       <div className="w-full overflow-hidden py-2.5 border-y flex items-center"
         style={{ backgroundColor: bg, borderColor: `${tc}12`, fontFamily, minHeight }}>
         <motion.div className="flex whitespace-nowrap"
           animate={{ x: ['0%', '-50%'] }}
-          transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}>
-          {[...Array(12)].map((_, i) => (
-            <span key={i} className="flex items-center text-[11px] tracking-widest uppercase px-8"
-              style={{ color: `${tc}60`, fontSize, fontWeight: fontWeight ?? 500 }}>
-              {texto}
-              <span className="mx-8" style={{ color: `${tc}20` }}>—</span>
-            </span>
+          transition={{ duration: velocidad, repeat: Infinity, ease: 'linear' }}>
+          {[0, 1].map(copia => (
+            <div key={copia} className="flex items-center">
+              {bloque.map((item, i) => (
+                <span key={i} className="flex items-center text-[11px] tracking-widest uppercase px-8"
+                  style={{ color: tc, opacity: opacidad, fontSize, fontWeight: fontWeight ?? 500 }}>
+                  {item}
+                  <span className="mx-8" style={{ color: tc, opacity: opacidad * 0.3 }}>{separador}</span>
+                </span>
+              ))}
+            </div>
           ))}
         </motion.div>
       </div>
@@ -676,13 +701,23 @@ function SeccionBannerTexto({ datos, tema }: { datos: Record<string, any>; tema:
     <motion.section className="w-full px-8 py-5 flex items-center"
       style={{ backgroundColor: bg, fontFamily, minHeight, ...padding }}
       initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={FADE}>
-      <div className="max-w-6xl flex items-center gap-6" style={{ justifyContent }}>
-        <div className="h-px flex-1" style={{ backgroundColor: tc, opacity: 0.1 }} />
-        <p className="text-[11px] uppercase tracking-[0.2em] text-center"
-          style={{ color: tc, opacity: 0.5, fontSize, fontWeight: fontWeight ?? 600 }}>
-          {texto}
-        </p>
-        <div className="h-px flex-1" style={{ backgroundColor: tc, opacity: 0.1 }} />
+      {/* flex-wrap: en mobile o con varios textos largos, se acomodan en
+          más de una línea en vez de comprimirse contra las líneas
+          decorativas — esas se ocultan bajo sm para no robarles espacio. */}
+      <div className="max-w-6xl w-full flex flex-wrap items-center gap-x-5 gap-y-2" style={{ justifyContent }}>
+        <div className="h-px flex-1 hidden sm:block" style={{ backgroundColor: tc, opacity: 0.1 }} />
+        {items.flatMap((item, i) => [
+          i > 0 && (
+            <span key={`sep-${i}`} aria-hidden className="text-[11px]" style={{ color: tc, opacity: opacidad * 0.3 }}>
+              {separador}
+            </span>
+          ),
+          <span key={`item-${i}`} className="text-[11px] uppercase tracking-[0.2em] text-center"
+            style={{ color: tc, opacity: opacidad, fontSize, fontWeight: fontWeight ?? 600 }}>
+            {item}
+          </span>,
+        ])}
+        <div className="h-px flex-1 hidden sm:block" style={{ backgroundColor: tc, opacity: 0.1 }} />
       </div>
     </motion.section>
   );
