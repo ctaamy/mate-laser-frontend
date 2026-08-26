@@ -48,6 +48,7 @@ test.describe('Visual — categorias_grid rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: { tema_accent_color: '#ff8800' } }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('categorias-grid-overlay.png');
   });
 
@@ -64,6 +65,7 @@ test.describe('Visual — categorias_grid rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven) antes de hacer hover — si no, el hover-scale arranca de un estado que todavía se está moviendo
     const card = page.getByText('Mates', { exact: true }).locator('xpath=ancestor::a[1]');
     // `force: true`: la card ya está completamente visible sin scroll (esta
     // sección es corta, cabe entera en el viewport). Evita que Playwright
@@ -99,6 +101,7 @@ test.describe('Visual — categorias_grid rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     const grid = page.getByText('Mates', { exact: true }).locator('xpath=ancestor::div[contains(@class,"grid")][1]');
     await expect(grid).toHaveScreenshot('categorias-grid-fila-incompleta.png');
   });
@@ -119,6 +122,7 @@ test.describe('Visual — categorias_grid rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     const card = page.getByText('Mates', { exact: true }).locator('xpath=ancestor::a[1]');
     await expect(card).toHaveScreenshot('categorias-grid-item-titulo-2xl.png');
   });
@@ -151,6 +155,7 @@ test.describe('Visual — categorias_grid rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('categorias-grid-nombre-largo-4-columnas.png');
   });
 
@@ -167,6 +172,7 @@ test.describe('Visual — categorias_grid rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: { tema_accent_color: '#ff8800' } }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven) antes de hacer hover
     const link = page.getByText('Ver productos');
     await link.hover();
     await page.waitForTimeout(400); // deja terminar la transición de 300ms

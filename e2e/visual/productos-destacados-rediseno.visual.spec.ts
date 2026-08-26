@@ -48,6 +48,7 @@ test.describe('Visual — productos_destacados rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: { tema_accent_color: '#ff8800' } }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('productos-destacados-overlay.png');
   });
 
@@ -64,6 +65,7 @@ test.describe('Visual — productos_destacados rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven) antes de hacer hover — si no, el hover-scale arranca de un estado que todavía se está moviendo
     const card = page.getByText('Mate Imperial Grabado', { exact: true }).locator('xpath=ancestor::a[1]');
     // `force: true`: la card es más alta que el viewport de test (720px),
     // así que necesita algo de scroll para entrar completa — evitamos que
@@ -88,6 +90,7 @@ test.describe('Visual — productos_destacados rediseñado', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     const card = page.getByText('Mate Imperial Grabado', { exact: true }).locator('xpath=ancestor::a[1]');
     await expect(card).toHaveScreenshot('productos-destacados-item-titulo-2xl.png');
   });

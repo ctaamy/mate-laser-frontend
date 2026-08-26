@@ -22,18 +22,21 @@ test.describe('Visual — transición entre bloques', () => {
   test('degradado: oscuro → claro', async ({ page }) => {
     await mockHome(page, OSCURO_A_CLARO('degradado'));
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('transicion-degradado.png');
   });
 
   test('curva: oscuro → claro', async ({ page }) => {
     await mockHome(page, OSCURO_A_CLARO('curva'));
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('transicion-curva.png');
   });
 
   test('diagonal: oscuro → claro', async ({ page }) => {
     await mockHome(page, OSCURO_A_CLARO('diagonal'));
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('transicion-diagonal.png');
   });
 
@@ -43,12 +46,14 @@ test.describe('Visual — transición entre bloques', () => {
       { id: 'b', tipo: 'texto_libre', activo: true, orden: 1, datos: { html: '<p>Bloque oscuro</p>', bg_color: '#0a2218', padding: 'lg' } },
     ]);
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('transicion-ondulada-inversa.png');
   });
 
   test('ninguna (default): sin cambios, corte plano de siempre', async ({ page }) => {
     await mockHome(page, OSCURO_A_CLARO('ninguna'));
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('transicion-ninguna.png');
   });
 
@@ -68,6 +73,7 @@ test.describe('Visual — transición entre bloques', () => {
       { id: 'b', tipo: 'texto_libre', activo: true, orden: 1, datos: { html: '<p>Bloque claro</p>', bg_color: '#ffffff' } },
     ]);
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView/slide del Hero, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('transicion-hero-con-imagen.png');
   });
 });

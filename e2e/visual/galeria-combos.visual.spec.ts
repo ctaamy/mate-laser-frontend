@@ -28,6 +28,7 @@ test.describe('Visual — galeria_combos', () => {
     await page.route('**/api/v1/configurador/galeria-combos**', (route) => route.fulfill({ json: COMBOS }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('galeria-combos-3-items.png');
   });
 
@@ -39,6 +40,7 @@ test.describe('Visual — galeria_combos', () => {
     await page.route('**/api/v1/configurador/galeria-combos**', (route) => route.fulfill({ json: [COMBOS[0]] }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven) antes de hacer hover — si no, el hover-scale arranca de un estado que todavía se está moviendo
     const card = page.getByText('Mate Imperial', { exact: true }).locator('xpath=ancestor::a[1]');
     // `force: true`: ver comentario equivalente en
     // categorias-grid-rediseno.visual.spec.ts — evita que Playwright

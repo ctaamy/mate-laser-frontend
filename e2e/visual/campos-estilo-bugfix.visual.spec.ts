@@ -38,6 +38,7 @@ test.describe('Visual — campos de Estilo ahora aplicados', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('hero-estilo-custom.png');
   });
 
@@ -53,6 +54,7 @@ test.describe('Visual — campos de Estilo ahora aplicados', () => {
     await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
 
     await page.goto('/');
+    await page.waitForTimeout(900); // deja asentar la animación de entrada (whileInView, JS-driven — Playwright no la frena con "disabled all CSS animations")
     await expect(page).toHaveScreenshot('categorias-grid-2-columnas.png');
   });
 });
