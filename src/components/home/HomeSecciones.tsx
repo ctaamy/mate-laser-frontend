@@ -432,10 +432,20 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
   // Solo compensar la posición de las flechas cuando el slide activo realmente
   // apila una imagen abajo en mobile — con "background" la imagen ya cubre
   // todo el alto (top-1/2 normal sirve), y sin imagen no hay nada contra qué centrar.
-  const flechasSobreImagenMobile = !!slideActual?.imagen_url && (datos.image_position || 'bleed') !== 'background';
+  const esFondoCompleto = (datos.image_position || 'bleed') === 'background';
+  const flechasSobreImagenMobile = !!slideActual?.imagen_url && !esFondoCompleto;
+  // "Fondo": la imagen cubre TODO el bloque con object-cover a min_height fijo
+  // (por defecto 90vh, o el "Alto mínimo" que haya puesto el admin en px).
+  // Con un alto fijo en px, cuanto más ancha la pantalla más panorámico queda
+  // el recorte — en un monitor grande object-cover termina recortando mucho
+  // más verticalmente que en el preview del admin (que renderiza angosto).
+  // Tope de relación de aspecto: el alto real usado es el máximo entre
+  // min_height y ancho/2.4 — en pantallas angostas no cambia nada (gana
+  // min_height), en pantallas muy anchas el bloque crece en vez de recortar.
+  const conTopeDeAspecto = esFondoCompleto && !!slideActual?.imagen_url;
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ minHeight }}
+    <div className={`relative w-full overflow-hidden ${conTopeDeAspecto ? 'aspect-[12/5]' : ''}`} style={{ minHeight }}
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
 
       <AnimatePresence mode="sync">
