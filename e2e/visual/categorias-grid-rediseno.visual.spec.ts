@@ -65,7 +65,14 @@ test.describe('Visual — categorias_grid rediseñado', () => {
 
     await page.goto('/');
     const card = page.getByText('Mates', { exact: true }).locator('xpath=ancestor::a[1]');
-    await card.hover();
+    // `force: true`: la card ya está completamente visible sin scroll (esta
+    // sección es corta, cabe entera en el viewport). Evita que Playwright
+    // reintente su propio scroll-into-view mientras "espera estabilidad"
+    // durante la transición CSS de scale() del hover — en páginas cortas ese
+    // reintento podía terminar scrolleando al fondo del documento, dejando
+    // la card contra el navbar sticky (flake intermitente, no relacionado
+    // al contenido de la card en sí).
+    await card.hover({ force: true });
     await page.waitForTimeout(600); // deja terminar la transición de 500ms
     await expect(card).toHaveScreenshot('categorias-grid-hover-zoom.png');
   });

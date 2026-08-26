@@ -40,7 +40,12 @@ test.describe('Visual — galeria_combos', () => {
 
     await page.goto('/');
     const card = page.getByText('Mate Imperial', { exact: true }).locator('xpath=ancestor::a[1]');
-    await card.hover();
+    // `force: true`: ver comentario equivalente en
+    // categorias-grid-rediseno.visual.spec.ts — evita que Playwright
+    // reintente su propio scroll-into-view durante la transición CSS del
+    // hover, que en páginas cortas puede terminar empujando la card contra
+    // el navbar sticky (flake intermitente).
+    await card.hover({ force: true });
     await page.waitForTimeout(600);
     await expect(card).toHaveScreenshot('galeria-combos-hover-zoom.png');
   });
