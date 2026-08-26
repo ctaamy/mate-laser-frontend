@@ -1820,32 +1820,51 @@ function NavbarPreviewBar({ datos, tema, nombreTienda }: {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
     </div>
   );
-  const logo = datos.logo_url
-    ? <img src={datos.logo_url} alt="Logo" style={{ height: `${datos.logo_alto ?? 32}px` }} className="object-contain" />
-    : <span className="text-base font-semibold whitespace-nowrap" style={{ color: texto }}>
-        {nombreTienda || 'matelaser studio'}
-      </span>;
+  // Nombre + logo: mismo orden y jerarquía que el navbar real (Navbar.tsx) —
+  // el nombre va primero, agrandado y en negrita, con el logo (si hay) después.
+  // La marca ("primera palabra") va en negrita y el resto en fuente liviana,
+  // igual que el split de nombreTienda en el sitio público.
+  const partesNombre = (nombreTienda || 'matelaser studio').match(/^(\S+)(.*)$/) ?? [nombreTienda, nombreTienda, ''];
+  const marca = (
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <span className="text-lg font-bold tracking-tight whitespace-nowrap" style={{ color: texto }}>
+        {partesNombre[1]}
+        {partesNombre[2] && <span className="font-light" style={{ opacity: 0.45 }}>{partesNombre[2]}</span>}
+      </span>
+      {datos.logo_url && (
+        <img src={datos.logo_url} alt="Logo" style={{ height: `${datos.logo_alto ?? 32}px` }} className="object-contain" />
+      )}
+    </div>
+  );
 
   return (
-    <div className="px-6 h-14 flex items-center justify-between gap-4"
+    <div className="px-6 h-16 flex items-center justify-between gap-4"
       style={{ backgroundColor: bg, borderBottom: `1px solid ${datos.border_color || '#f3f4f6'}`, fontFamily }}>
       <div className="flex items-center gap-3">
         {menuPosicion === 'izquierda' && hamburguesa}
-        {logo}
+        {marca}
       </div>
       {tipoMenu === 'tradicional' && (
         <div className="flex items-center gap-4 flex-1 justify-center min-w-0 overflow-hidden">
-          {links.map((l, i) => <span key={i} className="text-xs whitespace-nowrap" style={{ color: texto }}>{l.label}</span>)}
+          {links.map((l, i) => <span key={i} className="text-sm font-medium whitespace-nowrap" style={{ color: texto }}>{l.label}</span>)}
         </div>
       )}
-      <div className="flex items-center gap-2">
-        {bool('mostrar_buscar') && <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: texto }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        </div>}
-        {bool('mostrar_usuario') && <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: texto }}>
+      <div className="flex items-center gap-3">
+        {/* Buscador — píldora blanca fija siempre expandida, igual que en
+            el sitio (no un ícono suelto: ver Navbar.tsx). */}
+        {bool('mostrar_buscar') && (
+          <div className="relative flex-shrink-0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <div className="w-32 text-xs rounded-full pl-8 pr-3 py-2 bg-white text-gray-500">Buscar</div>
+          </div>
+        )}
+        {bool('mostrar_usuario') && <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ color: texto }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </div>}
-        {bool('mostrar_carrito') && <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: texto }}>
+        {bool('mostrar_carrito') && <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ color: texto }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         </div>}
         {menuPosicion === 'derecha' && hamburguesa}
