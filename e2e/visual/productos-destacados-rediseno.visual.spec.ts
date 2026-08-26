@@ -65,7 +65,12 @@ test.describe('Visual — productos_destacados rediseñado', () => {
 
     await page.goto('/');
     const card = page.getByText('Mate Imperial Grabado', { exact: true }).locator('xpath=ancestor::a[1]');
-    await card.hover();
+    // `force: true`: la card es más alta que el viewport de test (720px),
+    // así que necesita algo de scroll para entrar completa — evitamos que
+    // Playwright reintente su propio scroll-into-view mientras "espera
+    // estabilidad" durante la transición CSS del hover, que podía terminar
+    // en un scroll excesivo y dejar la card contra el navbar sticky.
+    await card.hover({ force: true });
     await page.waitForTimeout(600); // deja terminar la transición de 500ms
     await expect(card).toHaveScreenshot('productos-destacados-hover-zoom.png');
   });
