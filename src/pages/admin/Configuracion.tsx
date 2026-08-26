@@ -237,6 +237,15 @@ const ALINEACIONES_CON_HEREDAR = [
   ...ALINEACIONES,
 ];
 
+// Fase 2 (hero): anclaje vertical del bloque de texto — antes fijo en
+// centrado, sin forma de moverlo. Eje independiente de "Alineación"
+// (horizontal) y de "Posición de los botones".
+const ANCLAJES_VERTICALES = [
+  { value: 'top', label: 'Arriba' },
+  { value: 'center', label: 'Centro' },
+  { value: 'bottom', label: 'Abajo' },
+];
+
 // Dos estilos para productos_destacados: "carrusel" (cards con texto
 // superpuesto, deslizable en mobile) y "grid" (cards tipo catálogo, siempre
 // 2 columnas fijas, sin scroll) — para poder combinar dos bloques, uno de
@@ -1243,6 +1252,9 @@ function EditorEstilo({ tipo, datos, set }: {
             {tipo === 'hero' && (
               <SelectField label="Fuente eyebrow (opcional, pisa la fuente del bloque)" value={datos.eyebrow_font_family || ''} onChange={v => { set('eyebrow_font_family', v); cargarGoogleFont(v); }} options={FUENTES} />
             )}
+            {tipo === 'hero' && (
+              <SelectField label="Tamaño del botón" value={datos.boton_size || 'sm'} onChange={v => set('boton_size', v)} options={SIZES} />
+            )}
             {tipo === 'banner_texto' && (
               <SelectField label="Tamaño texto" value={datos.font_size || 'sm'} onChange={v => set('font_size', v)} options={SIZES} />
             )}
@@ -1264,6 +1276,9 @@ function EditorEstilo({ tipo, datos, set }: {
           )}
           {tipo === 'hero' && (
             <SelectField label="Posición de los botones" value={datos.boton_posicion || ''} onChange={v => set('boton_posicion', v)} options={ALINEACIONES_CON_HEREDAR} />
+          )}
+          {tipo === 'hero' && (
+            <SelectField label="Posición vertical del texto" value={datos.anclaje_vertical || 'center'} onChange={v => set('anclaje_vertical', v)} options={ANCLAJES_VERTICALES} />
           )}
           {tipo === 'como_funciona' && (
             <SelectField label="Espaciado título → subtítulo" value={datos.titulo_subtitulo_gap || 'sm'} onChange={v => set('titulo_subtitulo_gap', v)} options={PADDINGS} />

@@ -44,6 +44,21 @@ function escalaTamano(valor: string | undefined, opcionBase = 'lg'): number {
   return (ESCALA_TAMANO[valor] ?? 1) / (ESCALA_TAMANO[opcionBase] ?? 1);
 }
 
+// clamp() que recorta el CRECIMIENTO por encima del tamaño base en viewports
+// angostos (mismo mecanismo que ya usa tituloFontSize con vw, generalizado).
+// Sin esto, un elemento con font-size/padding fijos en rem escalados por un
+// factor grande (ej. boton_size "4xl") podía terminar más ancho que el
+// propio viewport en mobile — no solo "grande", directamente desbordado
+// fuera del bloque (contenido cortado por el overflow-hidden del hero).
+// Con escala<=1 el clamp no hace nada: devuelve `${base}rem` fijo, así que
+// el tamaño histórico (sin configurar, o "más chico que el default") queda
+// bit a bit igual que antes de tener esta función.
+function clampEscalado(baseRem: number, escala: number, coefVw: number): string {
+  const extra = Math.max(0, escala - 1);
+  if (extra === 0) return `${baseRem}rem`;
+  return `clamp(${baseRem}rem, calc(${baseRem}rem + ${(extra * coefVw).toFixed(3)}vw), ${(baseRem * escala).toFixed(4)}rem)`;
+}
+
 // SIZE_REM, fontSizeClampItem, ImagenConOverlay, LinkAcentoConSubrayado
 // viven en components/ui/CardOverlay.tsx (compartidas con ProductCard.tsx,
 // que este archivo importa indirectamente vía ProductGrid — así se evita
@@ -72,9 +87,48 @@ const COL_CLASS: Record<number, string> = {
   1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-5', 6: 'md:grid-cols-6',
 };
 
+// Hero — pr reservado para que el CTA a la derecha no choque con la flecha
+// "siguiente" / el número decorativo "01" (ver ctaVaADerecha/revertirEnMd/
+// reforzarEnLg en HeroSlideContent). 2 niveles según boton_size: un botón
+// más grande necesita más aire. Clases literales completas (no template
+// dinámico) para que el JIT de Tailwind las genere — mismo motivo que
+// COL_CLASS arriba.
+//   conNumero:   sin imagen — reforzado en todos los breakpoints, más aún
+//                en lg (compite también con el número decorativo).
+//   soloMobile:  imagen apilada — reforzado solo <md; desde md el layout
+//                pasa a columnas y el margen natural ya alcanza.
+//   sinNumero:   imagen de fondo — reforzado en todos los breakpoints, pero
+//                sin el extra de lg (no hay número decorativo que esquivar).
+const PR_REFORZADO = [
+  { // nivel 0: boton_size hasta 'lg' (comportamiento por defecto incluido)
+    conNumero: 'pr-32 md:pr-32 lg:pr-[38%]',
+    soloMobile: 'pr-32 md:pr-16 lg:pr-24',
+    sinNumero: 'pr-32 md:pr-32 lg:pr-24',
+  },
+  { // nivel 1: boton_size 'xl' en adelante
+    conNumero: 'pr-48 md:pr-48 lg:pr-[46%]',
+    soloMobile: 'pr-48 md:pr-16 lg:pr-24',
+    sinNumero: 'pr-48 md:pr-48 lg:pr-24',
+  },
+];
+
 function justifyDeAlineacion(alineacion?: string): string | undefined {
   if (!alineacion) return undefined;
   return alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : 'flex-start';
+}
+
+// Fase 2 (hero): anclaje vertical del bloque de texto — antes fijo en
+// "justify-center" (centrado siempre), sin forma de moverlo. Mismo mapeo que
+// justifyDeAlineacion pero para el eje vertical, como clase Tailwind (no
+// style inline) porque conviven en el mismo className que pt/pb/pl/pr.
+// soloDesdeMd: cuando hay imagen apilada (ver "anclajeSoloDesdeMd" en
+// HeroSlideContent), el anclaje elegido solo es seguro desde md: — en
+// mobile se fuerza "center" (el comportamiento ya estable de antes de
+// esta fase) sin importar lo configurado.
+function justifyVerticalDeAnclaje(anclaje: string | undefined, soloDesdeMd: boolean): string {
+  const clase = anclaje === 'top' ? 'justify-start' : anclaje === 'bottom' ? 'justify-end' : 'justify-center';
+  if (!soloDesdeMd || clase === 'justify-center') return clase;
+  return `justify-center md:${clase}`;
 }
 
 // ── Herencia genérica: Tema → Bloque → Elemento (título/subtítulo/botón) ────
@@ -223,8 +277,8 @@ function resolverOverlay(datos: Record<string, any>): { direction: string; inten
   return { direction: 'left', intensity: 60 };
 }
 
-function HeroSlideContent({ slide, dir, bloque, datos }: {
-  slide: HeroSlide; dir: number; bloque: EstiloBloque; datos: Record<string, any>;
+function HeroSlideContent({ slide, dir, bloque, datos, total }: {
+  slide: HeroSlide; dir: number; bloque: EstiloBloque; datos: Record<string, any>; total: number;
 }) {
   // Herencia: Slide → Bloque → Tema (mismo mecanismo heredaDeBloque que el
   // resto de la cadena; "bloque" ya resolvió su propia herencia del tema).
@@ -239,6 +293,7 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
   const botones = botonesResueltos.length ? botonesResueltos : [{ texto: 'Ver colección', link: '/productos' }];
   const imagePosition = datos.image_position || 'bleed';
   const overlay = resolverOverlay(datos);
+  const justifyBotones = justifyDeAlineacion(datos.boton_posicion || datos.alineacion);
 
   // Tipografía por elemento (eyebrow/título/subtítulo), configurable desde
   // el bloque y siempre resuelta con heredaDeBloque — el color por defecto
@@ -262,14 +317,89 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
   const defaultsBotonPrimario = { bg: datos.btn_color || tc, tc: datos.btn_texto_color || bg, fontFamily };
   const defaultsBotonSecundario = { bg: tc, tc, fontFamily };
 
+  // Fase 3: tamaño del CTA configurable — antes fijo en px-6 py-3 text-sm
+  // (0.875rem), sin relación con titulo_size/subtitulo_size/eyebrow_size que
+  // sí eran configurables. opcionBase 'sm' porque 0.875rem es exactamente
+  // SIZE_REM.sm — sin configurar, no cambia nada. Escala texto Y padding
+  // juntos y en la misma proporción (mismo mecanismo que escalaTamano ya usa
+  // para el título) para que "más grande" se sienta como un botón más
+  // grande, no solo texto más grande con el mismo padding. clampEscalado
+  // (no un simple *escalaBoton) por boton_size grande: recorta el tamaño en
+  // viewports angostos para que el botón no termine más ancho que el propio
+  // hero — ver el comentario de la función.
+  const escalaBoton = escalaTamano(datos.boton_size, 'sm');
+  const botonFontSize = clampEscalado(0.875, escalaBoton, 2);
+  const botonPadding = `${clampEscalado(0.75, escalaBoton, 1.5)} ${clampEscalado(1.5, escalaBoton, 3.5)}`;
+  // 'xl' (1.643) en adelante pasa a nivel 1 — ver PR_REFORZADO.
+  const nivelBoton = escalaBoton > 1.5 ? 1 : 0;
+
   const enter = { opacity: 0, x: dir > 0 ? 48 : -48 };
   const exit  = { opacity: 0, x: dir > 0 ? -48 : 48 };
 
   const esBackground = imagePosition === 'background' && tieneImagen;
 
+  // Bugfix: con más de un slide, los controles del carrusel (flechas, dots,
+  // contador) son absolutos y fijos sobre el hero — el bloque de texto no
+  // reservaba espacio para ellos, así que el CTA podía quedar tapado sin
+  // importar la posición elegida.
+  //
+  // ctaVaADerecha: en TODOS los breakpoints por debajo de "md" (768px) el
+  // layout es flex-col — la columna de texto ocupa el 100% del ancho del
+  // hero, CON o SIN imagen (si hay imagen, va apilada abajo, no al costado)
+  // — así que un CTA a la derecha choca con la flecha "siguiente" en mobile
+  // sin importar si hay imagen o no (verificado con overlap real: con
+  // imagen + boton_size grande, el botón sí llegaba a tocar la flecha en
+  // mobile — no es un caso hipotético). Recién desde "md" el layout con
+  // imagen pasa a flex-row (columnas lado a lado) y ahí el margen natural
+  // de la columna ya alcanza, así que ahí se revierte al padding normal.
+  const ctaVaADerecha = justifyBotones === 'flex-end';
+  const revertirEnMd = ctaVaADerecha && tieneImagen && !esBackground;
+  // El número decorativo "01" (hidden lg:flex) solo compite cuando no hay
+  // imagen — con imagen (apilada o de fondo) no existe.
+  const reforzarEnLg = ctaVaADerecha && !tieneImagen;
+
+  // Bugfix (Fase 2): con imagen apilada (no "background"), en mobile el
+  // texto no tiene una altura propia fija — es "flex-1" compitiendo por
+  // espacio contra la imagen (h-[42%], fija) dentro del alto total del
+  // hero. Si el contenido del texto es más alto que ese ~58% teórico,
+  // desborda; con anclaje_vertical "bottom" ese desborde empuja el CTA
+  // hacia abajo, justo a la franja donde la flecha "siguiente" se
+  // reposiciona para centrarse sobre la imagen (flechasSobreImagenMobile
+  // en SeccionHero) — verificado con overlap real, no hipotético. En
+  // desktop (md:flex-row) el texto tiene el alto completo del hero
+  // (columna al lado de la imagen, sin competir por espacio), así que ahí
+  // el anclaje elegido es seguro. Con imagen "background" tampoco aplica:
+  // la imagen es absolute (no ocupa espacio en el flujo), el texto ya
+  // tiene el 100% del alto en cualquier breakpoint.
+  const anclajeSoloDesdeMd = tieneImagen && !esBackground;
+
   const textoColumna = (
     <motion.div
-      className={`flex-1 flex flex-col justify-center px-6 md:px-16 lg:px-24 py-10 md:py-20 ${esBackground ? 'relative z-10' : ''}`}
+      className={[
+        'flex-1 flex flex-col pt-10 md:pt-20',
+        justifyVerticalDeAnclaje(datos.anclaje_vertical, anclajeSoloDesdeMd),
+        'pl-6 md:pl-16 lg:pl-24',
+        // pr por separado de pl (no como px-*): cuando hay que reforzarlo para
+        // esquivar la flecha/el número decorativo, un pr-* extra conviviendo
+        // con un px-* de igual especificidad no garantiza cuál gana en la
+        // cascada de Tailwind (depende del orden interno de generación, no
+        // del orden en el className) — separarlos evita que dos clases
+        // compitan por la misma propiedad. Nivel de refuerzo según
+        // boton_size (PR_REFORZADO más abajo): un botón más grande necesita
+        // más aire hasta la flecha/número decorativo. Cubre bien hasta 'xl'
+        // — 2xl/3xl/4xl combinado con boton_posicion "derecha" en mobile es
+        // geométricamente ajustado (el botón en sí ya ocupa gran parte del
+        // ancho del viewport) y puede necesitar ajuste manual del admin; el
+        // preview en vivo del editor lo hace visible de inmediato.
+        !ctaVaADerecha ? 'pr-6 md:pr-16 lg:pr-24'
+          : revertirEnMd ? PR_REFORZADO[nivelBoton].soloMobile
+          : reforzarEnLg ? PR_REFORZADO[nivelBoton].conNumero
+          : PR_REFORZADO[nivelBoton].sinNumero,
+        // pb extra: despeja la franja de dots/contador (bottom-8) cuando hay
+        // carrusel — sin esto el CTA podía terminar tapado por esos controles.
+        total > 1 ? 'pb-20 md:pb-28' : 'pb-10 md:pb-20',
+        esBackground ? 'relative z-10' : '',
+      ].filter(Boolean).join(' ')}
       style={{ textAlign: datos.alineacion || undefined }}
       initial="hidden" animate="visible" variants={STAGGER}
     >
@@ -303,24 +433,29 @@ function HeroSlideContent({ slide, dir, bloque, datos }: {
       )}
 
       <motion.div variants={FADE_UP} transition={{ ...T, delay: 0.3 }}
-        className="flex flex-wrap gap-3" style={{ justifyContent: justifyDeAlineacion(datos.boton_posicion || datos.alineacion) }}>
+        // z-30: por encima del z-20 de los controles del carrusel (flechas/
+        // dots/contador) — red de seguridad para que el CTA nunca quede
+        // tapado si igual llegara a rozar esa franja.
+        className="flex flex-wrap gap-3 relative z-30" style={{ justifyContent: justifyBotones }}>
         {botones.map((boton, bi) => {
           const esPrimario = bi === 0;
           const r = heredaDeBloque(boton, esPrimario ? defaultsBotonPrimario : defaultsBotonSecundario);
           const tieneOverridePropio = !!boton.texto_color;
           return esPrimario ? (
             <Link key={bi} to={boton.link || '/productos'}
-              className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: r.bg, color: r.tc, fontFamily: r.fontFamily }}>
+              className="inline-flex items-center gap-2 font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: r.bg, color: r.tc, fontFamily: r.fontFamily, fontSize: botonFontSize, padding: botonPadding }}>
               {boton.texto} <ArrowRight size={14} />
             </Link>
           ) : (
             <Link key={bi} to={boton.link || '/'}
-              className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium border transition-opacity hover:opacity-60"
+              className="inline-flex items-center gap-2 font-medium border transition-opacity hover:opacity-60"
               style={{
                 borderColor: tieneOverridePropio ? r.tc : `${r.tc}25`,
                 color: tieneOverridePropio ? r.tc : `${r.tc}70`,
                 fontFamily: r.fontFamily,
+                fontSize: botonFontSize,
+                padding: botonPadding,
               }}>
               {boton.texto}
             </Link>
@@ -449,7 +584,7 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
 
       <AnimatePresence mode="sync">
-        <HeroSlideContent key={current} slide={slides[Math.min(current, total - 1)]} dir={dir} bloque={bloque} datos={datos} />
+        <HeroSlideContent key={current} slide={slides[Math.min(current, total - 1)]} dir={dir} bloque={bloque} datos={datos} total={total} />
       </AnimatePresence>
 
       {total > 1 && (
