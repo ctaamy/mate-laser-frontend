@@ -210,11 +210,19 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
           </AnimatePresence>
         )}
 
-        {badges}
+        {/* Badges — chicos y suaves, para no competir con la foto */}
+        <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
+          {producto.apto_grabado && <BadgeAptoGrabado compact className="rounded-[3px] opacity-90 shadow-sm" />}
+          {tieneDescuento && (
+            <span className="rounded-[3px] bg-black/70 backdrop-blur-sm px-2 py-0.5 text-[9px] font-bold text-white">
+              -{descuentoPct}%
+            </span>
+          )}
+        </div>
 
-        {/* Botón agregar — siempre visible en mobile (no hay hover en touch);
-            en desktop se mantiene el reveal al hover sobre la imagen. */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 translate-y-0 transition-transform duration-300 ease-in-out md:translate-y-full md:group-hover:translate-y-0">
+        {/* Botón agregar — reveal al hover sobre la imagen (desktop). En
+            touch no hay hover: la card entera linkea al producto. */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
           <button
             onClick={e => { e.preventDefault(); onAgregar(producto); }}
             className="w-full py-3 bg-black text-white text-xs font-semibold tracking-widest uppercase hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"

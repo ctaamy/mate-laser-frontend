@@ -22,6 +22,11 @@ interface ProductGridProps {
   // "carrusel"; default false no cambia el catálogo público ni el layout
   // "grid" de productos_destacados.
   scroll?: boolean;
+  // Override de las clases de columnas para el layout grid (no-scroll).
+  // El catálogo público lo usa para arrancar en 1 columna en teléfonos
+  // (imagen grande, más protagonismo) sin cambiar el default de
+  // productos_destacados en el home.
+  colClassName?: string;
 }
 
 // El contenedor orquesta la cascada: staggerChildren hace que cada hijo
@@ -52,10 +57,10 @@ const mdColClass: Record<number, string> = {
   4: 'md:grid-cols-4',
 };
 
-export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, tituloFontSize, linkFontSize, scroll = false }: ProductGridProps) {
+export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, tituloFontSize, linkFontSize, scroll = false, colClassName }: ProductGridProps) {
   const containerClass = scroll
     ? `flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-8 px-8 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:gap-x-4 sm:gap-y-8 ${mdColClass[cols] ?? 'md:grid-cols-3'}`
-    : `grid ${colClass[cols] ?? 'grid-cols-2 md:grid-cols-3'} gap-x-4 gap-y-8`;
+    : `grid ${colClassName ?? colClass[cols] ?? 'grid-cols-2 md:grid-cols-3'} gap-x-4 gap-y-8`;
 
   return (
     // Batch de promociones bancarias para toda la grilla en una sola

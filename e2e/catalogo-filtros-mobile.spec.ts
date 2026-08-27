@@ -39,8 +39,17 @@ test.describe('Catálogo — filtros en drawer (mobile)', () => {
     const aside = page.locator('aside');
     await expect(aside).toBeHidden();
 
+    // En teléfono la grilla arranca en 1 columna: las dos cards quedan una
+    // debajo de la otra (misma x, distinta y), no lado a lado.
+    const card1 = page.locator('a[href="/productos/mate-torpedo"]').first();
+    const card2 = page.locator('a[href="/productos/bombilla-alpaca"]').first();
+    const [b1, b2] = [await card1.boundingBox(), await card2.boundingBox()];
+    expect(b1 && b2).toBeTruthy();
+    expect(Math.abs(b1!.x - b2!.x)).toBeLessThan(2);
+    expect(b2!.y).toBeGreaterThan(b1!.y + b1!.height - 2);
+
     // Botón Filtros visible en la toolbar.
-    const btnFiltros = page.getByRole('button', { name: 'Filtros' });
+    const btnFiltros = page.getByRole('button', { name: 'Filtrar' });
     await expect(btnFiltros).toBeVisible();
 
     // Drawer cerrado: el botón "Ver N productos" no es interactuable todavía.
@@ -55,19 +64,19 @@ test.describe('Catálogo — filtros en drawer (mobile)', () => {
 
   test('elegir una categoría en el drawer aplica el filtro en la URL', async ({ page }) => {
     await page.goto('/productos');
-    await page.getByRole('button', { name: 'Filtros' }).click();
+    await page.getByRole('button', { name: 'Filtrar' }).click();
 
     await page.getByRole('button', { name: 'Bombillas', exact: true }).click();
     await expect(page).toHaveURL(/categoria_id=2/);
 
     // El badge del botón Filtros refleja que hay 1 filtro activo.
     await page.getByRole('button', { name: /Ver \d+ productos/ }).click();
-    await expect(page.getByRole('button', { name: 'Filtros' })).toContainText('1');
+    await expect(page.getByRole('button', { name: 'Filtrar' })).toContainText('1');
   });
 
   test('"Limpiar filtros" resetea la query', async ({ page }) => {
     await page.goto('/productos?categoria_id=1');
-    await page.getByRole('button', { name: 'Filtros' }).click();
+    await page.getByRole('button', { name: 'Filtrar' }).click();
     await page.getByRole('button', { name: 'Limpiar filtros' }).click();
     await expect(page).toHaveURL(/\/productos$/);
   });
