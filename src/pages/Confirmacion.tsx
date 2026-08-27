@@ -4,6 +4,7 @@ import { CheckCircle, Clock, XCircle, Mail } from 'lucide-react';
 import api from '../lib/api';
 import type { Orden } from '../types';
 import { useConfiguracion } from '../hooks/useConfiguracion';
+import CheckoutSteps from '../components/ui/CheckoutSteps';
 import OrdenItems from '../components/orden/OrdenItems';
 import OrdenEnvioResumen from '../components/orden/OrdenEnvioResumen';
 import OrdenTimeline from '../components/orden/OrdenTimeline';
@@ -69,22 +70,9 @@ export default function Confirmacion() {
   const isMPFailure = mpStatus === 'failure';
 
   return (
-    <div className="flujo-compra max-w-4xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-4xl mx-auto px-4 sm:px-6 py-10">
 
-      {/* STEPS */}
-      <div className="flex items-center justify-center gap-2 mb-8 text-xs">
-        {['Carrito', 'Datos de envío', 'Pago', 'Confirmación'].map((step, i) => (
-          <div key={step} className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 ${i === 3 ? 'text-[#0F6E56] font-medium' : 'text-gray-400'}`}>
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium ${i <= 3 ? 'bg-[#1D9E75] text-white' : 'border border-gray-200 text-gray-300'}`}>
-                ✓
-              </div>
-              {step}
-            </div>
-            {i < 3 && <div className="w-8 h-px bg-[#1D9E75]" />}
-          </div>
-        ))}
-      </div>
+      <CheckoutSteps current={3} variant="success" />
 
       {/* BANNER MP FAILURE */}
       {isMPFailure && (
@@ -152,9 +140,9 @@ export default function Confirmacion() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* DETALLE */}
-        <div className="col-span-2 flex flex-col gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4">
 
           {/* ITEMS */}
           <OrdenItems orden={orden} />

@@ -7,8 +7,7 @@ import { useCarritoStore } from '../store/carrito.store';
 import { useAuthStore } from '../store/auth.store';
 import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type Localidad } from '../lib/georef';
 import type { MetodoEnvio } from '../types';
-
-const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
+import CheckoutSteps from '../components/ui/CheckoutSteps';
 
 const METODOS_PAGO = [
   { id: 'mercadopago', label: 'Mercado Pago', descripcion: 'Tarjeta de crédito, débito, cuotas, QR y más', Icon: CreditCard },
@@ -258,28 +257,9 @@ export default function Checkout() {
   };
 
   return (
-    <div className="flujo-compra max-w-5xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-5xl mx-auto px-4 sm:px-6 py-10">
 
-      {/* STEPPER */}
-      <div className="flex items-center justify-center flex-wrap gap-y-2 gap-x-2 mb-10 text-xs">
-        {STEPS.map((label, i) => {
-          const active = (i === 1 && step === 2) || (i === 2 && step === 3);
-          const done = i === 0 || (i === 1 && step === 3);
-          return (
-            <div key={label} className="flex items-center gap-2">
-              <div className={`flex items-center gap-1.5 ${active ? 'text-black font-medium' : done ? 'text-black/40' : 'text-black/20'}`}>
-                <div className={`w-5 h-5 flex items-center justify-center text-[10px] font-medium ${
-                  active ? 'bg-black text-white' : done ? 'bg-black/10 text-black/50' : 'border border-black/15 text-black/20'
-                }`}>
-                  {done ? '✓' : i + 1}
-                </div>
-                {label}
-              </div>
-              {i < 3 && <div className={`w-8 h-px ${done ? 'bg-black/30' : 'bg-black/10'}`} />}
-            </div>
-          );
-        })}
-      </div>
+      <CheckoutSteps current={step === 3 ? 2 : 1} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 flex flex-col gap-5">

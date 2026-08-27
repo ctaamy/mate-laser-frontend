@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCarritoStore } from '../store/carrito.store';
 import api from '../lib/api';
+import CheckoutSteps from '../components/ui/CheckoutSteps';
 
 // Forma resumida de lo que devuelve GET /productos para un item del carrito:
 // nunca el stock exacto, solo disponibilidad derivada (ver hallazgo #8).
@@ -103,10 +104,8 @@ export default function Carrito() {
     </div>
   );
 
-  const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
-
   return (
-    <div className="flujo-compra max-w-6xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-6xl mx-auto px-4 sm:px-6 py-10">
 
       {carritoViejo && (
         <div className="flex items-center gap-2 border border-amber-200 bg-amber-50 text-amber-800 px-4 py-2.5 text-xs mb-6">
@@ -115,25 +114,12 @@ export default function Carrito() {
         </div>
       )}
 
-      {/* STEPS */}
-      <div className="flex items-center justify-center gap-2 mb-10 text-xs">
-        {STEPS.map((step, i) => (
-          <div key={step} className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 ${i === 0 ? 'text-black font-medium' : 'text-black/25'}`}>
-              <div className={`w-5 h-5 flex items-center justify-center text-[10px] font-medium ${i === 0 ? 'bg-black text-white' : 'border border-black/20 text-black/25'}`}>
-                {i + 1}
-              </div>
-              {step}
-            </div>
-            {i < 3 && <div className="w-8 h-px bg-black/10" />}
-          </div>
-        ))}
-      </div>
+      <CheckoutSteps current={0} />
 
-      <div className="grid grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* ITEMS */}
-        <div className="col-span-2 flex flex-col gap-2">
+        <div className="lg:col-span-2 flex flex-col gap-2">
           <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/35 mb-3">
             Tu carrito · {items.length} {items.length === 1 ? 'producto' : 'productos'}
           </h2>
@@ -146,10 +132,10 @@ export default function Carrito() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.2 }}
-                className="border border-black/[0.07] p-4 flex gap-4"
+                className="border border-black/[0.07] p-3 sm:p-4 flex gap-3 sm:gap-4"
               >
                 {/* Imagen */}
-                <div className="w-20 h-20 bg-black/[0.03] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-black/[0.03] flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {item.imagen_url ? (
                     <img src={item.imagen_url} alt={item.nombre_producto} className="w-full h-full object-cover" />
                   ) : (
@@ -189,11 +175,11 @@ export default function Carrito() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center flex-wrap gap-x-3 gap-y-2">
                     <div className="flex items-center border border-black/15">
                       <button
                         onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
-                        className="w-7 h-7 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors"
                       >
                         <Minus size={11} />
                       </button>
@@ -201,7 +187,7 @@ export default function Carrito() {
                       <button
                         onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
                         disabled={item.stock !== undefined && item.cantidad >= item.stock}
-                        className="w-7 h-7 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                        className="w-8 h-8 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
                       >
                         <Plus size={11} />
                       </button>
@@ -214,7 +200,7 @@ export default function Carrito() {
                     </button>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <div className="text-sm font-semibold text-black">
                     ${(item.precio_unitario * item.cantidad).toLocaleString('es-AR')}
                   </div>
