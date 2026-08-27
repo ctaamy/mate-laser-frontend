@@ -5,6 +5,7 @@ import { Shield, ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import type { Orden } from '../types';
+import CheckoutSteps from '../components/ui/CheckoutSteps';
 
 // Tipos del SDK de Mercado Pago
 declare global {
@@ -133,29 +134,10 @@ export default function Pago() {
     };
   }, [sdkReady, orden, id, navigate]);
 
-  const STEPS = ['Carrito', 'Datos de envío', 'Pago', 'Confirmación'];
-
   return (
-    <div className="flujo-compra max-w-2xl mx-auto px-6 py-10">
+    <div className="flujo-compra max-w-2xl mx-auto px-4 sm:px-6 py-10">
 
-      {/* STEPS */}
-      <div className="flex items-center justify-center gap-2 mb-10 text-xs">
-        {STEPS.map((step, i) => (
-          <div key={step} className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 ${i === 2 ? 'text-black font-medium' : i < 2 ? 'text-black/40' : 'text-black/20'}`}>
-              <div className={`w-5 h-5 flex items-center justify-center text-[10px] font-medium ${
-                i === 2 ? 'bg-black text-white'
-                : i < 2 ? 'bg-black/10 text-black/50'
-                : 'border border-black/15 text-black/20'
-              }`}>
-                {i < 2 ? '✓' : i + 1}
-              </div>
-              {step}
-            </div>
-            {i < 3 && <div className={`w-8 h-px ${i < 2 ? 'bg-black/30' : 'bg-black/10'}`} />}
-          </div>
-        ))}
-      </div>
+      <CheckoutSteps current={2} />
 
       {/* VOLVER */}
       <button

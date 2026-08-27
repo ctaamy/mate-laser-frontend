@@ -116,7 +116,7 @@ export default function ProductoDetalle() {
     <div className="min-h-screen bg-white">
       {/* BREADCRUMB */}
       <div className="border-b border-black/[0.06]">
-        <div className="max-w-6xl mx-auto px-8 py-3 flex items-center gap-2 text-[11px] text-black/35 font-medium">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-2 text-[11px] text-black/35 font-medium overflow-x-auto no-scrollbar whitespace-nowrap">
           <Link to="/" className="hover:text-black transition-colors">Inicio</Link>
           <ChevronRight size={10} />
           <Link to="/productos" className="hover:text-black transition-colors">Productos</Link>
@@ -125,8 +125,8 @@ export default function ProductoDetalle() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-8 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-20">
 
           {/* ── GALERÍA ── */}
           <div className="flex flex-col gap-3">
@@ -166,7 +166,7 @@ export default function ProductoDetalle() {
 
             {/* Thumbnails */}
             {imagenes.length > 1 && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                 {imagenes.map((img, i) => (
                   <button
                     key={img.id}
@@ -364,17 +364,18 @@ export default function ProductoDetalle() {
               </span>
             </div>
 
-            {/* Cantidad + agregar */}
-            <div className="flex items-stretch gap-3">
+            {/* Cantidad + agregar — sticky al borde inferior en mobile para
+                que el CTA quede siempre a mano sin scrollear hasta el fondo. */}
+            <div className="flex items-stretch gap-3 sticky bottom-0 z-20 bg-white py-3 -mx-4 px-4 border-t border-black/[0.08] sm:static sm:bg-transparent sm:py-0 sm:mx-0 sm:px-0 sm:border-0">
               {/* Selector cantidad */}
-              <div className="flex items-center border border-black/15">
+              <div className="flex items-center border border-black/15 min-h-[44px] sm:min-h-0">
                 <button onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                  className="w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
+                  className="w-10 sm:w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
                   <Minus size={12} />
                 </button>
                 <span className="w-8 text-center text-sm font-semibold text-black select-none">{cantidad}</span>
                 <button onClick={() => setCantidad(Math.min(cantidadMaxima, cantidad + 1))}
-                  className="w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
+                  className="w-10 sm:w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
                   <Plus size={12} />
                 </button>
               </div>
@@ -383,7 +384,7 @@ export default function ProductoDetalle() {
               <motion.button
                 onClick={handleAgregar}
                 disabled={!puedeAgregar}
-                className="flex-1 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-[0.08em] transition-colors disabled:opacity-30"
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 sm:py-0 text-sm font-bold uppercase tracking-[0.08em] transition-colors disabled:opacity-30"
                 style={{ backgroundColor: agregado ? '#111' : '#111', color: '#fff' }}
                 whileTap={{ scale: 0.98 }}
               >

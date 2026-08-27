@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ArrowRight } from 'lucide-react';
 import { useConfiguracion } from '../../hooks/useConfiguracion';
@@ -12,6 +13,7 @@ const WA_ICON = (
 
 export default function WhatsAppButton() {
   const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
 
   const { data: config } = useConfiguracion();
 
@@ -24,8 +26,17 @@ export default function WhatsAppButton() {
 
   const href = `https://wa.me/${telefono}?text=${mensaje}`;
 
+  // El detalle de producto tiene una barra "Agregar al carrito" fija al
+  // borde inferior en mobile (Fase 1) — ahí el botón sube para no taparla.
+  // En sm+ la barra deja de ser fija, así que vuelve a su lugar de siempre.
+  const sobreBarraSticky = /^\/productos\/[^/]+$/.test(pathname);
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <div
+      className={`fixed right-4 sm:right-6 z-50 flex flex-col items-end gap-3 ${
+        sobreBarraSticky ? 'bottom-24 sm:bottom-6' : 'bottom-5 sm:bottom-6'
+      }`}
+    >
 
       {/* Card emergente */}
       <AnimatePresence>

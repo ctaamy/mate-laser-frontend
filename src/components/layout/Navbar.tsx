@@ -36,7 +36,7 @@ function IconBtn({ onClick, active, children, badge, navColor, navBg, ariaLabel 
     <motion.button
       onClick={onClick}
       aria-label={ariaLabel}
-      className="relative w-9 h-9 flex items-center justify-center rounded-xl overflow-hidden"
+      className="relative w-10 h-10 flex items-center justify-center rounded-xl overflow-hidden"
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.92 }}
       transition={{ type: 'spring', stiffness: 500, damping: 25 }}
@@ -195,7 +195,7 @@ export default function Navbar() {
     <motion.button
       onClick={() => setMenuOpen(s => !s)}
       aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
-      className={`w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
+      className={`w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
       style={{ color: navColor }}
       whileTap={{ scale: 0.9 }}
     >
@@ -224,7 +224,7 @@ export default function Navbar() {
           fontFamily: navFontFamily,
         }}
       >
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-6" style={{ height: navAltura }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3 sm:gap-6" style={{ height: navAltura }}>
 
           {/* Logo — agrupado con la hamburguesa cuando su posición es
               "izquierda", para que no se desancle del borde izquierdo. */}
@@ -331,7 +331,7 @@ export default function Navbar() {
           )}
 
           {/* Acciones */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-0.5 sm:gap-3">
             {mostrarBuscar && (
               <>
                 {/* Desktop/tablet, modo "siempre visible" (default): buscador
@@ -448,7 +448,7 @@ export default function Navbar() {
               className={`overflow-hidden ${buscadorModo === 'icono' ? '' : 'md:hidden'}`}
               style={{ borderTop: `1px solid ${navBorder}` }}
             >
-              <form onSubmit={handleSearch} className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3">
+              <form onSubmit={handleSearch} className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
                 <Search size={14} style={{ color: navColor, opacity: 0.4 }} className="flex-shrink-0" />
                 <input
                   autoFocus
