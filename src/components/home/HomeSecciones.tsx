@@ -805,7 +805,7 @@ function SeccionStatsBarra({ datos, tema }: { datos: Record<string, any>; tema: 
 // 4. CATEGORÍAS GRID
 // ─────────────────────────────────────────────────────────────────────────────
 const ICONOS_FALLBACK = ['☕','🍃','✨','🎁','⚡','🪵','🔥','💫','🧉','🪄','🎨','📦'];
-interface CatItem { id: number; icono: string; imagen_url?: string }
+interface CatItem { id: number; icono: string; imagen_url?: string; titulo?: string; link?: string }
 
 function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; tema: TemaGlobal }) {
   const { data: todasCategorias = [] } = useQuery<Categoria[]>({
@@ -821,7 +821,7 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
 
   const items: CatItem[] = datos.categorias_items ?? [];
   const idsFallback: number[] = datos.categorias_ids ?? [];
-  type Entry = { cat: Categoria; icono: string; imagen_url?: string };
+  type Entry = { cat: Categoria; icono: string; imagen_url?: string; titulo?: string; link?: string };
 
   let entries: Entry[];
   if (items.length > 0) {
@@ -829,6 +829,8 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
       cat: todasPlanas.find(c => c.id === item.id)!,
       icono: item.icono || ICONOS_FALLBACK[i % ICONOS_FALLBACK.length],
       imagen_url: item.imagen_url,
+      titulo: item.titulo,
+      link: item.link,
     })).filter(e => !!e.cat);
   } else if (idsFallback.length > 0) {
     entries = todasCategorias.filter(c => idsFallback.includes(c.id))
@@ -897,14 +899,14 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
               evidente que hay más contenido a los costados. Desde sm: vuelve
               al grid de siempre, sin tocar el comportamiento desktop. */}
           <div className={`flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-8 px-8 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none ${COL_CLASS[datos.columnas ?? 4] ?? 'md:grid-cols-4'}`}>
-            {entries.map(({ cat, icono, imagen_url }, i) => (
+            {entries.map(({ cat, icono, imagen_url, titulo, link }, i) => (
               <motion.div key={cat.id} variants={FADE_UP} transition={{ ...T, delay: i * 0.05 }}
                 className="w-[72%] flex-shrink-0 snap-start sm:w-auto sm:flex-shrink sm:snap-none">
-                <Link to={`/productos?categoria_id=${cat.id}`}
+                <Link to={link || `/productos?categoria_id=${cat.id}`}
                   className="group relative block w-full overflow-hidden rounded-xl"
                   style={{ aspectRatio: '4 / 5' }}>
                   {imagen_url ? (
-                    <ImagenConOverlay src={imagen_url} alt={cat.nombre} />
+                    <ImagenConOverlay src={imagen_url} alt={titulo || cat.nombre} />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/[0.04]">
                       <span className="text-5xl transition-transform duration-500 ease-out group-hover:scale-105 inline-block">
@@ -915,7 +917,7 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
                   )}
                   {/* Overlay de texto — nombre + link, superpuestos abajo */}
                   <div className="absolute inset-x-0 bottom-0 p-4">
-                    <div className="font-semibold text-[#FAF7F3] mb-0.5 leading-tight line-clamp-2" style={{ fontSize: itemTituloFontSize }}>{cat.nombre}</div>
+                    <div className="font-semibold text-[#FAF7F3] mb-0.5 leading-tight line-clamp-2" style={{ fontSize: itemTituloFontSize }}>{titulo || cat.nombre}</div>
                     <LinkAcentoConSubrayado color={accentColor} fontSize={itemLinkFontSize}>
                       Ver productos <ArrowRight size={10} />
                     </LinkAcentoConSubrayado>

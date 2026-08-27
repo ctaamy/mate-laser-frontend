@@ -348,12 +348,25 @@ function TabBtn({ active, onClick, icon: Icon, label }: {
 // ── Editor visual de la grilla de categorías ─────────────────────────────────
 const ICONOS_DEFAULT = ['☕', '🍃', '✨', '🎁', '⚡', '🪵', '🔥', '💫', '🧉', '🪄', '🎨', '📦'];
 
-interface CatItem { id: number; icono: string; imagen_url?: string }
+interface CatItem { id: number; icono: string; imagen_url?: string; titulo?: string; link?: string }
 
 function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set: (k: string, v: any) => void }) {
+  // El endpoint (/categorias) devuelve solo las categorías raíz, con las
+  // subcategorías anidadas en other_categorias — NO viene aplanado (a pesar
+  // de lo que decía un comentario viejo acá). Hay que aplanar antes de
+  // buscar/ofrecer categorías, igual que hace el renderer público
+  // (SeccionCategoriasGrid en HomeSecciones.tsx) — si no, las subcategorías
+  // nunca aparecen para agregar, y cualquier item que apunte a una (agregado
+  // antes por otra vía, o una categoría borrada) se muestra como "ID N"
+  // sin nombre ni forma de arreglarlo.
   const { data: todasCategorias = [] } = useQuery<Categoria[]>({
     queryKey: ['categorias'],
     queryFn: () => api.get('/categorias').then(r => r.data),
+  });
+  const todasPlanas: Categoria[] = [];
+  todasCategorias.forEach(c => {
+    todasPlanas.push(c);
+    ((c as any).other_categorias ?? []).forEach((h: Categoria) => todasPlanas.push(h));
   });
 
   const items: CatItem[] = datos.categorias_items ?? [];
@@ -370,11 +383,19 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
     }
   };
 
+  const quitarItem = (id: number) => updateItems(items.filter(i => i.id !== id));
+
   const updateIcono = (id: number, icono: string) =>
     updateItems(items.map(i => i.id === id ? { ...i, icono } : i));
 
   const updateImagen = (id: number, imagen_url: string) =>
     updateItems(items.map(i => i.id === id ? { ...i, imagen_url } : i));
+
+  const updateTitulo = (id: number, titulo: string) =>
+    updateItems(items.map(i => i.id === id ? { ...i, titulo } : i));
+
+  const updateLink = (id: number, link: string) =>
+    updateItems(items.map(i => i.id === id ? { ...i, link } : i));
 
   const mover = (idx: number, dir: -1 | 1) => {
     const next = [...items];
@@ -382,8 +403,7 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
     updateItems(next);
   };
 
-  // El endpoint ya devuelve la lista plana completa (raíces + hijos como items separados)
-  const disponibles = todasCategorias.filter(c => !selectedIds.has(c.id));
+  const disponibles = todasPlanas.filter(c => !selectedIds.has(c.id));
 
   return (
     <div className="flex flex-col gap-4">
@@ -407,7 +427,24 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
         )}
         <div className="flex flex-col gap-2 mt-1">
           {items.map((item, idx) => {
-            const cat = todasCategorias.find(c => c.id === item.id);
+            const cat = todasPlanas.find(c => c.id === item.id);
+
+            // Categoría que ya no existe (borrada, o referencia rota) — no hay
+            // nada para editar acá, solo ofrecer sacarla de la lista.
+            if (!cat) {
+              return (
+                <div key={item.id} className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                  <span className="flex-1 text-xs text-amber-700">
+                    Esta categoría ya no existe (fue eliminada) — no se muestra en el sitio. Sacala de la lista.
+                  </span>
+                  <button onClick={() => quitarItem(item.id)}
+                    className="flex-shrink-0 h-7 px-2.5 flex items-center gap-1 rounded-lg text-[11px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+                    <Trash2 size={12} /> Quitar
+                  </button>
+                </div>
+              );
+            }
+
             return (
               <div key={item.id} className="bg-[var(--n-50)] border border-[var(--line)] rounded-xl overflow-hidden">
                 {/* Fila principal */}
@@ -425,8 +462,8 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
                   }
                   {/* Nombre categoría */}
                   <span className="flex-1 text-sm font-medium text-[var(--ink)] truncate">
-                    {cat?.nombre ?? `ID ${item.id}`}
-                    {cat?.padre_id && (
+                    {cat.nombre}
+                    {cat.padre_id && (
                       <span className="ml-1 text-[10px] text-[var(--ink-soft)] font-normal">subcategoría</span>
                     )}
                   </span>
@@ -442,10 +479,26 @@ function CategoriasGridEditor({ datos, set }: { datos: Record<string, any>; set:
                   </button>
                 </div>
                   {/* Quitar */}
-                  <button onClick={() => cat && toggleCat(cat)}
+                  <button onClick={() => toggleCat(cat)}
                     className="w-6 h-6 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors">
                     <Trash2 size={12} />
                   </button>
+                </div>
+
+                {/* Título y link personalizados (opcionales) */}
+                <div className="px-3 pb-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-[var(--ink-soft)] mb-0.5 block">Título (opcional)</label>
+                    <input className="border border-[var(--line)] rounded-lg px-2 py-1.5 text-xs w-full focus:outline-none focus:border-[var(--accent)]"
+                      value={item.titulo ?? ''} placeholder={cat.nombre}
+                      onChange={e => updateTitulo(item.id, e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[var(--ink-soft)] mb-0.5 block">Link (opcional)</label>
+                    <input className="border border-[var(--line)] rounded-lg px-2 py-1.5 text-xs w-full focus:outline-none focus:border-[var(--accent)]"
+                      value={item.link ?? ''} placeholder={`/productos?categoria_id=${cat.id}`}
+                      onChange={e => updateLink(item.id, e.target.value)} />
+                  </div>
                 </div>
 
                 {/* Uploader de imagen */}
@@ -1514,16 +1567,21 @@ function SeccionCard({ sec, idx, total, onChange, onRemove, onMoveUp, onMoveDown
             initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }} className="overflow-hidden border-t border-[var(--line)]"
           >
-            {/* Tabs Contenido / Estilo / Imágenes */}
+            {/* Tabs Contenido / Estilo / Imágenes — "Imágenes" (imágenes
+                sueltas/flotantes sobre el bloque) no aplica a categorias_grid:
+                ahí cada categoría ya tiene su propia imagen en "Contenido",
+                y esta solapa solo generaba confusión sin aportar nada. */}
             <div className="flex gap-1 px-4 pt-3 pb-2">
               <TabBtn active={tabEdit === 'contenido'} onClick={() => setTabEdit('contenido')} icon={Type} label="Contenido" />
               <TabBtn active={tabEdit === 'estilo'} onClick={() => setTabEdit('estilo')} icon={Palette} label="Estilo" />
-              <TabBtn active={tabEdit === 'imagenes'} onClick={() => setTabEdit('imagenes')} icon={Image} label="Imágenes" />
+              {sec.tipo !== 'categorias_grid' && (
+                <TabBtn active={tabEdit === 'imagenes'} onClick={() => setTabEdit('imagenes')} icon={Image} label="Imágenes" />
+              )}
             </div>
             <div className="px-4 pb-4">
               {tabEdit === 'contenido' && <EditorContenido tipo={sec.tipo as TipoSeccion} datos={sec.datos} set={set} />}
               {tabEdit === 'estilo' && <EditorEstilo tipo={sec.tipo as TipoSeccion} datos={sec.datos} set={set} />}
-              {tabEdit === 'imagenes' && <ImagenesEditor datos={sec.datos} set={set} />}
+              {tabEdit === 'imagenes' && sec.tipo !== 'categorias_grid' && <ImagenesEditor datos={sec.datos} set={set} />}
             </div>
           </motion.div>
         )}
