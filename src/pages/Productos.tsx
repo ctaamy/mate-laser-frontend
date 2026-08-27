@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X, ChevronRight } from 'lucide-react';
+import { SlidersHorizontal, X, ChevronRight, ChevronDown, Search } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
@@ -143,40 +143,46 @@ export default function Productos() {
 
       {/* MAIN */}
       <div className="flex-1 min-w-0">
-        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 flex-1">
+        <div className="mb-3 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          {/* Buscar */}
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/25" />
             <input
               type="text"
               placeholder="Buscar producto..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors w-full sm:w-64 bg-white placeholder-black/25"
+              className="w-full rounded-lg border border-black/12 bg-white pl-9 pr-3 py-2.5 text-sm placeholder-black/30 focus:outline-none focus:border-black/40 transition-colors"
             />
-            <span className="text-[11px] text-black/35 font-medium whitespace-nowrap">
-              {cantidadProductos} productos
-            </span>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Trigger del drawer — solo mobile/tablet portrait */}
+
+          {/* Filtrar + Ordenar — dos pills parejas en mobile/tablet; en md+
+              el filtro vive en la sidebar y sólo queda "ordenar". */}
+          <div className="grid grid-cols-2 gap-2 md:flex md:items-center">
             <button
               onClick={() => setFiltrosAbiertos(true)}
-              className="md:hidden relative flex items-center gap-1.5 border border-black/15 px-3 py-2 text-sm text-black/70 hover:border-black transition-colors flex-shrink-0"
+              className="md:hidden flex items-center justify-center gap-2 rounded-lg border border-black/12 px-4 py-2.5 text-sm text-black/70 hover:border-black/40 transition-colors"
             >
-              <SlidersHorizontal size={13} /> Filtros
+              <SlidersHorizontal size={14} /> Filtrar
               {hayFiltros && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-black text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                <span className="ml-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-black px-1 text-[10px] font-semibold text-white">
                   {cantidadFiltros}
                 </span>
               )}
             </button>
-            <select className="flex-1 sm:flex-none border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors bg-white text-black/70">
-              <option>Más vendidos</option>
-              <option>Menor precio</option>
-              <option>Mayor precio</option>
-              <option>Más nuevos</option>
-            </select>
+            <div className="relative md:w-auto">
+              <select className="w-full md:w-auto cursor-pointer appearance-none rounded-lg border border-black/12 bg-white pl-4 pr-9 py-2.5 text-sm text-black/70 focus:outline-none focus:border-black/40 transition-colors">
+                <option>Más vendidos</option>
+                <option>Menor precio</option>
+                <option>Mayor precio</option>
+                <option>Más nuevos</option>
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-black/30" />
+            </div>
           </div>
         </div>
+
+        <p className="mb-5 text-[11px] font-medium text-black/35">{cantidadProductos} productos</p>
 
         {isLoading ? (
           <div className="text-center py-20 text-black/25 text-sm">Cargando...</div>

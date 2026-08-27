@@ -49,7 +49,7 @@ test.describe('Catálogo — filtros en drawer (mobile)', () => {
     expect(b2!.y).toBeGreaterThan(b1!.y + b1!.height - 2);
 
     // Botón Filtros visible en la toolbar.
-    const btnFiltros = page.getByRole('button', { name: 'Filtros' });
+    const btnFiltros = page.getByRole('button', { name: 'Filtrar' });
     await expect(btnFiltros).toBeVisible();
 
     // Drawer cerrado: el botón "Ver N productos" no es interactuable todavía.
@@ -64,19 +64,19 @@ test.describe('Catálogo — filtros en drawer (mobile)', () => {
 
   test('elegir una categoría en el drawer aplica el filtro en la URL', async ({ page }) => {
     await page.goto('/productos');
-    await page.getByRole('button', { name: 'Filtros' }).click();
+    await page.getByRole('button', { name: 'Filtrar' }).click();
 
     await page.getByRole('button', { name: 'Bombillas', exact: true }).click();
     await expect(page).toHaveURL(/categoria_id=2/);
 
     // El badge del botón Filtros refleja que hay 1 filtro activo.
     await page.getByRole('button', { name: /Ver \d+ productos/ }).click();
-    await expect(page.getByRole('button', { name: 'Filtros' })).toContainText('1');
+    await expect(page.getByRole('button', { name: 'Filtrar' })).toContainText('1');
   });
 
   test('"Limpiar filtros" resetea la query', async ({ page }) => {
     await page.goto('/productos?categoria_id=1');
-    await page.getByRole('button', { name: 'Filtros' }).click();
+    await page.getByRole('button', { name: 'Filtrar' }).click();
     await page.getByRole('button', { name: 'Limpiar filtros' }).click();
     await expect(page).toHaveURL(/\/productos$/);
   });
