@@ -66,6 +66,13 @@ function clampEscalado(baseRem: number, escala: number, coefVw: number): string 
 
 const PESO_NUM: Record<string, number> = { normal: 400, medium: 500, semibold: 600, bold: 700 };
 
+// Punto focal de la imagen del hero — a qué zona "agarrarse" cuando
+// object-cover recorta (sobre todo en mobile: contenedor alto y angosto).
+// Sin configurar → 'center' = comportamiento histórico.
+const FOCO_POS: Record<string, string> = {
+  centro: 'center', arriba: 'top', abajo: 'bottom', izquierda: 'left', derecha: 'right',
+};
+
 const ESCALA_PADDING: Record<string, number> = { xs: 0.4, sm: 0.7, md: 1, lg: 1.35, xl: 1.7 };
 function paddingVertical(padding: string | undefined, remBase: [number, number], opcionBase = 'md'): { paddingTop?: string; paddingBottom?: string } {
   if (!padding) return {};
@@ -235,9 +242,37 @@ function SectionLabel({ children, light = false }: { children: string; light?: b
 // ─────────────────────────────────────────────────────────────────────────────
 interface HeroSlide {
   titulo: string; subtitulo?: string; eyebrow?: string; imagen_url?: string;
+  // Imagen alternativa para pantallas chicas (recorte vertical/cuadrado del
+  // mismo diseño). Sin esto, en mobile se usa `imagen_url` recortada según
+  // `imagen_foco`.
+  imagen_url_mobile?: string;
+  imagen_foco?: string;
   btn_texto?: string; btn_link?: string; btn2_texto?: string; btn2_link?: string;
   botones?: Boton[];
   bg_color?: string; texto_color?: string;
+}
+
+// Imagen del hero con soporte de versión mobile + punto focal. Sin imagen
+// mobile propia renderiza UNA sola <img> con las clases históricas exactas
+// — varios tests dependen de que el selector `img[src=...]` sea único.
+function HeroImg({ desktop, mobile, objectPosition }: {
+  desktop?: string; mobile?: string; objectPosition: string;
+}) {
+  const cls = 'absolute inset-0 w-full h-full object-cover';
+  const common = {
+    initial: { scale: 1.05 }, animate: { scale: 1 },
+    transition: { duration: 1, ease: 'easeOut' as const },
+    style: { objectPosition },
+  };
+  if (!mobile || mobile === desktop) {
+    return <motion.img key={desktop} src={desktop} alt="" className={cls} {...common} />;
+  }
+  return (
+    <>
+      <motion.img key={`m-${mobile}`} src={mobile} alt="" className={`${cls} sm:hidden`} {...common} />
+      <motion.img key={`d-${desktop}`} src={desktop} alt="" className={`${cls} hidden sm:block`} {...common} />
+    </>
+  );
 }
 
 // Overlay configurable sobre la imagen del hero — reemplaza por completo el
@@ -289,6 +324,7 @@ function HeroSlideContent({ slide, dir, bloque, datos, total }: {
   const titulo = slide.titulo || '';
   const lineas = titulo ? titulo.split('\n') : [];
   const tieneImagen = !!slide.imagen_url;
+  const objFoco = FOCO_POS[slide.imagen_foco || 'centro'] || 'center';
   const botonesResueltos = resolverBotones(slide);
   const botones = botonesResueltos.length ? botonesResueltos : [{ texto: 'Ver colección', link: '/productos' }];
   const imagePosition = datos.image_position || 'bleed';
@@ -436,20 +472,20 @@ function HeroSlideContent({ slide, dir, bloque, datos, total }: {
         // z-30: por encima del z-20 de los controles del carrusel (flechas/
         // dots/contador) — red de seguridad para que el CTA nunca quede
         // tapado si igual llegara a rozar esa franja.
-        className="flex flex-wrap gap-3 relative z-30" style={{ justifyContent: justifyBotones }}>
+        className="flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-start gap-3 relative z-30" style={{ justifyContent: justifyBotones }}>
         {botones.map((boton, bi) => {
           const esPrimario = bi === 0;
           const r = heredaDeBloque(boton, esPrimario ? defaultsBotonPrimario : defaultsBotonSecundario);
           const tieneOverridePropio = !!boton.texto_color;
           return esPrimario ? (
             <Link key={bi} to={boton.link || '/productos'}
-              className="inline-flex items-center gap-2 font-semibold transition-opacity hover:opacity-80"
+              className="inline-flex w-full sm:w-auto justify-center sm:justify-start items-center gap-2 font-semibold transition-opacity hover:opacity-80"
               style={{ backgroundColor: r.bg, color: r.tc, fontFamily: r.fontFamily, fontSize: botonFontSize, padding: botonPadding }}>
               {boton.texto} <ArrowRight size={14} />
             </Link>
           ) : (
             <Link key={bi} to={boton.link || '/'}
-              className="inline-flex items-center gap-2 font-medium border transition-opacity hover:opacity-60"
+              className="inline-flex w-full sm:w-auto justify-center sm:justify-start items-center gap-2 font-medium border transition-opacity hover:opacity-60"
               style={{
                 borderColor: tieneOverridePropio ? r.tc : `${r.tc}25`,
                 color: tieneOverridePropio ? r.tc : `${r.tc}70`,
@@ -474,13 +510,7 @@ function HeroSlideContent({ slide, dir, bloque, datos, total }: {
     >
       {esBackground ? (
         <>
-          <motion.img
-            key={slide.imagen_url}
-            src={slide.imagen_url} alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            initial={{ scale: 1.05 }} animate={{ scale: 1 }}
-            transition={{ duration: 1, ease: 'easeOut' }}
-          />
+          <HeroImg desktop={slide.imagen_url} mobile={slide.imagen_url_mobile} objectPosition={objFoco} />
           <HeroOverlay direction={overlay.direction} intensity={overlay.intensity} bg={bg} />
           {textoColumna}
         </>
@@ -501,13 +531,7 @@ function HeroSlideContent({ slide, dir, bloque, datos, total }: {
                 ? 'relative h-[42%] md:h-auto md:w-[52%] md:min-h-full overflow-hidden flex-shrink-0 m-4 md:my-6 md:mr-6 rounded-xl shadow-sm'
                 : 'relative h-[42%] md:h-auto md:w-[52%] md:min-h-full overflow-hidden flex-shrink-0'
             }>
-              <motion.img
-                key={slide.imagen_url}
-                src={slide.imagen_url} alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-                initial={{ scale: 1.05 }} animate={{ scale: 1 }}
-                transition={{ duration: 1, ease: 'easeOut' }}
-              />
+              <HeroImg desktop={slide.imagen_url} mobile={slide.imagen_url_mobile} objectPosition={objFoco} />
               <HeroOverlay direction={overlay.direction} intensity={overlay.intensity} bg={bg} />
             </div>
           )}
@@ -529,6 +553,7 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
   const slides: HeroSlide[] = datos.slides?.length
     ? datos.slides
     : [{ titulo: datos.titulo, subtitulo: datos.subtitulo, imagen_url: datos.imagen_url,
+         imagen_url_mobile: datos.imagen_url_mobile, imagen_foco: datos.imagen_foco,
          btn_texto: datos.btn_texto, btn_link: datos.btn_link,
          btn2_texto: datos.btn2_texto, btn2_link: datos.btn2_link,
          bg_color: datos.bg_color, texto_color: datos.texto_color }];

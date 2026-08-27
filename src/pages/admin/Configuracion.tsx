@@ -812,6 +812,7 @@ function BotonesEditor({ botones, onChange, placeholderTexto = 'Ver colección',
 // ── Editor de slides del hero ─────────────────────────────────────────────────
 interface HeroSlide {
   titulo: string; subtitulo?: string; eyebrow?: string; imagen_url?: string;
+  imagen_url_mobile?: string; imagen_foco?: string;
   btn_texto?: string; btn_link?: string; btn2_texto?: string; btn2_link?: string;
   botones?: Boton[];
   bg_color?: string; texto_color?: string;
@@ -876,6 +877,22 @@ function HeroSlideEditor({ slide, onChange, onRemove, canRemove, index }: {
             <input className={inputCls} value={slide.eyebrow || ''} onChange={e => set('eyebrow', e.target.value)} placeholder="Ej: Grabado láser de precisión" />
           </div>
           <SeccionImageUploader label="Imagen" value={slide.imagen_url || ''} onChange={v => set('imagen_url', v)} />
+
+          <SeccionImageUploader label="Imagen mobile (opcional)" value={slide.imagen_url_mobile || ''} onChange={v => set('imagen_url_mobile', v)} />
+          <p className="text-[11px] text-[var(--ink-soft)] -mt-1">
+            Recorte vertical o cuadrado del mismo diseño para celulares. Sin esto, en mobile se usa la imagen de arriba recortada según el punto focal.
+          </p>
+          <div>
+            <label className={labelCls}>Punto focal (al recortar en celular)</label>
+            <select className={selectCls} value={slide.imagen_foco || 'centro'} onChange={e => set('imagen_foco', e.target.value)}>
+              <option value="centro">Centro</option>
+              <option value="arriba">Arriba</option>
+              <option value="abajo">Abajo</option>
+              <option value="izquierda">Izquierda</option>
+              <option value="derecha">Derecha</option>
+            </select>
+          </div>
+
           <div className="bg-[var(--n-50)] border border-[var(--line)] rounded-lg px-3 py-2 flex items-center gap-1.5">
             <span className="text-[13px] text-[var(--ink-soft)]">↳</span>
             <p className="text-[11px] text-[var(--ink-soft)]">

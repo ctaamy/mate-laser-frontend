@@ -235,7 +235,10 @@ export default function Navbar() {
                 y más grande, para que la marca se lea de un vistazo. El alto
                 del bloque no cambia — sigue determinado por navAltura/logoAlto,
                 el texto solo crece dentro del mismo alto (leading-none + items-center). */}
-            <motion.div className="flex items-center gap-1.5 notranslate" translate="no" whileHover={{ x: 2 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+            {/* Con logo propio subido, en mobile se muestra SOLO el logo — el
+                nombre + el logo juntos no entran a 375px y el texto terminaba
+                metiéndose abajo de los íconos de acción. En sm+ se ven los dos. */}
+            <motion.div className={`items-center gap-1.5 notranslate ${logoUrl ? 'hidden sm:flex' : 'flex'}`} translate="no" whileHover={{ x: 2 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
               <span className="text-xl sm:text-2xl tracking-tight font-bold leading-none" style={{ color: navColor }}>
                 {palabraClave}
               </span>
