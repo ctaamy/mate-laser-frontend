@@ -183,7 +183,12 @@ export default function Productos() {
         ) : productos?.length === 0 ? (
           <div className="text-center py-20 text-black/25 text-sm">No hay productos</div>
         ) : (
-          <ProductGrid productos={productos ?? []} onAgregar={handleAgregar} cols={3} />
+          <ProductGrid
+            productos={productos ?? []}
+            onAgregar={handleAgregar}
+            cols={3}
+            colClassName="grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
+          />
         )}
       </div>
 

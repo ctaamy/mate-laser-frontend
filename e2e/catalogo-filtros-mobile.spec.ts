@@ -39,6 +39,15 @@ test.describe('Catálogo — filtros en drawer (mobile)', () => {
     const aside = page.locator('aside');
     await expect(aside).toBeHidden();
 
+    // En teléfono la grilla arranca en 1 columna: las dos cards quedan una
+    // debajo de la otra (misma x, distinta y), no lado a lado.
+    const card1 = page.locator('a[href="/productos/mate-torpedo"]').first();
+    const card2 = page.locator('a[href="/productos/bombilla-alpaca"]').first();
+    const [b1, b2] = [await card1.boundingBox(), await card2.boundingBox()];
+    expect(b1 && b2).toBeTruthy();
+    expect(Math.abs(b1!.x - b2!.x)).toBeLessThan(2);
+    expect(b2!.y).toBeGreaterThan(b1!.y + b1!.height - 2);
+
     // Botón Filtros visible en la toolbar.
     const btnFiltros = page.getByRole('button', { name: 'Filtros' });
     await expect(btnFiltros).toBeVisible();
