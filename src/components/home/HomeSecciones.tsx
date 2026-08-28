@@ -205,7 +205,12 @@ export function useFonts(secciones: Seccion[]) {
 }
 
 // ── count-up ──────────────────────────────────────────────────────────────────
-function useCountUp(target: string, inView: boolean) {
+// delayMs: retardo antes de arrancar a contar. Lo usa stats_barra para que el
+// número no empiece a subir hasta que su tarjeta terminó de aparecer en la
+// entrada escalonada del grid (staggerChildren) — así las dos animaciones se
+// encadenan en vez de pisarse. Sin delay (default 0) el comportamiento es el
+// histórico.
+function useCountUp(target: string, inView: boolean, delayMs = 0) {
   const numStr = target.replace(/[^0-9.]/g, '');
   const suffix = target.replace(/[0-9.]/g, '');
   const num = parseFloat(numStr) || 0;
@@ -213,14 +218,17 @@ function useCountUp(target: string, inView: boolean) {
   useEffect(() => {
     if (!inView || num === 0) return;
     const duration = 1400;
-    const start = Date.now();
-    const timer = setInterval(() => {
-      const t = Math.min((Date.now() - start) / duration, 1);
-      setCount(Math.floor((1 - Math.pow(1 - t, 3)) * num));
-      if (t >= 1) clearInterval(timer);
-    }, 16);
-    return () => clearInterval(timer);
-  }, [inView, num]);
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const arranque = setTimeout(() => {
+      const start = Date.now();
+      timer = setInterval(() => {
+        const t = Math.min((Date.now() - start) / duration, 1);
+        setCount(Math.floor((1 - Math.pow(1 - t, 3)) * num));
+        if (t >= 1) clearInterval(timer);
+      }, 16);
+    }, delayMs);
+    return () => { clearTimeout(arranque); clearInterval(timer); };
+  }, [inView, num, delayMs]);
   return num === 0 ? target : `${count}${suffix}`;
 }
 
@@ -751,12 +759,14 @@ function SeccionBannerTexto({ datos, tema }: { datos: Record<string, any>; tema:
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. STATS
 // ─────────────────────────────────────────────────────────────────────────────
-function StatItem({ valor, label, icono, tc, iconColor, borderClass, escala }: {
-  valor: string; label: string; icono?: string; tc: string; iconColor: string; borderClass: string; escala: number;
+function StatItem({ valor, label, icono, tc, iconColor, borderClass, escala, index }: {
+  valor: string; label: string; icono?: string; tc: string; iconColor: string; borderClass: string; escala: number; index: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true });
-  const display = useCountUp(valor, inView);
+  // El número arranca a contar después del retardo de entrada de su tarjeta
+  // (staggerChildren 0.1s en el grid), no todos a la vez.
+  const display = useCountUp(valor, inView, index * 100);
   const Icon = icono ? STAT_ICONS[icono] : undefined;
   // Escala general: multiplica tamaño de número/label/ícono y el padding
   // del item, todo junto y proporcional — no hay mínimo hardcodeado que
@@ -765,18 +775,16 @@ function StatItem({ valor, label, icono, tc, iconColor, borderClass, escala }: {
   const labelFontSize = `${(0.625 * escala).toFixed(3)}rem`;
   const iconSize = 28 * escala;
   return (
-    <div ref={ref}
+    <motion.div ref={ref} variants={FADE_UP} transition={T}
       className={`flex flex-col items-start border-b border-r last:border-r-0 md:border-b-0 ${borderClass}`}
       style={{ paddingLeft: `${2 * escala}rem`, paddingRight: `${2 * escala}rem`, paddingTop: `${2 * escala}rem`, paddingBottom: `${2 * escala}rem` }}>
       {Icon && <Icon size={iconSize} style={{ color: iconColor, marginBottom: `${0.5 * escala}rem` }} />}
-      <motion.span className="font-bold tracking-tight"
-        style={{ color: tc, fontSize: valorFontSize, marginBottom: `${0.5 * escala}rem` }}
-        initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }} transition={T}>
+      <span className="font-bold tracking-tight"
+        style={{ color: tc, fontSize: valorFontSize, marginBottom: `${0.5 * escala}rem` }}>
         {display}
-      </motion.span>
+      </span>
       <span className="uppercase tracking-widest font-medium" style={{ color: `${tc}66`, fontSize: labelFontSize }}>{label}</span>
-    </div>
+    </motion.div>
   );
 }
 
@@ -815,13 +823,14 @@ function SeccionStatsBarra({ datos, tema }: { datos: Record<string, any>; tema: 
   return (
     <section className={`w-full border-y ${bgEsClaro ? 'border-black/[0.05]' : 'border-white/10'} flex items-center`}
       style={{ backgroundColor: bg, fontFamily, minHeight, ...padding }}>
-      <div className={`max-w-6xl mx-auto grid ${colsMobile} ${colsDesktop} w-full`}>
+      <motion.div className={`max-w-6xl mx-auto grid ${colsMobile} ${colsDesktop} w-full`}
+        initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER}>
         {stats.map((s, i) => (
-          <StatItem key={i} valor={s.valor} label={s.label}
+          <StatItem key={i} index={i} valor={s.valor} label={s.label}
             icono={s.icono || STAT_ICON_FALLBACK[i % STAT_ICON_FALLBACK.length]}
             tc={tc} iconColor={iconColor} borderClass={borderClass} escala={escala} />
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }
