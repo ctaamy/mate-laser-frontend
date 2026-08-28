@@ -130,11 +130,15 @@ export default function Navbar() {
   const navBorder: string = navDatos.border_color || config?.navbar_border_color || '#f3f4f6';
   const logoUrl: string = navDatos.logo_url || config?.navbar_logo_url || '';
   const logoAlto: number = parseInt(navDatos.logo_alto ?? config?.navbar_logo_alto ?? '32') || 32;
-  // Alto de la barra: se adapta al logo configurado (con aire arriba/abajo)
-  // en vez de quedar fijo en 64px — así un logo grande no se recorta ni
-  // desborda. Nunca baja de 64px (el mínimo de siempre, con solo texto).
-  // El menú desplegable de mobile usa este mismo valor para su offset
-  // (antes hardcodeado a top-16) para no desalinearse si la barra crece.
+  // Alto de la barra en sm+: se adapta al logo configurado (con aire
+  // arriba/abajo) en vez de quedar fijo en 64px — así un logo grande no se
+  // recorta ni desborda. Nunca baja de 64px (el mínimo de siempre, con solo
+  // texto). En mobile la barra queda SIEMPRE en 64px (h-16): el <img> del
+  // logo está capado a max-h-10 (40px) en pantallas chicas, y 40 + 24 = 64,
+  // así que crecer más sería solo espacio muerto. Se expone como var CSS
+  // --nav-h para que la barra (sm:h-[var(--nav-h)]) y el offset del menú
+  // desplegable mobile (sm:top-[var(--nav-h)]) compartan el mismo valor sin
+  // desalinearse si la barra crece.
   const navAltura: number = Math.max(64, logoUrl ? logoAlto + 24 : 64);
   const mostrarBuscar: boolean = boolFrom(navDatos.mostrar_buscar, config?.navbar_mostrar_buscar);
   const mostrarUsuario: boolean = boolFrom(navDatos.mostrar_usuario, config?.navbar_mostrar_usuario);
@@ -222,7 +226,10 @@ export default function Navbar() {
           fontFamily: navFontFamily,
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3 sm:gap-6" style={{ height: navAltura }}>
+        <div
+          className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 h-16 sm:h-[var(--nav-h)]"
+          style={{ '--nav-h': `${navAltura}px` } as React.CSSProperties}
+        >
 
           {/* Logo — agrupado con la hamburguesa cuando su posición es
               "izquierda", para que no se desancle del borde izquierdo. */}
@@ -483,8 +490,8 @@ export default function Navbar() {
           <>
             {/* Capa invisible para cerrar al clickear afuera */}
             <motion.div
-              className={`fixed inset-x-0 bottom-0 z-30 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
-              style={{ top: navAltura }}
+              className={`fixed inset-x-0 bottom-0 z-30 top-16 sm:top-[var(--nav-h)] ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
+              style={{ '--nav-h': `${navAltura}px` } as React.CSSProperties}
               onClick={() => setMenuOpen(false)}
             />
 
@@ -494,10 +501,10 @@ export default function Navbar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              className={`fixed z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)]
+              className={`fixed z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)] top-16 sm:top-[var(--nav-h)]
                 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}
                 ${menuPosicion === 'izquierda' ? 'left-3' : 'right-3'}`}
-              style={{ top: navAltura, backgroundColor: navBg, borderColor: navBorder, fontFamily: navFontFamily }}
+              style={{ '--nav-h': `${navAltura}px`, backgroundColor: navBg, borderColor: navBorder, fontFamily: navFontFamily } as React.CSSProperties}
             >
               <nav className="px-4 py-3 flex flex-col gap-1">
                 {navLinks.map((link, i) => {
