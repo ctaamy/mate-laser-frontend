@@ -9,6 +9,7 @@ import AdminTable from '../../components/admin/ui/AdminTable';
 import AdminModal from '../../components/admin/ui/AdminModal';
 import { AdminInput, AdminSelect, AdminTextarea, AdminLabel } from '../../components/admin/ui/AdminInput';
 import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type Localidad } from '../../lib/georef';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type { Orden, Producto, MetodoEnvio } from '../../types';
 
 const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
@@ -35,6 +36,7 @@ export default function AdminOrdenes() {
   const queryClient = useQueryClient();
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroCanal, setFiltroCanal] = useState('');
+  const [busqueda, setBusqueda] = useState('');
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null);
   const [nuevoEstado, setNuevoEstado] = useState('');
   const [tracking, setTracking] = useState('');
@@ -73,14 +75,18 @@ export default function AdminOrdenes() {
   const [montoNuevoPago, setMontoNuevoPago] = useState<number | ''>('');
   const [metodoNuevoPago, setMetodoNuevoPago] = useState('efectivo');
 
+  const busquedaDeb = useDebouncedValue(busqueda.trim(), 300);
+
   const { data: ordenes, isLoading, isError } = useQuery({
-    queryKey: ['admin-ordenes-lista', filtroEstado, filtroCanal],
+    queryKey: ['admin-ordenes-lista', filtroEstado, filtroCanal, busquedaDeb],
     queryFn: () => {
       const params = new URLSearchParams({ limit: '100' });
       if (filtroEstado) params.set('estado', filtroEstado);
       if (filtroCanal) params.set('canal', filtroCanal);
+      if (busquedaDeb) params.set('search', busquedaDeb);
       return api.get(`/ordenes?${params}`).then(r => r.data.data);
     },
+    placeholderData: (prev) => prev,
   });
 
   const { data: productos } = useQuery<Producto[]>({
@@ -309,6 +315,13 @@ export default function AdminOrdenes() {
           <AdminButton variant="primary" onClick={() => setModalVentaManualAbierto(true)}>
             + Cargar venta manual
           </AdminButton>
+          <AdminInput
+            fullWidth={false}
+            className="w-60"
+            placeholder="Buscar por #orden, cliente o email..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+          />
           <AdminSelect value={filtroCanal} onChange={e => setFiltroCanal(e.target.value)} fullWidth={false}>
             <option value="">Todos los canales</option>
             <option value="web">Web</option>

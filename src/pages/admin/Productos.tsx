@@ -12,6 +12,7 @@ import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
 import { AdminInput, AdminSelect } from '../../components/admin/ui/AdminInput';
 import { useDirtyGuard } from '../../hooks/useDirtyGuard';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 interface SeccionHP { id: string; tipo: string; activo: boolean; orden: number; datos: Record<string, any>; }
 
@@ -62,9 +63,20 @@ export default function AdminProductos() {
   // backdrop, sin avisar, perdiendo todo el formulario.
   const { marcarSnapshot, confirmarCierre } = useDirtyGuard<typeof form>();
 
+  // Búsqueda y filtro de categoría resueltos server-side (antes se traía
+  // ?limit=100 y se filtraba en el cliente — con el catálogo más grande, lo
+  // que quedaba fuera de esos 100 no aparecía nunca en los resultados).
+  const busquedaDeb = useDebouncedValue(busqueda.trim(), 300);
+
   const { data: productos, isLoading: productosLoading, isError: productosError } = useQuery<Producto[]>({
-    queryKey: ['admin-productos-lista'],
-    queryFn: () => api.get('/productos/admin/todos?limit=100').then(r => r.data.data),
+    queryKey: ['admin-productos-lista', busquedaDeb, categoriaFiltro],
+    queryFn: () => {
+      const params = new URLSearchParams({ limit: '100' });
+      if (busquedaDeb) params.set('search', busquedaDeb);
+      if (categoriaFiltro) params.set('categoria_id', categoriaFiltro);
+      return api.get(`/productos/admin/todos?${params}`).then(r => r.data.data);
+    },
+    placeholderData: (prev) => prev,
   });
 
   const { data: categorias } = useQuery<Categoria[]>({
@@ -89,23 +101,14 @@ export default function AdminProductos() {
     enabled: !!productoEditando?.id,
   });
 
-  const normalizar = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-  const productosFiltrados = (productos ?? []).filter((p) => {
-    if (categoriaFiltro && p.categoria_id?.toString() !== categoriaFiltro) return false;
-    if (!busqueda.trim()) return true;
-    const q = normalizar(busqueda.trim());
-    return normalizar(p.nombre).includes(q)
-      || normalizar(p.sku || '').includes(q)
-      || normalizar(p.slug).includes(q);
-  });
+  const hayFiltro = !!(busquedaDeb || categoriaFiltro);
+  const listaProductos = productos ?? [];
 
   // Agrupa por categoría (orden = orden de `categorias`, "Sin categoría" al
   // final) — solo para la vista agrupada; la vista lista usa el array plano.
   const gruposPorCategoria = (() => {
     const mapa = new Map<string, { nombre: string; items: Producto[] }>();
-    for (const p of productosFiltrados) {
+    for (const p of listaProductos) {
       const key = p.categoria_id?.toString() ?? '__sin_categoria__';
       const nombre = (p as any).categorias?.nombre || 'Sin categoría';
       if (!mapa.has(key)) mapa.set(key, { nombre, items: [] });
@@ -390,15 +393,15 @@ export default function AdminProductos() {
           columns={['Producto', 'Categoría', 'Precio', 'Stock', 'Láser', 'Estado', 'Acciones']}
           isLoading={productosLoading}
           isError={productosError}
-          isEmpty={productosFiltrados.length === 0}
+          isEmpty={listaProductos.length === 0}
           emptyMessage={
-            productos && productos.length > 0
+            hayFiltro
               ? 'No hay productos que coincidan con la búsqueda o el filtro.'
               : <>No hay productos. <button onClick={() => abrirModal()} className="text-[var(--accent)] underline">Crear el primero</button></>
           }
         >
             {vista === 'lista'
-              ? productosFiltrados.map((p) => renderFilaProducto(p))
+              ? listaProductos.map((p) => renderFilaProducto(p))
               : gruposPorCategoria.map((grupo) => (
                   <FragmentGrupo key={grupo.nombre} nombre={grupo.nombre} cantidad={grupo.items.length}>
                     {grupo.items.map((p) => renderFilaProducto(p))}

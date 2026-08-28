@@ -9,6 +9,7 @@ import { useConfiguracion } from '../../hooks/useConfiguracion';
 import { useHomepageSecciones } from '../../hooks/useHomepageSecciones';
 import { useTemaGlobalData, cargarGoogleFont } from '../../hooks/useThemeGlobal';
 import api from '../../lib/api';
+import BuscadorConSugerencias from '../ui/BuscadorConSugerencias';
 import type { Categoria } from '../../types';
 
 // Resuelve un valor booleano priorizando el bloque navbar (Fase 1) sobre
@@ -175,13 +176,10 @@ export default function Navbar() {
 
   const handleLogout = () => { logout(); navigate('/'); };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQ.trim()) {
-      navigate(`/productos?q=${encodeURIComponent(searchQ.trim())}`);
-      setSearchOpen(false);
-      setSearchQ('');
-    }
+  const buscarLibre = (q: string) => {
+    if (q.trim()) navigate(`/productos?q=${encodeURIComponent(q.trim())}`);
+    setSearchOpen(false);
+    setSearchQ('');
   };
 
   const partes = nombreTienda.match(/^(\S+)(.*)$/) ?? [nombreTienda, nombreTienda, ''];
@@ -342,19 +340,17 @@ export default function Navbar() {
                     buscadorColores — 'fijo' es una píldora blanca que no
                     depende del tema; 'heredar' usa los colores del navbar. */}
                 {buscadorModo === 'siempre_visible' && (
-                  <form onSubmit={handleSearch} className="hidden md:flex">
-                    <div className="relative">
-                      <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
-                        style={{ color: searchIconColor }} />
-                      <input
-                        value={searchQ}
-                        onChange={e => setSearchQ(e.target.value)}
-                        placeholder="Buscar"
-                        className="w-64 lg:w-80 text-[15px] rounded-full pl-11 pr-4 py-3 outline-none shadow-sm"
-                        style={{ backgroundColor: searchBg, color: searchTextColor, border: `1px solid ${searchBorder}` }}
-                      />
-                    </div>
-                  </form>
+                  <BuscadorConSugerencias
+                    value={searchQ}
+                    onChange={setSearchQ}
+                    onSubmitLibre={buscarLibre}
+                    onNavegar={() => setSearchQ('')}
+                    placeholder="Buscar"
+                    className="hidden md:block"
+                    inputClassName="w-64 lg:w-80 text-[15px] rounded-full pl-9 pr-4 py-3 outline-none shadow-sm"
+                    inputStyle={{ backgroundColor: searchBg, color: searchTextColor, border: `1px solid ${searchBorder}` }}
+                    iconColor={searchIconColor}
+                  />
                 )}
 
                 {/* Mobile siempre, y también desktop/tablet si el modo elegido
@@ -451,32 +447,26 @@ export default function Navbar() {
               className={`overflow-hidden ${buscadorModo === 'icono' ? '' : 'md:hidden'}`}
               style={{ borderTop: `1px solid ${navBorder}` }}
             >
-              <form onSubmit={handleSearch} className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-                <Search size={14} style={{ color: navColor, opacity: 0.4 }} className="flex-shrink-0" />
-                <input
-                  autoFocus
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-start gap-3">
+                <BuscadorConSugerencias
                   value={searchQ}
-                  onChange={e => setSearchQ(e.target.value)}
+                  onChange={setSearchQ}
+                  onSubmitLibre={buscarLibre}
+                  onNavegar={() => { setSearchQ(''); setSearchOpen(false); }}
+                  autoFocus
                   placeholder="¿Qué estás buscando?"
-                  className="flex-1 text-sm outline-none bg-transparent"
-                  style={{ color: navColor }}
+                  className="flex-1"
+                  inputClassName="w-full text-sm outline-none bg-transparent pl-8 pr-2 py-1"
+                  inputStyle={{ color: navColor }}
+                  iconColor={`${navColor}66`}
+                  dropdown="inline"
                 />
-                {searchQ && (
-                  <motion.button
-                    type="submit"
-                    initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                    style={{ backgroundColor: navColor, color: navBg }}
-                  >
-                    Buscar
-                  </motion.button>
-                )}
                 <button type="button" onClick={() => setSearchOpen(false)}
                   style={{ color: navColor, opacity: 0.35 }}
-                  className="hover:opacity-70 transition-opacity">
+                  className="hover:opacity-70 transition-opacity flex-shrink-0 mt-1.5">
                   <X size={15} />
                 </button>
-              </form>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
