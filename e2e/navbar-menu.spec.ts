@@ -414,12 +414,18 @@ test.describe('Sitio público — alto de la barra con logo grande', () => {
     const logoBox = (await logo.boundingBox())!;
     expect(logoBox.height).toBeLessThanOrEqual(41);
 
-    // El menú desplegable arranca pegado al fondo de la barra, no 139px abajo.
+    // El menú desplegable ancla al fondo de la barra (top-16 = 64px en mobile),
+    // no 139px abajo. Se lee el `top` computado del contenedor —estable desde
+    // el primer frame— en vez del boundingBox: el slide-in (y: -8 → 0) de
+    // framer-motion sigue corriendo unos frames y falseaba la posición en CI.
     await nav.getByLabel('Abrir menú').click();
-    const panel = page.locator('nav').last();
-    const panelBox = (await panel.boundingBox())!;
-    expect(panelBox.y).toBeGreaterThanOrEqual(navBox.height - 2);
-    expect(panelBox.y).toBeLessThanOrEqual(navBox.height + 8);
+    const panelInner = page.locator('nav').last();
+    await expect(panelInner).toBeVisible();
+    const panelTop = parseFloat(
+      await panelInner.evaluate((el) => getComputedStyle(el.parentElement!).top),
+    );
+    expect(panelTop).toBeGreaterThanOrEqual(60);
+    expect(panelTop).toBeLessThanOrEqual(68);
   });
 
   test('en desktop la barra SÍ se adapta al logo_alto configurado', async ({ page }) => {
