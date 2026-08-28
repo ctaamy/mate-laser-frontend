@@ -201,6 +201,25 @@ test.describe('Sitio público — Buscador (modo "icono" en desktop)', () => {
     await botonBuscar.click();
     await expect(page.getByPlaceholder('¿Qué estás buscando?')).toBeVisible();
   });
+
+  test('el panel de búsqueda mobile abre (alto > 0) y cierra (colapsa) — regresión del AnimatePresence trabado', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 700 });
+    await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (r) => r.fulfill({ json: [NAVBAR_TRADICIONAL] }));
+    await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (r) => r.fulfill({ json: {} }));
+    await page.goto('/');
+
+    const input = page.getByPlaceholder('¿Qué estás buscando?');
+    const toggle = page.locator('nav button:has(svg.lucide-search)');
+
+    await toggle.click();
+    await expect(input).toBeVisible(); // toBeVisible exige bounding box no-vacío => alto > 0
+    const abierto = await input.boundingBox();
+    expect(abierto!.height).toBeGreaterThan(10);
+
+    // cerrar con la X del panel
+    await page.locator('nav button:has(svg.lucide-x)').last().click();
+    await expect(input).toBeHidden();
+  });
 });
 
 test.describe('Sitio público — mobile siempre usa hamburguesa', () => {
