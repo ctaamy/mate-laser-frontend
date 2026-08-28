@@ -378,3 +378,60 @@ test.describe('Sitio público — posición del ícono y dropdown anclado', () =
     });
   }
 });
+
+// El alto de la barra en sm+ se adapta al logo configurado (navbar_logo_alto,
+// hasta 120px). En mobile el <img> del logo está capado a max-h-10 (40px), así
+// que la barra NO debe crecer con él — se queda fija en h-16 (64px). Regresión:
+// antes `style={{ height: navAltura }}` (= logo_alto + 24) se aplicaba en todos
+// los breakpoints → a 375px la barra quedaba de ~139px con un logo de 40px
+// adentro (~100px de espacio muerto). El menú desplegable mobile usa el mismo
+// valor para su offset (top), así que también se despegaba de la barra.
+const NAVBAR_LOGO_GRANDE = {
+  id: 'nav-1', tipo: 'navbar', activo: true, orden: -1,
+  datos: {
+    tipo_menu: 'tradicional',
+    links: [{ label: 'Productos', href: '/productos' }],
+    logo_url: 'https://example.com/logo.png',
+    logo_alto: '115',
+  },
+};
+
+test.describe('Sitio público — alto de la barra con logo grande', () => {
+  test('en mobile la barra NO crece con el logo grande (se queda en ~64px)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 700 });
+    await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => route.fulfill({ json: [NAVBAR_LOGO_GRANDE] }));
+    await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
+
+    await page.goto('/');
+
+    const nav = page.locator('nav').first();
+    const navBox = (await nav.boundingBox())!;
+    // h-16 = 64px; margen para el borde inferior de 1px y subpíxeles.
+    expect(navBox.height).toBeLessThanOrEqual(72);
+
+    // El logo se ve, capado a 40px — la barra igual no se recorta contra él.
+    const logo = nav.locator('img');
+    const logoBox = (await logo.boundingBox())!;
+    expect(logoBox.height).toBeLessThanOrEqual(41);
+
+    // El menú desplegable arranca pegado al fondo de la barra, no 139px abajo.
+    await nav.getByLabel('Abrir menú').click();
+    const panel = page.locator('nav').last();
+    const panelBox = (await panel.boundingBox())!;
+    expect(panelBox.y).toBeGreaterThanOrEqual(navBox.height - 2);
+    expect(panelBox.y).toBeLessThanOrEqual(navBox.height + 8);
+  });
+
+  test('en desktop la barra SÍ se adapta al logo_alto configurado', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => route.fulfill({ json: [NAVBAR_LOGO_GRANDE] }));
+    await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
+
+    await page.goto('/');
+
+    const nav = page.locator('nav').first();
+    const navBox = (await nav.boundingBox())!;
+    // sm:h-[var(--nav-h)] con --nav-h = logo_alto (115) + 24 = 139px.
+    expect(navBox.height).toBeGreaterThanOrEqual(130);
+  });
+});
