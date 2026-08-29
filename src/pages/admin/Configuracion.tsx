@@ -1423,6 +1423,16 @@ function EditorEstilo({ tipo, datos, set }: {
                 onChange={e => set('min_height', e.target.value || 'auto')} placeholder={tipo === 'hero' ? '400' : 'auto'} />
             </div>
           )}
+          {tipo === 'hero' && (
+            <div>
+              <label className={labelCls}>Alto mínimo en mobile (px, vacío = igual que desktop)</label>
+              <input className={inputCls} type="number" min={100} step={25} value={datos.min_height_mobile || ''}
+                onChange={e => set('min_height_mobile', e.target.value)} placeholder="Ej: 480" />
+              <p className="text-[10px] text-[var(--ink-soft)] mt-1">
+                Solo afecta pantallas chicas — en desktop se sigue usando el "Alto mínimo del bloque" de arriba. Para que se vea algo de la sección de abajo e invite a scrollear, probá con un valor bien menor (ej. 450-550).
+              </p>
+            </div>
+          )}
           {tipo === 'stats_barra' && (
             <div className="col-span-2">
               <label className={labelCls}>Escala general: {Math.round((datos.escala ?? 1) * 100)}%</label>
