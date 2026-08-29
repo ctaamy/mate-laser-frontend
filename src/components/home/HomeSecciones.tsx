@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion, useInView, AnimatePresence } from 'motion/react';
@@ -570,6 +570,13 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
   // que usa el resto de los tipos de sección.
   const bloque = estiloHeredado(datos, tema);
   const minHeight = datos.min_height && datos.min_height !== 'auto' ? `${datos.min_height}px` : '90vh';
+  // Alto propio en mobile (opcional): sin esto, mobile usa el mismo alto que
+  // desktop (comportamiento histórico). Vía variables CSS + clases
+  // responsive en vez de un solo `style.minHeight` — un inline style siempre
+  // gana contra cualquier clase, así que la única forma de que "md:" pueda
+  // pisar el valor de mobile es que los dos lados sean clases (min-h-[var(...)])
+  // referenciando cada una su propia variable.
+  const minHeightMobile = datos.min_height_mobile ? `${datos.min_height_mobile}px` : minHeight;
 
   const [current, setCurrent] = useState(0);
   const [dir, setDir] = useState(1);
@@ -613,7 +620,9 @@ function SeccionHero({ datos, tema }: { datos: Record<string, any>; tema: TemaGl
   const conTopeDeAspecto = esFondoCompleto && !!slideActual?.imagen_url;
 
   return (
-    <div className={`relative w-full overflow-hidden ${conTopeDeAspecto ? 'aspect-[12/5]' : ''}`} style={{ minHeight }}
+    <div
+      className={`relative w-full overflow-hidden min-h-[var(--hero-min-h-mobile)] md:min-h-[var(--hero-min-h-desktop)] ${conTopeDeAspecto ? 'aspect-[12/5]' : ''}`}
+      style={{ '--hero-min-h-mobile': minHeightMobile, '--hero-min-h-desktop': minHeight } as CSSProperties}
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
 
       <AnimatePresence mode="sync">
