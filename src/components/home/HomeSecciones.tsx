@@ -772,7 +772,11 @@ function StatItem({ valor, label, icono, tc, iconColor, borderClass, escala, ind
   // del item, todo junto y proporcional — no hay mínimo hardcodeado que
   // bloquee achicar más allá de lo que permitía antes (escala < 1).
   const valorFontSize = `clamp(${(2.25 * escala).toFixed(3)}rem, ${(5 * escala).toFixed(2)}vw, ${(3 * escala).toFixed(3)}rem)`;
-  const labelFontSize = `${(0.625 * escala).toFixed(3)}rem`;
+  // Label: 0.75rem (12px) y opacidad 70% del texto. Antes era 0.625rem (10px)
+  // al 40% — quedaba demasiado chico y lavado para leerse de un vistazo, que
+  // es justo lo que tiene que hacer un trust signal. Sigue siendo claramente
+  // secundario frente al número (100% de opacidad, mucho más grande).
+  const labelFontSize = `${(0.75 * escala).toFixed(3)}rem`;
   const iconSize = 28 * escala;
   return (
     <motion.div ref={ref} variants={FADE_UP} transition={T}
@@ -783,7 +787,7 @@ function StatItem({ valor, label, icono, tc, iconColor, borderClass, escala, ind
         style={{ color: tc, fontSize: valorFontSize, marginBottom: `${0.5 * escala}rem` }}>
         {display}
       </span>
-      <span className="uppercase tracking-widest font-medium" style={{ color: `${tc}66`, fontSize: labelFontSize }}>{label}</span>
+      <span className="uppercase tracking-widest font-semibold" style={{ color: `${tc}b3`, fontSize: labelFontSize }}>{label}</span>
     </motion.div>
   );
 }
