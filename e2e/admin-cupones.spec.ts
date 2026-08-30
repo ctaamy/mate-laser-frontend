@@ -9,7 +9,7 @@ import { loginComoAdmin } from './fixtures-admin';
 
 const CUPON_MOCK = {
   id: 'cupon-edit-1', codigo: 'VERANO10', tipo: 'porcentaje', valor: 10,
-  monto_minimo: 5000, max_usos: 100, usos_realizados: 37,
+  monto_minimo: 5000, max_usos: 100, limite_por_usuario: 2, usos_realizados: 37,
   vence_en: '2026-12-31T00:00:00.000Z', activo: true,
 };
 
@@ -36,7 +36,24 @@ test.describe('Admin — editar cupón existente', () => {
     await expect(page.getByRole('heading', { name: 'Editar cupón' })).toBeVisible();
     await expect(page.getByPlaceholder('MATE10')).toHaveValue('VERANO10');
     await expect(page.getByPlaceholder('5000')).toHaveValue('5000');
-    await expect(page.getByPlaceholder('Sin límite')).toHaveValue('100');
+    // "Usos totales" y "Usos por cliente" comparten placeholder; el primero es max_usos.
+    await expect(page.getByPlaceholder('Sin límite').first()).toHaveValue('100');
+    await expect(page.getByPlaceholder('Sin límite').nth(1)).toHaveValue('2'); // limite_por_usuario
+  });
+
+  test('editar el límite por cliente lo manda en el PUT', async ({ page }) => {
+    await loginComoAdmin(page);
+    let putBody: any = null;
+    await mockCupones(page, (body) => { putBody = body; });
+
+    await page.goto('/admin/cupones');
+    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button').first().click();
+
+    await page.getByPlaceholder('Sin límite').nth(1).fill('5');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Editar cupón' })).not.toBeVisible();
+    expect(putBody.limite_por_usuario).toBe(5);
   });
 
   test('guardar cambios persiste la edición sin pisar usos_realizados', async ({ page }) => {
