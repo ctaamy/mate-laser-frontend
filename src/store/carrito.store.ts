@@ -49,6 +49,10 @@ export interface CuponAplicado {
   codigo: string;
   cuponId: string;
   descuento: number;
+  // Fase 1 (scope): si `aplicaATodo` es false, el descuento vale solo para
+  // las líneas cuyo producto_id está en `itemsElegibles`.
+  aplicaATodo: boolean;
+  itemsElegibles: string[];
 }
 
 interface CarritoState {

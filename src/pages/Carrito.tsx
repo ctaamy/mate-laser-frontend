@@ -25,6 +25,8 @@ export default function Carrito() {
   const { items, quitar, actualizarCantidad, subtotal, sincronizarDisponibilidad, actualizadoEn, cupon, aplicarCupon, quitarCupon } = useCarritoStore();
   const [codigoCupon, setCodigoCupon] = useState('');
   const [cuponError, setCuponError] = useState('');
+  // Aviso ámbar (no error): el cupón es válido pero no aplica a nada del carrito.
+  const [cuponAviso, setCuponAviso] = useState('');
   const [aplicandoCupon, setAplicandoCupon] = useState(false);
   const navigate = useNavigate();
 
@@ -74,6 +76,10 @@ export default function Carrito() {
   const sub = subtotal();
   const descuento = cupon?.descuento ?? 0;
   const total = Math.max(0, sub - descuento);
+  // Cupón con alcance parcial: marca qué líneas participan.
+  const cuponParcial = !!cupon && !cupon.aplicaATodo;
+  const lineaElegible = (id: string) => cuponParcial && cupon!.itemsElegibles.includes(id);
+  const nElegibles = cupon ? new Set(cupon.itemsElegibles).size : 0;
   const faltaParaGratis = envioGratisConfirmado ? Math.max(0, montoEnvioGratis - sub) : 0;
   const alcanzaEnvioGratis = envioGratisConfirmado && sub >= montoEnvioGratis;
 
@@ -87,16 +93,30 @@ export default function Carrito() {
   const handleCupon = async () => {
     if (!codigoCupon.trim()) return;
     setCuponError('');
+    setCuponAviso('');
     setAplicandoCupon(true);
     try {
       const { data } = await api.post('/cupones/validar', {
         codigo: codigoCupon.trim(),
         items: itemsParaCupon(),
       });
-      aplicarCupon({ codigo: data.codigo, cuponId: data.cupon_id, descuento: data.descuento });
+      aplicarCupon({
+        codigo: data.codigo,
+        cuponId: data.cupon_id,
+        descuento: data.descuento,
+        aplicaATodo: data.aplica_a_todo,
+        itemsElegibles: data.items_elegibles ?? [],
+      });
       setCodigoCupon('');
     } catch (err: any) {
-      setCuponError(err.response?.data?.message || 'No pudimos validar el cupón. Probá de nuevo en un momento.');
+      const payload = err.response?.data;
+      if (payload?.motivo === 'SIN_ITEMS_ELEGIBLES') {
+        // No es un error: el código existe, solo que no tenés productos que
+        // participen. Aviso, no rojo.
+        setCuponAviso(payload.message || 'Este cupón no aplica a ninguno de los productos de tu carrito.');
+      } else {
+        setCuponError(payload?.message || 'No pudimos validar el cupón. Probá de nuevo en un momento.');
+      }
     } finally {
       setAplicandoCupon(false);
     }
@@ -164,6 +184,12 @@ export default function Carrito() {
                       </div>
                     )}
                     <div className="text-sm font-semibold text-black leading-tight">{item.nombre_producto}</div>
+                    {lineaElegible(item.producto_id) && (
+                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-black/60 bg-black/[0.04] px-1.5 py-0.5 rounded-sm">
+                        <Tag size={9} className="flex-shrink-0" />
+                        <span className="truncate max-w-[140px]">− {cupon!.codigo}</span>
+                      </div>
+                    )}
                     {item.variante_descripcion && (
                       <div className="text-[11px] text-black/40 mt-0.5">{item.variante_descripcion}</div>
                     )}
@@ -239,9 +265,16 @@ export default function Carrito() {
                 </span>
               </div>
               {descuento > 0 && cupon && (
-                <div className="flex justify-between text-black">
-                  <span>Descuento ({cupon.codigo})</span>
-                  <span className="font-medium">−${descuento.toLocaleString('es-AR')}</span>
+                <div className="flex flex-col gap-0.5 text-black">
+                  <div className="flex justify-between">
+                    <span>Descuento ({cupon.codigo})</span>
+                    <span className="font-medium">−${descuento.toLocaleString('es-AR')}</span>
+                  </div>
+                  {cuponParcial && (
+                    <span className="text-[11px] text-black/40">
+                      aplicado a {nElegibles} de {items.length} producto{items.length === 1 ? '' : 's'}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -288,6 +321,12 @@ export default function Carrito() {
               </div>
             )}
             {cuponError && <div className="text-xs text-red-500">{cuponError}</div>}
+            {cuponAviso && (
+              <div className="flex items-start gap-1.5 border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-xs">
+                <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                <span>{cuponAviso}</span>
+              </div>
+            )}
 
             {/* ENVÍO GRATIS — solo si la config real (publicado) lo confirma */}
             {envioGratisConfirmado && faltaParaGratis > 0 && (
