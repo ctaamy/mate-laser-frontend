@@ -21,7 +21,7 @@ interface Producto {
 
 const FORM_VACIO = {
   codigo: '', tipo: 'porcentaje', valor: '',
-  monto_minimo: '', max_usos: '', vence_en: '', activo: true,
+  monto_minimo: '', max_usos: '', limite_por_usuario: '', vence_en: '', activo: true,
   aplica_a_todo: true,
   categoria_ids: [] as number[],
   producto_ids: [] as string[],
@@ -146,6 +146,7 @@ export default function AdminCupones() {
         valor: String(cupon.valor),
         monto_minimo: cupon.monto_minimo != null ? String(cupon.monto_minimo) : '',
         max_usos: cupon.max_usos != null ? String(cupon.max_usos) : '',
+        limite_por_usuario: cupon.limite_por_usuario != null ? String(cupon.limite_por_usuario) : '',
         vence_en: isoADatetimeLocal(cupon.vence_en),
         activo: cupon.activo,
         aplica_a_todo: cupon.aplica_a_todo ?? true,
@@ -180,6 +181,7 @@ export default function AdminCupones() {
       valor: parseFloat(form.valor),
       monto_minimo: form.monto_minimo ? parseFloat(form.monto_minimo) : undefined,
       max_usos: form.max_usos ? parseInt(form.max_usos) : undefined,
+      limite_por_usuario: form.limite_por_usuario ? parseInt(form.limite_por_usuario) : undefined,
       vence_en: form.vence_en || undefined,
       activo: form.activo,
       aplica_a_todo: form.aplica_a_todo,
@@ -225,6 +227,9 @@ export default function AdminCupones() {
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)]">{textoAlcance(c)}</td>
               <td className="px-5 py-3 text-sm text-[var(--ink-soft)]">
                 {c.usos_realizados}{c.max_usos ? `/${c.max_usos}` : ''}
+                {c.limite_por_usuario != null && (
+                  <div className="text-xs text-[var(--ink-soft)]">máx {c.limite_por_usuario}/cliente</div>
+                )}
               </td>
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)]">
                 {c.vence_en ? new Date(c.vence_en).toLocaleDateString('es-AR') : 'Sin vencimiento'}
@@ -288,8 +293,14 @@ export default function AdminCupones() {
               <AdminInput type="number" value={form.monto_minimo} onChange={e => setForm(f => ({ ...f, monto_minimo: e.target.value }))} placeholder="5000" />
             </div>
             <div>
-              <AdminLabel>Máximo de usos</AdminLabel>
+              <AdminLabel>Usos totales</AdminLabel>
               <AdminInput type="number" value={form.max_usos} onChange={e => setForm(f => ({ ...f, max_usos: e.target.value }))} placeholder="Sin límite" />
+              <div className="text-xs text-[var(--ink-soft)] mt-1">En todo el sitio, sumando todos los clientes.</div>
+            </div>
+            <div>
+              <AdminLabel>Usos por cliente</AdminLabel>
+              <AdminInput type="number" value={form.limite_por_usuario} onChange={e => setForm(f => ({ ...f, limite_por_usuario: e.target.value }))} placeholder="Sin límite" />
+              <div className="text-xs text-[var(--ink-soft)] mt-1">Cuántas veces puede usarlo la misma persona. Exige que el cliente inicie sesión.</div>
             </div>
           </div>
           <div>
