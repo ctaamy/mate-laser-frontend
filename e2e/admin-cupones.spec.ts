@@ -31,7 +31,7 @@ test.describe('Admin — editar cupón existente', () => {
     await mockCupones(page, () => {});
 
     await page.goto('/admin/cupones');
-    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button').first().click();
+    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button', { name: 'Editar' }).click();
 
     await expect(page.getByRole('heading', { name: 'Editar cupón' })).toBeVisible();
     await expect(page.getByPlaceholder('MATE10')).toHaveValue('VERANO10');
@@ -47,7 +47,7 @@ test.describe('Admin — editar cupón existente', () => {
     await mockCupones(page, (body) => { putBody = body; });
 
     await page.goto('/admin/cupones');
-    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button').first().click();
+    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button', { name: 'Editar' }).click();
 
     await page.getByPlaceholder('Sin límite').nth(1).fill('5');
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
@@ -62,7 +62,7 @@ test.describe('Admin — editar cupón existente', () => {
     await mockCupones(page, (body) => { putBody = body; });
 
     await page.goto('/admin/cupones');
-    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button').first().click();
+    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button', { name: 'Editar' }).click();
 
     const montoMinimoInput = page.getByPlaceholder('5000');
     await montoMinimoInput.fill('8000');
@@ -80,7 +80,7 @@ test.describe('Admin — editar cupón existente', () => {
     await mockCupones(page, (body) => { putBody = body; });
 
     await page.goto('/admin/cupones');
-    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button').first().click();
+    await page.locator('tr', { hasText: CUPON_MOCK.codigo }).getByRole('button', { name: 'Editar' }).click();
 
     // Dos niveles arriba: "Cupón activo" está en un div de label, cuyo
     // padre (el flex container) es el que también tiene el botón toggle.

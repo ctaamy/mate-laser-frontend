@@ -68,11 +68,18 @@ interface CarritoState {
   // mano. `sincronizarDisponibilidad` no lo toca — el re-chequeo del checkout
   // es la red de seguridad para ese caso.
   cupon: CuponAplicado | null;
+  // Código de cupón traído por la URL (?cupon=…) o por el flujo de bienvenida
+  // del newsletter, todavía SIN aplicar. A diferencia de `cupon`, NO se limpia
+  // al editar el carrito — sobrevive para que el usuario lo pueda aplicar
+  // cuando tenga items. Se limpia al aplicarlo, al descartarlo o al vaciar.
+  cuponPendiente: string | null;
   agregar: (item: ItemCarrito) => void;
   quitar: (producto_id: string, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
   actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
   aplicarCupon: (cupon: CuponAplicado) => void;
   quitarCupon: () => void;
+  setCuponPendiente: (codigo: string) => void;
+  limpiarCuponPendiente: () => void;
   // Fase 1 (auditoría carrito): pisa `stock`/`disponible` de cada item con
   // datos frescos del catálogo (llamado al entrar a /carrito, ver Carrito.tsx).
   // Si un producto/variante ya no está en `actualizaciones` (desactivado o
@@ -108,6 +115,7 @@ export const useCarritoStore = create<CarritoState>()(
       items: [],
       actualizadoEn: Date.now(),
       cupon: null,
+      cuponPendiente: null,
 
       agregar: (item) => {
         const items = get().items;
@@ -153,8 +161,10 @@ export const useCarritoStore = create<CarritoState>()(
         });
       },
 
-      aplicarCupon: (cupon) => set({ cupon }),
+      aplicarCupon: (cupon) => set({ cupon, cuponPendiente: null }),
       quitarCupon: () => set({ cupon: null }),
+      setCuponPendiente: (codigo) => set({ cuponPendiente: codigo.trim().toUpperCase() || null }),
+      limpiarCuponPendiente: () => set({ cuponPendiente: null }),
 
       sincronizarDisponibilidad: (actualizaciones) => {
         set({
@@ -169,7 +179,7 @@ export const useCarritoStore = create<CarritoState>()(
         });
       },
 
-      limpiar: () => set({ items: [], actualizadoEn: Date.now(), cupon: null }),
+      limpiar: () => set({ items: [], actualizadoEn: Date.now(), cupon: null, cuponPendiente: null }),
 
       subtotal: () =>
         get().items.reduce((acc, i) => acc + i.precio_unitario * i.cantidad, 0),

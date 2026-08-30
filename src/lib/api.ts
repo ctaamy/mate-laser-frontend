@@ -36,8 +36,11 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config;
     const path = window.location.pathname;
-    // En rutas de checkout/pago/confirmacion no redirigir al login (guests válidos)
-    const esRutaPublica = ['/pago/', '/checkout', '/confirmacion/'].some(r => path.includes(r));
+    // En rutas de checkout/pago/confirmacion no redirigir al login (guests válidos).
+    // /verificar-email y /resetear-password se abren desde el link del correo,
+    // normalmente sin sesión: un 401 ahí es "token del link inválido/vencido",
+    // no una sesión caída, y lo maneja la propia página.
+    const esRutaPublica = ['/pago/', '/checkout', '/confirmacion/', '/verificar-email', '/resetear-password', '/olvide-password', '/confirmar-newsletter', '/baja-newsletter'].some(r => path.includes(r));
 
     if (error.response?.status === 401 && !esRutaPublica && !original?._reintentoRefresh) {
       const refreshToken = localStorage.getItem('refreshToken');

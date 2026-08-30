@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store/auth.store';
+import { useCarritoStore } from './store/carrito.store';
 import { useThemeGlobal } from './hooks/useThemeGlobal';
 
 // Layout
@@ -19,6 +21,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import OlvidePassword from './pages/OlvidePassword';
 import ResetearPassword from './pages/ResetearPassword';
+import VerificarEmail from './pages/VerificarEmail';
+import ConfirmarNewsletter from './pages/ConfirmarNewsletter';
+import BajaNewsletter from './pages/BajaNewsletter';
 import GoogleCallback from './pages/auth/GoogleCallback';
 import DisenaTuMateV2 from './pages/DisenaTuMateV2';
 import PaginaEstatica from './pages/PaginaEstatica';
@@ -64,11 +69,30 @@ function ThemeGlobalMount() {
   return null;
 }
 
+// Captura ?cupon=CODIGO de cualquier URL (link del mail de bienvenida, campaña,
+// etc.), lo deja como "cupón pendiente" en el carrito y limpia el query param
+// para no re-dispararlo ni dejarlo pegado en la URL.
+function CuponWatcher() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const setCuponPendiente = useCarritoStore((s) => s.setCuponPendiente);
+
+  useEffect(() => {
+    const codigo = searchParams.get('cupon');
+    if (!codigo) return;
+    setCuponPendiente(codigo);
+    searchParams.delete('cupon');
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams, setCuponPendiente]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeGlobalMount />
       <BrowserRouter>
+        <CuponWatcher />
         <Routes>
           {/* Rutas públicas con layout de tienda */}
           <Route path="/" element={<Layout />}>
@@ -80,6 +104,9 @@ export default function App() {
             <Route path="register" element={<Register />} />
             <Route path="olvide-password" element={<OlvidePassword />} />
             <Route path="resetear-password" element={<ResetearPassword />} />
+            <Route path="verificar-email" element={<VerificarEmail />} />
+            <Route path="confirmar-newsletter" element={<ConfirmarNewsletter />} />
+            <Route path="baja-newsletter" element={<BajaNewsletter />} />
             <Route path="auth/google/callback" element={<GoogleCallback />} />
             <Route path="checkout" element={<Checkout />} />
             <Route path="pago/:id" element={<Pago />} />
