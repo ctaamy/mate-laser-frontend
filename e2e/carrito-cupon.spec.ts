@@ -246,3 +246,40 @@ test.describe('Cupón con límite por cliente (Fase 2)', () => {
     await expect(page.getByText('$8.000').first()).toBeVisible();
   });
 });
+
+// Fase 2c: cupón traído por ?cupon= en la URL (link del mail de bienvenida).
+// CuponWatcher lo deja como "pendiente" en el store; el carrito ofrece aplicarlo.
+test.describe('Cupón pendiente (?cupon=)', () => {
+  test('la URL con ?cupon= muestra el banner "tenés un cupón listo" y lo aplica', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await mockValidarCupon(page);
+
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito?cupon=MATE20');
+
+    const banner = page.getByText(/Tenés un cupón listo/);
+    await expect(banner).toBeVisible();
+    await expect(page.getByText('MATE20', { exact: true })).toBeVisible();
+    // El query param se limpia de la URL.
+    await expect(page).toHaveURL(/\/carrito$/);
+
+    await page.getByRole('button', { name: 'Aplicar cupón pendiente' }).click();
+
+    await expect(page.getByText(/Descuento \(MATE20\)/)).toBeVisible();
+    await expect(banner).toHaveCount(0);
+  });
+
+  test('descartar el banner con la ✕ no aplica nada', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await mockValidarCupon(page);
+
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito?cupon=MATE20');
+
+    await expect(page.getByText(/Tenés un cupón listo/)).toBeVisible();
+    await page.getByRole('button', { name: 'Descartar cupón' }).click();
+
+    await expect(page.getByText(/Tenés un cupón listo/)).toHaveCount(0);
+    await expect(page.getByText(/Descuento \(/)).toHaveCount(0);
+  });
+});

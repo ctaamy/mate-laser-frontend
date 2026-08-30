@@ -32,20 +32,53 @@ test.describe('Bloque newsletter', () => {
     await expect(page.getByRole('button', { name: 'Anotarme' })).toBeVisible();
   });
 
-  test('suscripción exitosa: llama al endpoint y muestra mensaje de éxito', async ({ page }) => {
+  test('suscripción nueva (doble opt-in): muestra el bloque "revisá tu mail" con el email tipeado', async ({ page }) => {
     let body: any = null;
     await mockHome(page, [{ ...BASE, datos: {} }]);
     await page.route(/\/api\/v1\/newsletter\/suscribir$/, (route) => {
       body = route.request().postDataJSON();
-      return route.fulfill({ json: { estado: 'suscripto' } });
+      return route.fulfill({ json: { estado: 'pendiente' } });
     });
 
     await page.goto('/');
     await page.getByPlaceholder('Tu email').fill('nuevo@test.com');
     await page.getByRole('button', { name: 'Suscribirme' }).click();
 
-    await expect(page.getByText('¡Listo! Ya estás suscripto.')).toBeVisible();
+    await expect(page.getByText(/Casi listo/)).toBeVisible();
+    await expect(page.getByText('nuevo@test.com')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reenviármelo' })).toBeVisible();
     expect(body.email).toBe('nuevo@test.com');
+  });
+
+  test('"me equivoqué de mail" vuelve a mostrar el formulario', async ({ page }) => {
+    await mockHome(page, [{ ...BASE, datos: {} }]);
+    await page.route(/\/api\/v1\/newsletter\/suscribir$/, (route) => route.fulfill({ json: { estado: 'pendiente' } }));
+
+    await page.goto('/');
+    await page.getByPlaceholder('Tu email').fill('typo@test.com');
+    await page.getByRole('button', { name: 'Suscribirme' }).click();
+    await expect(page.getByText(/Casi listo/)).toBeVisible();
+
+    await page.getByRole('button', { name: /Me equivoqué/ }).click();
+    await expect(page.getByPlaceholder('Tu email')).toBeVisible();
+  });
+
+  test('"reenviármelo" llama a /newsletter/reenviar y entra en cooldown', async ({ page }) => {
+    let reenvioBody: any = null;
+    await mockHome(page, [{ ...BASE, datos: {} }]);
+    await page.route(/\/api\/v1\/newsletter\/suscribir$/, (route) => route.fulfill({ json: { estado: 'pendiente' } }));
+    await page.route(/\/api\/v1\/newsletter\/reenviar$/, (route) => {
+      reenvioBody = route.request().postDataJSON();
+      return route.fulfill({ json: { ok: true } });
+    });
+
+    await page.goto('/');
+    await page.getByPlaceholder('Tu email').fill('reenvio@test.com');
+    await page.getByRole('button', { name: 'Suscribirme' }).click();
+    await page.getByRole('button', { name: 'Reenviármelo' }).click();
+
+    await expect(page.getByRole('button', { name: /Reenviar en 0:/ })).toBeVisible();
+    expect(reenvioBody.email).toBe('reenvio@test.com');
   });
 
   test('email ya suscripto: muestra el mensaje correspondiente', async ({ page }) => {
@@ -56,7 +89,7 @@ test.describe('Bloque newsletter', () => {
     await page.getByPlaceholder('Tu email').fill('repetido@test.com');
     await page.getByRole('button', { name: 'Suscribirme' }).click();
 
-    await expect(page.getByText('Ese email ya estaba suscripto.')).toBeVisible();
+    await expect(page.getByText(/Ese mail ya está en la lista/)).toBeVisible();
   });
 
   test('error del servidor: muestra mensaje de error', async ({ page }) => {

@@ -22,7 +22,7 @@ interface DisponibilidadProducto {
 const DIAS_AVISO_CARRITO_VIEJO = 7;
 
 export default function Carrito() {
-  const { items, quitar, actualizarCantidad, subtotal, sincronizarDisponibilidad, actualizadoEn, cupon, aplicarCupon, quitarCupon } = useCarritoStore();
+  const { items, quitar, actualizarCantidad, subtotal, sincronizarDisponibilidad, actualizadoEn, cupon, aplicarCupon, quitarCupon, cuponPendiente, limpiarCuponPendiente } = useCarritoStore();
   const [codigoCupon, setCodigoCupon] = useState('');
   const [cuponError, setCuponError] = useState('');
   // Aviso ámbar (no error): el código es válido pero no sos elegible
@@ -96,15 +96,16 @@ export default function Carrito() {
       cantidad: i.cantidad,
     }));
 
-  const handleCupon = async () => {
-    if (!codigoCupon.trim()) return;
+  const handleCupon = async (codigoArg?: string) => {
+    const codigo = (codigoArg ?? codigoCupon).trim();
+    if (!codigo) return;
     setCuponError('');
     setCuponAviso('');
     setCuponMotivo('');
     setAplicandoCupon(true);
     try {
       const { data } = await api.post('/cupones/validar', {
-        codigo: codigoCupon.trim(),
+        codigo,
         items: itemsParaCupon(),
       });
       aplicarCupon({
@@ -127,6 +128,9 @@ export default function Carrito() {
       }
     } finally {
       setAplicandoCupon(false);
+      // Ya sea que se aplicó o falló con aviso, no seguimos ofreciendo el
+      // mismo código pendiente (el mensaje resultante ya quedó a la vista).
+      if (codigoArg) limpiarCuponPendiente();
     }
   };
 
@@ -294,6 +298,26 @@ export default function Carrito() {
             </div>
 
             {/* CUPÓN */}
+            {!cupon && cuponPendiente && (
+              <div className="flex items-center justify-between gap-2 border border-amber-200 bg-amber-50 px-3 py-2">
+                <span className="text-xs text-amber-900 min-w-0 truncate">
+                  Tenés un cupón listo: <strong className="font-semibold">{cuponPendiente}</strong>
+                </span>
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                  <button
+                    onClick={() => handleCupon(cuponPendiente)}
+                    disabled={aplicandoCupon}
+                    aria-label="Aplicar cupón pendiente"
+                    className="text-xs font-medium underline underline-offset-2 text-amber-900 hover:text-black disabled:opacity-40"
+                  >
+                    {aplicandoCupon ? 'Aplicando…' : 'Aplicar'}
+                  </button>
+                  <button onClick={limpiarCuponPendiente} aria-label="Descartar cupón" className="text-amber-700/60 hover:text-amber-900">
+                    <X size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
             {cupon ? (
               <div className="flex items-center justify-between gap-2 border border-black/15 bg-black/[0.02] px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -320,7 +344,7 @@ export default function Carrito() {
                   className="flex-1 border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors bg-white placeholder-black/25"
                 />
                 <button
-                  onClick={handleCupon}
+                  onClick={() => handleCupon()}
                   disabled={aplicandoCupon}
                   className="border border-black/15 hover:border-black px-3 py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >

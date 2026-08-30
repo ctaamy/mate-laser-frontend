@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, Send } from 'lucide-react';
 import api from '../../lib/api';
 import ActivoBadge from '../../components/ui/ActivoBadge';
 import AdminButton from '../../components/admin/ui/AdminButton';
@@ -8,6 +8,7 @@ import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
 import AdminModal from '../../components/admin/ui/AdminModal';
 import { AdminInput, AdminSelect, AdminLabel } from '../../components/admin/ui/AdminInput';
+import EnviarCuponModal from './EnviarCuponModal';
 
 interface Categoria {
   id: number;
@@ -95,6 +96,7 @@ export default function AdminCupones() {
   const queryClient = useQueryClient();
   const [modalAbierto, setModalAbierto] = useState(false);
   const [cuponEditando, setCuponEditando] = useState<any | null>(null);
+  const [cuponAEnviar, setCuponAEnviar] = useState<{ id: string; codigo: string } | null>(null);
   const [form, setForm] = useState(FORM_VACIO);
   const [errorForm, setErrorForm] = useState('');
 
@@ -239,6 +241,9 @@ export default function AdminCupones() {
               </td>
               <td className="px-5 py-3">
                 <div className="flex items-center gap-1">
+                  <AdminButton variant="ghost" size="sm" onClick={() => setCuponAEnviar({ id: c.id, codigo: c.codigo })} aria-label="Enviar por email">
+                    <Send size={13} />
+                  </AdminButton>
                   <AdminButton variant="ghost" size="sm" onClick={() => abrirModal(c)} aria-label="Editar">
                     <Pencil size={13} />
                   </AdminButton>
@@ -258,6 +263,8 @@ export default function AdminCupones() {
           ))}
         </AdminTable>
       </AdminCard>
+
+      <EnviarCuponModal cupon={cuponAEnviar} onClose={() => setCuponAEnviar(null)} />
 
       <AdminModal
         open={modalAbierto}

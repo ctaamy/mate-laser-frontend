@@ -1334,7 +1334,15 @@ function SeccionNewsletter({ datos, tema }: { datos: Record<string, any>; tema: 
   const btn = heredaDeBloque({ bg_color: datos.btn_color, texto_color: datos.btn_texto_color }, { bg: tc, tc: bg, fontFamily });
 
   const [email, setEmail] = useState('');
-  const [estado, setEstado] = useState<'idle' | 'cargando' | 'exito' | 'ya_suscripto' | 'error'>('idle');
+  const [estado, setEstado] = useState<'idle' | 'cargando' | 'pendiente' | 'ya_suscripto' | 'error'>('idle');
+  // Cooldown del botón "reenviármelo" — evita golpear un mail ajeno.
+  const [reenvioCooldown, setReenvioCooldown] = useState(0);
+
+  useEffect(() => {
+    if (reenvioCooldown <= 0) return;
+    const t = setTimeout(() => setReenvioCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [reenvioCooldown]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1342,17 +1350,26 @@ function SeccionNewsletter({ datos, tema }: { datos: Record<string, any>; tema: 
     setEstado('cargando');
     try {
       const { data } = await api.post('/newsletter/suscribir', { email, origen: 'newsletter' });
-      setEstado(data?.estado === 'ya_suscripto' ? 'ya_suscripto' : 'exito');
+      setEstado(data?.estado === 'ya_suscripto' ? 'ya_suscripto' : 'pendiente');
     } catch {
       setEstado('error');
     }
   };
 
-  const mensaje = {
-    exito: '¡Listo! Ya estás suscripto.',
-    ya_suscripto: 'Ese email ya estaba suscripto.',
-    error: 'No pudimos suscribirte, intentá de nuevo.',
-  }[estado as 'exito' | 'ya_suscripto' | 'error'];
+  const reenviar = async () => {
+    if (reenvioCooldown > 0) return;
+    setReenvioCooldown(60);
+    try {
+      await api.post('/newsletter/reenviar', { email });
+    } catch {
+      /* respuesta genérica del backend igual — no mostramos error acá */
+    }
+  };
+
+  const reintentar = () => {
+    setEstado('idle');
+    setEmail('');
+  };
 
   return (
     <section className="w-full px-8" style={{ backgroundColor: bg, color: tc, fontFamily, minHeight, ...padding }}>
@@ -1368,20 +1385,43 @@ function SeccionNewsletter({ datos, tema }: { datos: Record<string, any>; tema: 
             {datos.subtitulo}
           </motion.p>
         )}
-        <motion.form variants={FADE_UP} transition={{ ...T, delay: 0.15 }} onSubmit={submit}
-          className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-2">
-          <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-            placeholder={datos.placeholder || 'Tu email'}
-            className="flex-1 px-4 py-3 text-sm rounded-lg border focus:outline-none"
-            style={{ borderColor: `${tc}25`, color: tc, backgroundColor: `${tc}08` }} />
-          <button type="submit" disabled={estado === 'cargando'}
-            className="px-6 py-3 text-sm font-bold rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50"
-            style={{ backgroundColor: btn.bg, color: btn.tc, fontFamily: btn.fontFamily }}>
-            {datos.btn_texto || 'Suscribirme'}
-          </button>
-        </motion.form>
-        {mensaje && (
-          <p className="text-xs" style={{ color: estado === 'error' ? '#e05252' : subtitulo.tc }}>{mensaje}</p>
+        {estado === 'pendiente' ? (
+          <motion.div variants={FADE_UP} transition={{ ...T, delay: 0.15 }}
+            className="w-full max-w-md mt-2 flex flex-col items-center gap-2">
+            <p className="text-sm" style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily }}>
+              Casi listo. Te mandamos un mail a <strong>{email}</strong> para confirmar tu suscripción.
+              Revisá también spam o la pestaña Promociones.
+            </p>
+            <div className="flex gap-3 text-xs">
+              <button type="button" onClick={reenviar} disabled={reenvioCooldown > 0}
+                className="underline hover:opacity-80 disabled:opacity-50 disabled:no-underline">
+                {reenvioCooldown > 0 ? `Reenviar en 0:${String(reenvioCooldown).padStart(2, '0')}` : 'Reenviármelo'}
+              </button>
+              <button type="button" onClick={reintentar} className="underline hover:opacity-80">
+                Me equivoqué de mail
+              </button>
+            </div>
+          </motion.div>
+        ) : (
+          <>
+            <motion.form variants={FADE_UP} transition={{ ...T, delay: 0.15 }} onSubmit={submit}
+              className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-2">
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                placeholder={datos.placeholder || 'Tu email'}
+                className="flex-1 px-4 py-3 text-sm rounded-lg border focus:outline-none"
+                style={{ borderColor: `${tc}25`, color: tc, backgroundColor: `${tc}08` }} />
+              <button type="submit" disabled={estado === 'cargando'}
+                className="px-6 py-3 text-sm font-bold rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ backgroundColor: btn.bg, color: btn.tc, fontFamily: btn.fontFamily }}>
+                {datos.btn_texto || 'Suscribirme'}
+              </button>
+            </motion.form>
+            {(estado === 'ya_suscripto' || estado === 'error') && (
+              <p className="text-xs" style={{ color: estado === 'error' ? '#e05252' : subtitulo.tc }}>
+                {estado === 'ya_suscripto' ? 'Ese mail ya está en la lista 🧉' : 'No pudimos suscribirte, intentá de nuevo.'}
+              </p>
+            )}
+          </>
         )}
       </motion.div>
     </section>
