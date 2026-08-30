@@ -203,3 +203,46 @@ test.describe('Cupón con alcance parcial (Fase 1)', () => {
     await expect(page.getByText('$11.000')).toHaveCount(2);
   });
 });
+
+// Fase 2: límite de usos por cliente.
+test.describe('Cupón con límite por cliente (Fase 2)', () => {
+  test('REQUIERE_LOGIN: aviso ámbar con link a iniciar sesión, sin descuento', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await page.route('**/api/v1/cupones/validar', (route) =>
+      route.fulfill({
+        status: 400,
+        json: { message: 'Iniciá sesión o creá tu cuenta para usar este cupón.', motivo: 'REQUIERE_LOGIN' },
+      }),
+    );
+
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito');
+    await page.getByPlaceholder('Código de descuento').fill('BIENVENIDA');
+    await page.getByRole('button', { name: /^Aplicar$/ }).click();
+
+    await expect(page.getByText('Iniciá sesión o creá tu cuenta para usar este cupón.')).toBeVisible();
+    await expect(page.getByRole('link', { name: /Iniciá sesión/ })).toBeVisible();
+    await expect(page.getByText(/Descuento \(/)).toHaveCount(0);
+    // No es error rojo.
+    await expect(page.locator('.text-red-500')).toHaveCount(0);
+  });
+
+  test('LIMITE_POR_USUARIO: aviso ámbar, sin descuento', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await page.route('**/api/v1/cupones/validar', (route) =>
+      route.fulfill({
+        status: 400,
+        json: { message: 'Ya usaste este cupón y es uno por persona.', motivo: 'LIMITE_POR_USUARIO' },
+      }),
+    );
+
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito');
+    await page.getByPlaceholder('Código de descuento').fill('BIENVENIDA');
+    await page.getByRole('button', { name: /^Aplicar$/ }).click();
+
+    await expect(page.getByText('Ya usaste este cupón y es uno por persona.')).toBeVisible();
+    await expect(page.getByText(/Descuento \(/)).toHaveCount(0);
+    await expect(page.getByText('$8.000').first()).toBeVisible();
+  });
+});

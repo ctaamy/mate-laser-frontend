@@ -116,10 +116,11 @@ export default function Checkout() {
   const descuento = cupon?.descuento ?? 0;
   const total = Math.max(0, sub + costoEnvio - descuento);
 
-  // Re-chequeo autoritativo del cupón al entrar al checkout: el descuento se
-  // guardó en el carrito y pudo quedar viejo (precio/stock cambiaron, cupón
-  // venció). Si ya no valida, se quita y se avisa; si el monto cambió, se
-  // ajusta en silencio (el usuario todavía no confirmó nada).
+  // Re-chequeo autoritativo del cupón al entrar al checkout y cuando cambia el
+  // estado de login (un cupón con límite por cliente depende de quién sos): el
+  // descuento guardado pudo quedar viejo (precio/stock, vencimiento, o ahora
+  // sos elegible / dejaste de serlo). Si ya no valida, se quita y se avisa; si
+  // el monto cambió, se ajusta en silencio (el usuario todavía no confirmó).
   useEffect(() => {
     if (!cupon || items.length === 0) return;
     api.post('/cupones/validar', {
@@ -141,14 +142,20 @@ export default function Checkout() {
           itemsElegibles: data.items_elegibles ?? [],
         });
       })
-      .catch(() => {
+      .catch((err: any) => {
         quitarCupon();
-        setErrors(prev => ({ ...prev, general: `El cupón ${cupon.codigo} ya no aplica a tu pedido, lo quitamos.` }));
+        const motivo = err.response?.data?.motivo;
+        const msg = motivo === 'REQUIERE_LOGIN'
+          ? `Este cupón necesita que inicies sesión, así que lo quitamos del pedido.`
+          : motivo === 'LIMITE_POR_USUARIO'
+            ? `Ya usaste el cupón ${cupon.codigo} el máximo de veces, lo quitamos del pedido.`
+            : `El cupón ${cupon.codigo} ya no aplica a tu pedido, lo quitamos.`;
+        setErrors(prev => ({ ...prev, general: msg }));
       });
-    // Solo al montar: es un chequeo de entrada, no queremos re-disparar en cada
-    // cambio del carrito (que además ya limpia el cupón desde el store).
+    // Re-corre al montar y al cambiar el usuario logueado. No en cada cambio
+    // del carrito (eso ya limpia el cupón desde el store).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [usuario?.id]);
 
   // Si el método elegido deja de estar disponible (ej. el usuario cambia de
   // localidad después de elegir logística privada), se deselecciona en vez de

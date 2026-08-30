@@ -25,10 +25,16 @@ export default function Carrito() {
   const { items, quitar, actualizarCantidad, subtotal, sincronizarDisponibilidad, actualizadoEn, cupon, aplicarCupon, quitarCupon } = useCarritoStore();
   const [codigoCupon, setCodigoCupon] = useState('');
   const [cuponError, setCuponError] = useState('');
-  // Aviso ámbar (no error): el cupón es válido pero no aplica a nada del carrito.
+  // Aviso ámbar (no error): el código es válido pero no sos elegible
+  // (no hay productos que participen, requiere login, o ya lo usaste).
   const [cuponAviso, setCuponAviso] = useState('');
+  const [cuponMotivo, setCuponMotivo] = useState('');
   const [aplicandoCupon, setAplicandoCupon] = useState(false);
   const navigate = useNavigate();
+
+  // Motivos del backend que son "no sos elegible" — se muestran en ámbar, no
+  // como error rojo.
+  const MOTIVOS_AVISO = ['SIN_ITEMS_ELEGIBLES', 'REQUIERE_LOGIN', 'LIMITE_POR_USUARIO'];
 
   // Fase 1 (auditoría carrito): el carrito persiste en localStorage sin
   // vencimiento — un item agregado hace días puede no reflejar el stock
@@ -94,6 +100,7 @@ export default function Carrito() {
     if (!codigoCupon.trim()) return;
     setCuponError('');
     setCuponAviso('');
+    setCuponMotivo('');
     setAplicandoCupon(true);
     try {
       const { data } = await api.post('/cupones/validar', {
@@ -110,10 +117,11 @@ export default function Carrito() {
       setCodigoCupon('');
     } catch (err: any) {
       const payload = err.response?.data;
-      if (payload?.motivo === 'SIN_ITEMS_ELEGIBLES') {
-        // No es un error: el código existe, solo que no tenés productos que
-        // participen. Aviso, no rojo.
-        setCuponAviso(payload.message || 'Este cupón no aplica a ninguno de los productos de tu carrito.');
+      if (payload?.motivo && MOTIVOS_AVISO.includes(payload.motivo)) {
+        // No es un error: el código es válido, solo que no sos elegible.
+        // Ámbar, no rojo.
+        setCuponAviso(payload.message || 'Este cupón no aplica a tu carrito.');
+        setCuponMotivo(payload.motivo);
       } else {
         setCuponError(payload?.message || 'No pudimos validar el cupón. Probá de nuevo en un momento.');
       }
@@ -324,7 +332,12 @@ export default function Carrito() {
             {cuponAviso && (
               <div className="flex items-start gap-1.5 border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2 text-xs">
                 <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-                <span>{cuponAviso}</span>
+                <span>
+                  {cuponAviso}
+                  {cuponMotivo === 'REQUIERE_LOGIN' && (
+                    <> <Link to="/login" className="font-medium underline underline-offset-2">Iniciá sesión</Link></>
+                  )}
+                </span>
               </div>
             )}
 
