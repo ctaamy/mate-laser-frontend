@@ -41,6 +41,16 @@ interface ActualizacionStock {
   disponible: boolean;
 }
 
+// Cupón aplicado, tal como lo devuelve POST /cupones/validar. Vive en el store
+// (antes era estado local de Carrito.tsx) para que sobreviva a la navegación al
+// checkout. `descuento` es el monto en pesos ya calculado server-side; se
+// re-valida contra el backend al entrar al checkout y al crear la orden.
+export interface CuponAplicado {
+  codigo: string;
+  cuponId: string;
+  descuento: number;
+}
+
 interface CarritoState {
   items: ItemCarrito[];
   // Fase 2 (auditoría carrito): timestamp (ms) de la última vez que el
@@ -49,9 +59,16 @@ interface CarritoState {
   // acción del usuario) — sirve para avisar "este carrito es de hace
   // varios días" sin borrar nada solo.
   actualizadoEn: number;
+  // Cupón aplicado en el carrito, o null. Cualquier cambio de items lo limpia
+  // (el descuento depende del contenido del carrito); se vuelve a aplicar a
+  // mano. `sincronizarDisponibilidad` no lo toca — el re-chequeo del checkout
+  // es la red de seguridad para ese caso.
+  cupon: CuponAplicado | null;
   agregar: (item: ItemCarrito) => void;
   quitar: (producto_id: string, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
   actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
+  aplicarCupon: (cupon: CuponAplicado) => void;
+  quitarCupon: () => void;
   // Fase 1 (auditoría carrito): pisa `stock`/`disponible` de cada item con
   // datos frescos del catálogo (llamado al entrar a /carrito, ver Carrito.tsx).
   // Si un producto/variante ya no está en `actualizaciones` (desactivado o
@@ -86,6 +103,7 @@ export const useCarritoStore = create<CarritoState>()(
     (set, get) => ({
       items: [],
       actualizadoEn: Date.now(),
+      cupon: null,
 
       agregar: (item) => {
         const items = get().items;
@@ -100,9 +118,10 @@ export const useCarritoStore = create<CarritoState>()(
                 : i
             ),
             actualizadoEn: Date.now(),
+            cupon: null,
           });
         } else {
-          set({ items: [...items, item], actualizadoEn: Date.now() });
+          set({ items: [...items, item], actualizadoEn: Date.now(), cupon: null });
         }
       },
 
@@ -110,6 +129,7 @@ export const useCarritoStore = create<CarritoState>()(
         set({
           items: get().items.filter(i => !mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador })),
           actualizadoEn: Date.now(),
+          cupon: null,
         });
       },
 
@@ -125,8 +145,12 @@ export const useCarritoStore = create<CarritoState>()(
             return { ...i, cantidad: Math.min(cantidad, max) };
           }),
           actualizadoEn: Date.now(),
+          cupon: null,
         });
       },
+
+      aplicarCupon: (cupon) => set({ cupon }),
+      quitarCupon: () => set({ cupon: null }),
 
       sincronizarDisponibilidad: (actualizaciones) => {
         set({
@@ -141,7 +165,7 @@ export const useCarritoStore = create<CarritoState>()(
         });
       },
 
-      limpiar: () => set({ items: [], actualizadoEn: Date.now() }),
+      limpiar: () => set({ items: [], actualizadoEn: Date.now(), cupon: null }),
 
       subtotal: () =>
         get().items.reduce((acc, i) => acc + i.precio_unitario * i.cantidad, 0),

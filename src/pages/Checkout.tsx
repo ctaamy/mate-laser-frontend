@@ -35,7 +35,7 @@ const ERROR_TARIFA_NO_DISPONIBLE = 'SHIPPING_RATE_UNAVAILABLE';
 export default function Checkout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { items, subtotal, limpiar } = useCarritoStore();
+  const { items, subtotal, limpiar, cupon, aplicarCupon, quitarCupon } = useCarritoStore();
   const { usuario } = useAuthStore();
 
   const [step, setStep] = useState(2);
@@ -113,7 +113,36 @@ export default function Checkout() {
   const isRetiro = envioSeleccionado?.proveedor === 'retiro';
   const isPrivada = !!envioSeleccionado && !['retiro', 'andreani', 'correo'].includes(envioSeleccionado.proveedor);
   const costoEnvio = envioSeleccionado?.costo ?? 0;
-  const total = sub + costoEnvio;
+  const descuento = cupon?.descuento ?? 0;
+  const total = Math.max(0, sub + costoEnvio - descuento);
+
+  // Re-chequeo autoritativo del cupón al entrar al checkout: el descuento se
+  // guardó en el carrito y pudo quedar viejo (precio/stock cambiaron, cupón
+  // venció). Si ya no valida, se quita y se avisa; si el monto cambió, se
+  // ajusta en silencio (el usuario todavía no confirmó nada).
+  useEffect(() => {
+    if (!cupon || items.length === 0) return;
+    api.post('/cupones/validar', {
+      codigo: cupon.codigo,
+      items: items.map(i => ({
+        producto_id: i.producto_id,
+        precio_unitario: i.precio_unitario,
+        cantidad: i.cantidad,
+      })),
+    })
+      .then(({ data }) => {
+        if (data.descuento !== cupon.descuento) {
+          aplicarCupon({ codigo: data.codigo, cuponId: data.cupon_id, descuento: data.descuento });
+        }
+      })
+      .catch(() => {
+        quitarCupon();
+        setErrors(prev => ({ ...prev, general: `El cupón ${cupon.codigo} ya no es válido, lo quitamos del pedido.` }));
+      });
+    // Solo al montar: es un chequeo de entrada, no queremos re-disparar en cada
+    // cambio del carrito (que además ya limpia el cupón desde el store).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Si el método elegido deja de estar disponible (ej. el usuario cambia de
   // localidad después de elegir logística privada), se deselecciona en vez de
@@ -216,7 +245,8 @@ export default function Checkout() {
         metodo_envio_nombre: envioSeleccionado?.nombre,
         subtotal: sub,
         costo_envio: costoEnvio,
-        descuento: 0,
+        descuento,
+        cupon_id: cupon?.cuponId,
         total,
         metodo_pago: metodoPago,
         nombre_cliente: nombre,
@@ -658,6 +688,12 @@ export default function Checkout() {
                     : `$${costoEnvio.toLocaleString('es-AR')}`}
                 </span>
               </div>
+              {descuento > 0 && cupon && (
+                <div className="flex justify-between text-black">
+                  <span className="text-black/40">Descuento ({cupon.codigo})</span>
+                  <span className="font-medium">−${descuento.toLocaleString('es-AR')}</span>
+                </div>
+              )}
             </div>
             <div className="h-px bg-black/[0.07] mb-3" />
             <div className="flex justify-between font-semibold text-black">

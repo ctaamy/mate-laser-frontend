@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, AlertTriangle, Tag, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,12 +22,10 @@ interface DisponibilidadProducto {
 const DIAS_AVISO_CARRITO_VIEJO = 7;
 
 export default function Carrito() {
-  const { items, quitar, actualizarCantidad, subtotal, limpiar, sincronizarDisponibilidad, actualizadoEn } = useCarritoStore();
-  const [cupon, setCupon] = useState('');
-  const [descuento, setDescuento] = useState(0);
-  const [cuponId, setCuponId] = useState('');
+  const { items, quitar, actualizarCantidad, subtotal, sincronizarDisponibilidad, actualizadoEn, cupon, aplicarCupon, quitarCupon } = useCarritoStore();
+  const [codigoCupon, setCodigoCupon] = useState('');
   const [cuponError, setCuponError] = useState('');
-  const [cuponOk, setCuponOk] = useState('');
+  const [aplicandoCupon, setAplicandoCupon] = useState(false);
   const navigate = useNavigate();
 
   // Fase 1 (auditoría carrito): el carrito persiste en localStorage sin
@@ -74,20 +72,33 @@ export default function Carrito() {
     config?.envio_gratis_activo === 'true' && Number.isFinite(montoEnvioGratis) && montoEnvioGratis > 0;
 
   const sub = subtotal();
-  const total = sub - descuento;
+  const descuento = cupon?.descuento ?? 0;
+  const total = Math.max(0, sub - descuento);
   const faltaParaGratis = envioGratisConfirmado ? Math.max(0, montoEnvioGratis - sub) : 0;
   const alcanzaEnvioGratis = envioGratisConfirmado && sub >= montoEnvioGratis;
 
+  const itemsParaCupon = () =>
+    items.map((i) => ({
+      producto_id: i.producto_id,
+      precio_unitario: i.precio_unitario,
+      cantidad: i.cantidad,
+    }));
+
   const handleCupon = async () => {
+    if (!codigoCupon.trim()) return;
     setCuponError('');
-    setCuponOk('');
+    setAplicandoCupon(true);
     try {
-      const { data } = await api.post('/cupones/validar', { codigo: cupon, subtotal: sub });
-      setDescuento(data.descuento);
-      setCuponId(data.cupon_id);
-      setCuponOk(`Cupón aplicado — ${data.tipo === 'porcentaje' ? `${data.valor}% de descuento` : `$${data.valor} de descuento`}`);
+      const { data } = await api.post('/cupones/validar', {
+        codigo: codigoCupon.trim(),
+        items: itemsParaCupon(),
+      });
+      aplicarCupon({ codigo: data.codigo, cuponId: data.cupon_id, descuento: data.descuento });
+      setCodigoCupon('');
     } catch (err: any) {
-      setCuponError(err.response?.data?.message || 'Cupón no válido');
+      setCuponError(err.response?.data?.message || 'No pudimos validar el cupón. Probá de nuevo en un momento.');
+    } finally {
+      setAplicandoCupon(false);
     }
   };
 
@@ -227,9 +238,9 @@ export default function Carrito() {
                   {alcanzaEnvioGratis ? 'Gratis' : 'A calcular'}
                 </span>
               </div>
-              {descuento > 0 && (
+              {descuento > 0 && cupon && (
                 <div className="flex justify-between text-black">
-                  <span>Descuento</span>
+                  <span>Descuento ({cupon.codigo})</span>
                   <span className="font-medium">−${descuento.toLocaleString('es-AR')}</span>
                 </div>
               )}
@@ -242,23 +253,41 @@ export default function Carrito() {
             </div>
 
             {/* CUPÓN */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={cupon}
-                onChange={(e) => setCupon(e.target.value.toUpperCase())}
-                placeholder="Código de descuento"
-                className="flex-1 border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors bg-white placeholder-black/25"
-              />
-              <button
-                onClick={handleCupon}
-                className="border border-black/15 hover:border-black px-3 py-2 text-sm transition-colors"
-              >
-                Aplicar
-              </button>
-            </div>
+            {cupon ? (
+              <div className="flex items-center justify-between gap-2 border border-black/15 bg-black/[0.02] px-3 py-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Tag size={13} className="flex-shrink-0 text-black/40" />
+                  <span className="text-sm font-medium text-black truncate">{cupon.codigo}</span>
+                  <span className="text-xs text-black/45 flex-shrink-0">aplicado</span>
+                </div>
+                <button
+                  onClick={quitarCupon}
+                  aria-label="Quitar cupón"
+                  className="flex items-center gap-1 text-xs text-black/40 hover:text-black transition-colors flex-shrink-0"
+                >
+                  <X size={13} /> Quitar
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={codigoCupon}
+                  onChange={(e) => setCodigoCupon(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCupon()}
+                  placeholder="Código de descuento"
+                  className="flex-1 border border-black/15 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors bg-white placeholder-black/25"
+                />
+                <button
+                  onClick={handleCupon}
+                  disabled={aplicandoCupon}
+                  className="border border-black/15 hover:border-black px-3 py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {aplicandoCupon ? 'Validando…' : 'Aplicar'}
+                </button>
+              </div>
+            )}
             {cuponError && <div className="text-xs text-red-500">{cuponError}</div>}
-            {cuponOk && <div className="text-xs text-black/60">{cuponOk}</div>}
 
             {/* ENVÍO GRATIS — solo si la config real (publicado) lo confirma */}
             {envioGratisConfirmado && faltaParaGratis > 0 && (
