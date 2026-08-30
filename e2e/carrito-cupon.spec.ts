@@ -127,3 +127,79 @@ test.describe('Cupón — carrito → checkout → orden', () => {
     await expect(page.getByText('$8.000').first()).toBeVisible();
   });
 });
+
+// Fase 1: alcance parcial. Se siembra un carrito de 2 items directo en
+// localStorage para no depender de dos páginas de producto distintas.
+test.describe('Cupón con alcance parcial (Fase 1)', () => {
+  async function seedCarrito2Items(page: Page) {
+    await page.addInitScript(() => {
+      localStorage.setItem('carrito-storage', JSON.stringify({
+        state: {
+          items: [
+            { producto_id: 'prod-a', nombre_producto: 'Mate premium', precio_unitario: 8000, cantidad: 1, disponible: true, stock: 5 },
+            { producto_id: 'prod-b', nombre_producto: 'Bombilla', precio_unitario: 3000, cantidad: 1, disponible: true, stock: 5 },
+          ],
+          actualizadoEn: Date.now(),
+          cupon: null,
+        },
+        version: 1,
+      }));
+    });
+    // El carrito revalida disponibilidad contra /productos?ids=... — que los
+    // dos productos vuelvan disponibles para no ensuciar la vista.
+    await page.route('**/api/v1/productos?**', (route) =>
+      route.fulfill({
+        json: {
+          data: [
+            { id: 'prod-a', disponible: true, cantidad_maxima: 5 },
+            { id: 'prod-b', disponible: true, cantidad_maxima: 5 },
+          ],
+          total: 2, page: 1, totalPages: 1,
+        },
+      }),
+    );
+  }
+
+  test('descuento parcial: caption "aplicado a 1 de 2" y total recalculado', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await page.route('**/api/v1/cupones/validar', (route) =>
+      route.fulfill({
+        json: {
+          valido: true, cupon_id: 'cup-scoped', codigo: 'MATES50', tipo: 'porcentaje', valor: 50,
+          aplica_a_todo: false, subtotal_elegible: 8000, descuento: 4000, items_elegibles: ['prod-a'],
+        },
+      }),
+    );
+    await seedCarrito2Items(page);
+
+    await page.goto('/carrito');
+    await expect(page.getByText('Mate premium')).toBeVisible();
+
+    await page.getByPlaceholder('Código de descuento').fill('MATES50');
+    await page.getByRole('button', { name: /^Aplicar$/ }).click();
+
+    await expect(page.getByText('aplicado a 1 de 2 productos')).toBeVisible();
+    await expect(page.getByText('$4.000')).toBeVisible(); // descuento
+    await expect(page.getByText('$7.000')).toBeVisible(); // 11.000 - 4.000
+  });
+
+  test('SIN_ITEMS_ELEGIBLES: aviso ámbar, no error rojo, sin descuento', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await page.route('**/api/v1/cupones/validar', (route) =>
+      route.fulfill({
+        status: 400,
+        json: { message: 'El cupón no aplica a ninguno de los productos de tu carrito', motivo: 'SIN_ITEMS_ELEGIBLES' },
+      }),
+    );
+    await seedCarrito2Items(page);
+
+    await page.goto('/carrito');
+    await page.getByPlaceholder('Código de descuento').fill('OTROS');
+    await page.getByRole('button', { name: /^Aplicar$/ }).click();
+
+    await expect(page.getByText('El cupón no aplica a ninguno de los productos de tu carrito')).toBeVisible();
+    await expect(page.getByText(/Descuento \(/)).toHaveCount(0);
+    // Subtotal y Total siguen en 11.000 (nada aplicado).
+    await expect(page.getByText('$11.000')).toHaveCount(2);
+  });
+});

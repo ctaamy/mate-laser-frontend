@@ -131,13 +131,19 @@ export default function Checkout() {
       })),
     })
       .then(({ data }) => {
-        if (data.descuento !== cupon.descuento) {
-          aplicarCupon({ codigo: data.codigo, cuponId: data.cupon_id, descuento: data.descuento });
-        }
+        // Siempre re-sincroniza el cupón con la respuesta autoritativa
+        // (descuento y líneas elegibles pueden haber cambiado).
+        aplicarCupon({
+          codigo: data.codigo,
+          cuponId: data.cupon_id,
+          descuento: data.descuento,
+          aplicaATodo: data.aplica_a_todo,
+          itemsElegibles: data.items_elegibles ?? [],
+        });
       })
       .catch(() => {
         quitarCupon();
-        setErrors(prev => ({ ...prev, general: `El cupón ${cupon.codigo} ya no es válido, lo quitamos del pedido.` }));
+        setErrors(prev => ({ ...prev, general: `El cupón ${cupon.codigo} ya no aplica a tu pedido, lo quitamos.` }));
       });
     // Solo al montar: es un chequeo de entrada, no queremos re-disparar en cada
     // cambio del carrito (que además ya limpia el cupón desde el store).
@@ -689,9 +695,16 @@ export default function Checkout() {
                 </span>
               </div>
               {descuento > 0 && cupon && (
-                <div className="flex justify-between text-black">
-                  <span className="text-black/40">Descuento ({cupon.codigo})</span>
-                  <span className="font-medium">−${descuento.toLocaleString('es-AR')}</span>
+                <div className="flex flex-col gap-0.5 text-black">
+                  <div className="flex justify-between">
+                    <span className="text-black/40">Descuento ({cupon.codigo})</span>
+                    <span className="font-medium">−${descuento.toLocaleString('es-AR')}</span>
+                  </div>
+                  {!cupon.aplicaATodo && (
+                    <span className="text-[11px] text-black/35">
+                      aplicado a {new Set(cupon.itemsElegibles).size} de {items.length} producto{items.length === 1 ? '' : 's'}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
