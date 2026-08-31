@@ -461,7 +461,7 @@ export default function AdminProductos() {
 
               {/* ── Tab VARIANTES ── */}
               {tabModal === 'variantes' && productoEditando && (
-                <VariantesTab productoId={productoEditando.id} imagenesProducto={imagenesProducto ?? []} />
+                <VariantesTab productoId={productoEditando.id} precioBase={Number(productoEditando.precio_base)} imagenesProducto={imagenesProducto ?? []} />
               )}
 
               {/* ── Tab DATOS ── */}

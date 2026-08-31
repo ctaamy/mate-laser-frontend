@@ -14,7 +14,6 @@ const T = { duration: 0.4, ease: 'easeOut' as const };
 
 export default function ProductoDetalle() {
   const { slug } = useParams<{ slug: string }>();
-  const [colorSeleccionado, setColorSeleccionado] = useState('');
   const [valoresSeleccionados, setValoresSeleccionados] = useState<Record<string, string>>({});
   const [quierePersonalizar, setQuierePersonalizar] = useState(false);
   const [textoGrabado, setTextoGrabado] = useState('');
@@ -56,13 +55,8 @@ export default function ProductoDetalle() {
   );
 
   const costoGrabado = Number((producto as any).costo_grabado || 0);
-  const precioFinal = Number(producto.precio_base) + (quierePersonalizar ? costoGrabado : 0);
-  const tieneDescuento = !!producto.precio_tachado && Number(producto.precio_tachado) > Number(producto.precio_base);
-  const descuentoPct = tieneDescuento
-    ? Math.round((1 - Number(producto.precio_base) / Number(producto.precio_tachado!)) * 100)
-    : 0;
+  const precioBaseProducto = Number(producto.precio_base);
 
-  const colores = Array.isArray(producto.colores_disponibles) ? producto.colores_disponibles : [];
   const imagenes = producto.imagenes_producto ?? [];
   const tiposOpcion = producto.tipos_opcion ?? [];
   const variantes = producto.variantes_producto ?? [];
@@ -92,6 +86,42 @@ export default function ProductoDetalle() {
         .join(' / ')
     : undefined;
 
+  // Precio efectivo de una variante: su precio_override si tiene uno, si no el
+  // precio_base del producto (mismo criterio que el backend).
+  const precioDeVariante = (v: { precio_override?: number | null }) =>
+    v.precio_override != null ? Number(v.precio_override) : precioBaseProducto;
+
+  const precioVariante = varianteSeleccionada ? precioDeVariante(varianteSeleccionada) : precioBaseProducto;
+  const esPrecioOverride =
+    varianteSeleccionada?.precio_override != null &&
+    Number(varianteSeleccionada.precio_override) !== precioBaseProducto;
+  const deltaVsBase = precioVariante - precioBaseProducto;
+
+  // "Desde $X": solo si las variantes comprables (con stock) no cuestan todas
+  // lo mismo. X = el más barato de esos precios efectivos (no apuntar el
+  // "Desde" a una combinación sin stock).
+  const preciosComprables = variantes.filter((v) => v.disponible ?? false).map(precioDeVariante);
+  const hayDispersionPrecio = new Set(preciosComprables).size > 1;
+  const precioDesde = preciosComprables.length ? Math.min(...preciosComprables) : precioBaseProducto;
+  const mostrarDesde = tieneVariantes && !varianteSeleccionada && hayDispersionPrecio;
+
+  const precioFinal =
+    (mostrarDesde ? precioDesde : precioVariante) + (quierePersonalizar ? costoGrabado : 0);
+
+  // precio_tachado se calcula contra precio_base. Si el precio que se muestra
+  // no es el base (variante con precio propio, o "Desde" con variantes de
+  // precio propio en juego), un "-X%" sobre otro número es engañoso → se oculta.
+  const algunaVarianteConPrecioPropio = variantes.some((v) => v.precio_override != null);
+  const ocultarDescuento =
+    esPrecioOverride || (tieneVariantes && !varianteSeleccionada && algunaVarianteConPrecioPropio);
+  const tieneDescuento =
+    !ocultarDescuento &&
+    !!producto.precio_tachado &&
+    Number(producto.precio_tachado) > precioBaseProducto;
+  const descuentoPct = tieneDescuento
+    ? Math.round((1 - precioBaseProducto / Number(producto.precio_tachado!)) * 100)
+    : 0;
+
   const handleAgregar = () => {
     if (!puedeAgregar) return;
     agregar({
@@ -102,7 +132,6 @@ export default function ProductoDetalle() {
       precio_unitario: precioFinal,
       cantidad,
       con_grabado: quierePersonalizar || undefined,
-      color: quierePersonalizar ? (colorSeleccionado || undefined) : undefined,
       texto_grabado: quierePersonalizar ? (textoGrabado || undefined) : undefined,
       imagen_url: imagenVariante?.url ?? producto.imagenes_producto?.[0]?.url,
       stock: cantidadMaxima,
@@ -200,19 +229,43 @@ export default function ProductoDetalle() {
             </div>
 
             {/* Precio */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold tracking-tight text-black">
-                ${precioFinal.toLocaleString('es-AR')}
-              </span>
-              {tieneDescuento && !quierePersonalizar && (
-                <span className="text-base text-black/30 line-through font-medium">
-                  ${Number(producto.precio_tachado).toLocaleString('es-AR')}
-                </span>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline gap-3">
+                {mostrarDesde && <span className="text-sm font-medium text-black/40">Desde</span>}
+                <motion.span
+                  key={precioFinal}
+                  initial={{ opacity: 0.35 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-3xl font-bold tracking-tight text-black"
+                >
+                  ${precioFinal.toLocaleString('es-AR')}
+                </motion.span>
+                {tieneDescuento && !quierePersonalizar && (
+                  <span className="text-base text-black/30 line-through font-medium">
+                    ${Number(producto.precio_tachado).toLocaleString('es-AR')}
+                  </span>
+                )}
+              </div>
+
+              {mostrarDesde && (
+                <p className="text-[11px] text-black/40">El precio final depende de las opciones que elijas.</p>
               )}
-              {quierePersonalizar && costoGrabado > 0 && (
-                <span className="text-xs text-black/35">
-                  ${Number(producto.precio_base).toLocaleString('es-AR')} + ${costoGrabado.toLocaleString('es-AR')} grabado
-                </span>
+
+              {varianteSeleccionada && esPrecioOverride && (
+                <p className="text-[11px] text-black/45">
+                  Precio para <span className="text-black/70 font-medium">{varianteDescripcion}</span>
+                  {' · '}
+                  {deltaVsBase > 0
+                    ? `$${Math.abs(deltaVsBase).toLocaleString('es-AR')} más que el precio base`
+                    : `$${Math.abs(deltaVsBase).toLocaleString('es-AR')} menos que el precio base`}
+                </p>
+              )}
+
+              {!mostrarDesde && quierePersonalizar && costoGrabado > 0 && (
+                <p className="text-[11px] text-black/35">
+                  ${precioVariante.toLocaleString('es-AR')} + ${costoGrabado.toLocaleString('es-AR')} grabado
+                </p>
               )}
             </div>
 
@@ -243,21 +296,31 @@ export default function ProductoDetalle() {
                       )}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {tipo.valores.map((valor) => (
-                        <button
-                          key={valor.id}
-                          onClick={() =>
-                            setValoresSeleccionados((prev) => ({ ...prev, [tipo.id]: valor.id }))
-                          }
-                          className={`px-3 py-1.5 text-xs font-medium border transition-colors ${
-                            valoresSeleccionados[tipo.id] === valor.id
-                              ? 'border-black bg-black text-white'
-                              : 'border-black/15 text-black/60 hover:border-black/40'
-                          }`}
-                        >
-                          {valor.valor}
-                        </button>
-                      ))}
+                      {tipo.valores.map((valor) => {
+                        const elegido = valoresSeleccionados[tipo.id] === valor.id;
+                        return (
+                          <button
+                            key={valor.id}
+                            aria-pressed={elegido}
+                            onClick={() =>
+                              setValoresSeleccionados((prev) => {
+                                // Segundo click sobre el valor ya elegido: lo deselecciona.
+                                const siguiente = { ...prev };
+                                if (siguiente[tipo.id] === valor.id) delete siguiente[tipo.id];
+                                else siguiente[tipo.id] = valor.id;
+                                return siguiente;
+                              })
+                            }
+                            className={`px-3 py-1.5 text-xs font-medium border transition-colors ${
+                              elegido
+                                ? 'border-black bg-black text-white'
+                                : 'border-black/15 text-black/60 hover:border-black/40'
+                            }`}
+                          >
+                            {valor.valor}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -306,27 +369,6 @@ export default function ProductoDetalle() {
                       className="overflow-hidden border-t border-black/[0.07]"
                     >
                       <div className="px-4 py-4 flex flex-col gap-4">
-                        {/* Colores */}
-                        {colores.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35 mb-2">
-                              Color de grabado {colorSeleccionado && <span className="text-black">· {colorSeleccionado}</span>}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {colores.map((color: string) => (
-                                <button key={color} onClick={() => setColorSeleccionado(color)}
-                                  className={`px-3 py-1.5 text-xs font-medium border transition-colors ${
-                                    colorSeleccionado === color
-                                      ? 'border-black bg-black text-white'
-                                      : 'border-black/15 text-black/60 hover:border-black/40'
-                                  }`}>
-                                  {color}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
                         {/* Texto */}
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35 mb-2">Texto a grabar</p>

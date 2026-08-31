@@ -100,8 +100,9 @@ test.describe('Badge — Carrito.tsx queda sin tocar (semántica distinta: con_g
             producto_id: 'p1', nombre_producto: 'Mate con grabado', precio_unitario: 15000,
             cantidad: 1, stock: 10, con_grabado: true, texto_grabado: 'Para Juan',
           }],
+          actualizadoEn: Date.now(),
         },
-        version: 0,
+        version: 2,
       };
       localStorage.setItem('carrito-storage', JSON.stringify(state));
     });
