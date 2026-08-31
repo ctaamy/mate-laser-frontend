@@ -23,7 +23,8 @@ type Usuario = {
 
 type AccionPendiente =
   | { tipo: 'rol'; usuario: Usuario; nuevoRol: 'admin' | 'cliente' }
-  | { tipo: 'estado'; usuario: Usuario; nuevoActivo: boolean };
+  | { tipo: 'estado'; usuario: Usuario; nuevoActivo: boolean }
+  | { tipo: 'eliminar'; usuario: Usuario };
 
 export default function AdminUsuarios() {
   const queryClient = useQueryClient();
@@ -67,15 +68,27 @@ export default function AdminUsuarios() {
     },
   });
 
-  const guardando = cambiarRolMutation.isPending || cambiarEstadoMutation.isPending;
-  const error = (cambiarRolMutation.error as any) || (cambiarEstadoMutation.error as any);
+  const eliminarMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/usuarios/${id}/permanente`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-usuarios'] });
+      setAccionPendiente(null);
+    },
+  });
+
+  const guardando =
+    cambiarRolMutation.isPending || cambiarEstadoMutation.isPending || eliminarMutation.isPending;
+  const error =
+    (cambiarRolMutation.error as any) || (cambiarEstadoMutation.error as any) || (eliminarMutation.error as any);
 
   const confirmarAccion = () => {
     if (!accionPendiente) return;
     if (accionPendiente.tipo === 'rol') {
       cambiarRolMutation.mutate({ id: accionPendiente.usuario.id, rol: accionPendiente.nuevoRol });
-    } else {
+    } else if (accionPendiente.tipo === 'estado') {
       cambiarEstadoMutation.mutate({ id: accionPendiente.usuario.id, activo: accionPendiente.nuevoActivo });
+    } else {
+      eliminarMutation.mutate(accionPendiente.usuario.id);
     }
   };
 
@@ -83,6 +96,7 @@ export default function AdminUsuarios() {
     setAccionPendiente(null);
     cambiarRolMutation.reset();
     cambiarEstadoMutation.reset();
+    eliminarMutation.reset();
   };
 
   const total = data?.total ?? 0;
@@ -183,6 +197,15 @@ export default function AdminUsuarios() {
                     >
                       {u.activo ? 'Desactivar' : 'Activar'}
                     </AdminButton>
+                    {!esUsuarioActual && u.rol !== 'admin' && (
+                      <AdminButton
+                        variant="danger" size="sm"
+                        title="Eliminar permanentemente (solo cuentas sin compras)"
+                        onClick={() => setAccionPendiente({ tipo: 'eliminar', usuario: u })}
+                      >
+                        Eliminar
+                      </AdminButton>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -208,11 +231,25 @@ export default function AdminUsuarios() {
       <AdminModal
         open={!!accionPendiente}
         onClose={cerrarModal}
-        title={accionPendiente ? (accionPendiente.tipo === 'rol' ? 'Cambiar rol' : accionPendiente.nuevoActivo ? 'Activar cuenta' : 'Desactivar cuenta') : ''}
+        title={
+          accionPendiente
+            ? accionPendiente.tipo === 'rol'
+              ? 'Cambiar rol'
+              : accionPendiente.tipo === 'eliminar'
+                ? 'Eliminar cuenta'
+                : accionPendiente.nuevoActivo
+                  ? 'Activar cuenta'
+                  : 'Desactivar cuenta'
+            : ''
+        }
         footer={<>
           <AdminButton variant="secondary" onClick={cerrarModal}>Cancelar</AdminButton>
-          <AdminButton variant="primary" disabled={guardando} onClick={confirmarAccion}>
-            {guardando ? 'Aplicando...' : 'Confirmar'}
+          <AdminButton
+            variant={accionPendiente?.tipo === 'eliminar' ? 'danger' : 'primary'}
+            disabled={guardando}
+            onClick={confirmarAccion}
+          >
+            {guardando ? 'Aplicando...' : accionPendiente?.tipo === 'eliminar' ? 'Eliminar' : 'Confirmar'}
           </AdminButton>
         </>}
       >
@@ -223,6 +260,12 @@ export default function AdminUsuarios() {
                 Vas a cambiar el rol de <span className="font-medium text-[var(--ink)]">{accionPendiente.usuario.email}</span> de{' '}
                 <span className="font-medium">{accionPendiente.usuario.rol}</span> a{' '}
                 <span className="font-medium">{accionPendiente.nuevoRol}</span>.
+              </p>
+            ) : accionPendiente.tipo === 'eliminar' ? (
+              <p className="text-sm text-[var(--ink-soft)]">
+                Vas a <span className="font-medium text-[var(--error)]">eliminar permanentemente</span> la cuenta de{' '}
+                <span className="font-medium text-[var(--ink)]">{accionPendiente.usuario.email}</span>. Esto no se puede deshacer.
+                Si el usuario tiene compras, la operación se rechaza — en ese caso usá <span className="font-medium">Desactivar</span>.
               </p>
             ) : (
               <p className="text-sm text-[var(--ink-soft)]">
