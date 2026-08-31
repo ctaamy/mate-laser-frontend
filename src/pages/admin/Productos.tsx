@@ -56,7 +56,7 @@ export default function AdminProductos() {
     sku: '', material: '', dimensiones: '', peso_kg: '',
     apto_grabado: false, costo_grabado: '0', colores_disponibles: '',
     personalizado_habilitado: false, personalizado_max_chars: '30',
-    personalizado_placeholder: '', activo: true, destacado: false,
+    personalizado_placeholder: '', activo: true, destacado: false, orden: '0',
   });
   // Evita perder lo cargado si se hace click afuera del modal por error —
   // ver bug reportado: el modal se cerraba solo con cualquier click en el
@@ -165,6 +165,7 @@ export default function AdminProductos() {
         personalizado_placeholder: producto.personalizado_placeholder || '',
         activo: producto.activo,
         destacado: producto.destacado,
+        orden: (producto.orden ?? 0).toString(),
       };
       setForm(formCargado);
       marcarSnapshot(formCargado);
@@ -177,7 +178,7 @@ export default function AdminProductos() {
         sku: '', material: '', dimensiones: '', peso_kg: '',
         apto_grabado: false, costo_grabado: '0', colores_disponibles: '',
         personalizado_habilitado: false, personalizado_max_chars: '30',
-        personalizado_placeholder: '', activo: true, destacado: false,
+        personalizado_placeholder: '', activo: true, destacado: false, orden: '0',
       };
       setForm(formVacio);
       marcarSnapshot(formVacio);
@@ -238,6 +239,7 @@ export default function AdminProductos() {
       peso_kg: form.peso_kg ? parseFloat(form.peso_kg) : undefined,
       costo_grabado: form.apto_grabado ? parseFloat(form.costo_grabado || '0') : 0,
       personalizado_max_chars: parseInt(form.personalizado_max_chars),
+      orden: parseInt(form.orden) || 0,
       colores_disponibles: form.colores_disponibles
         ? form.colores_disponibles.split(',').map(c => c.trim()).filter(Boolean)
         : [],
@@ -483,12 +485,25 @@ export default function AdminProductos() {
                     <input className={inputClass} value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} placeholder="MLS-ACE-001" />
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs text-[var(--ink-soft)] mb-1 block">Categoría</label>
-                  <select className={inputClass} value={form.categoria_id} onChange={e => setForm(f => ({ ...f, categoria_id: e.target.value }))}>
-                    <option value="">Sin categoría</option>
-                    {categorias?.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
+                <div className="grid grid-cols-[1fr_7rem] gap-3">
+                  <div>
+                    <label className="text-xs text-[var(--ink-soft)] mb-1 block">Categoría</label>
+                    <select className={inputClass} value={form.categoria_id} onChange={e => setForm(f => ({ ...f, categoria_id: e.target.value }))}>
+                      <option value="">Sin categoría</option>
+                      {categorias?.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-[var(--ink-soft)] mb-1 block">Orden</label>
+                    <input
+                      className={inputClass}
+                      type="number"
+                      aria-label="Orden en tienda"
+                      value={form.orden}
+                      onChange={e => setForm(f => ({ ...f, orden: e.target.value }))}
+                    />
+                    <p className="text-[10px] text-[var(--ink-soft)] mt-1">Menor = primero</p>
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-[var(--ink-soft)] mb-1 block">Descripción</label>
