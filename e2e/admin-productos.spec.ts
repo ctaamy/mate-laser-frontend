@@ -40,6 +40,30 @@ test.describe('Admin — editar producto', () => {
     await expect(page.getByRole('heading', { name: 'Editar producto' })).not.toBeVisible();
   });
 
+  test('campo "Orden en tienda": carga el valor del producto y lo manda en el guardado', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page, { putStatus: 200 });
+
+    let putBody: any = null;
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}`, async (route) => {
+      if (route.request().method() === 'PUT') putBody = route.request().postDataJSON();
+      await route.fallback();
+    });
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+
+    const campoOrden = page.getByLabel('Orden en tienda');
+    await expect(campoOrden).toHaveValue(String(PRODUCTO_ADMIN_MOCK.orden));
+
+    await campoOrden.fill('7');
+    await page.getByRole('button', { name: 'Guardar producto' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).not.toBeVisible();
+    expect(putBody?.orden).toBe(7);
+  });
+
   test('BUG: si el backend rechaza el guardado, el modal queda trabado sin avisar al usuario', async ({ page }) => {
     await loginComoAdmin(page);
     await mockBackendAdminProductos(page, { putStatus: 400 });

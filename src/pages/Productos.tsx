@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X, ChevronRight, ChevronDown } from 'lucide-react';
 import api from '../lib/api';
@@ -54,17 +54,38 @@ export default function Productos() {
     queryFn: () => api.get('/categorias').then((r) => r.data),
   });
 
-  const { data: productos, isLoading } = useQuery<Producto[]>({
+  // Paginado incremental: el endpoint devuelve de a `limit` (20) productos.
+  // Antes esto era un useQuery que se quedaba sólo con la primera página —
+  // con el catálogo > 20, todo lo que caía fuera de esos 20 no aparecía nunca
+  // en "Todos" (y sólo se veía al filtrar por una subcategoría chica). Ahora
+  // acumulamos páginas y el botón "Ver más" trae la siguiente.
+  const {
+    data: paginas,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['productos', categoria_id, apto_grabado, debouncedSearch, orden],
-    queryFn: () => {
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (categoria_id) params.append('categoria_id', categoria_id);
       if (apto_grabado) params.append('apto_grabado', apto_grabado);
       if (debouncedSearch) params.append('search', debouncedSearch);
       if (orden) params.append('orden', orden);
-      return api.get(`/productos?${params.toString()}`).then((r) => r.data.data);
+      params.append('page', String(pageParam));
+      return api.get(`/productos?${params.toString()}`).then(
+        (r) =>
+          r.data as { data: Producto[]; total: number; page: number; totalPages: number },
+      );
     },
+    getNextPageParam: (ultima) =>
+      ultima.page < ultima.totalPages ? ultima.page + 1 : undefined,
   });
+
+  const productos = paginas?.pages.flatMap((p) => p.data);
+  const totalProductos = paginas?.pages[0]?.total ?? 0;
 
   const handleAgregar = (producto: Producto) => {
     agregar({
@@ -87,7 +108,8 @@ export default function Productos() {
 
   const hayFiltros = !!(categoria_id || apto_grabado);
   const cantidadFiltros = [categoria_id, apto_grabado].filter(Boolean).length;
-  const cantidadProductos = productos?.length ?? 0;
+  // Total de coincidencias (todas las páginas), no sólo lo ya cargado.
+  const cantidadProductos = totalProductos;
 
   // Cuerpo de los filtros — compartido entre la sidebar de desktop y el
   // drawer de mobile, así no hay dos copias que mantener en sync.
@@ -231,12 +253,25 @@ export default function Productos() {
             {debouncedSearch ? `Sin resultados para "${debouncedSearch}"` : 'No hay productos'}
           </div>
         ) : (
-          <ProductGrid
-            productos={productos ?? []}
-            onAgregar={handleAgregar}
-            cols={3}
-            colClassName="grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
-          />
+          <>
+            <ProductGrid
+              productos={productos ?? []}
+              onAgregar={handleAgregar}
+              cols={3}
+              colClassName="grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
+            />
+            {hasNextPage && (
+              <div className="mt-10 flex justify-center">
+                <button
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="border border-black/15 px-7 py-2.5 text-sm text-black/70 hover:border-black/40 transition-colors disabled:opacity-40"
+                >
+                  {isFetchingNextPage ? 'Cargando...' : 'Ver más'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
