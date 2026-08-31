@@ -93,6 +93,23 @@ test.describe('Selector de variantes en producto', () => {
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
   });
 
+  test('volver a tocar el valor ya elegido lo deselecciona', async ({ page }) => {
+    await mockProducto(page);
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    const btnNatural = page.getByRole('button', { name: 'Natural' });
+
+    await btnNatural.click();
+    await expect(page.getByText('· Natural')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
+
+    // Segundo click sobre el mismo valor: limpia la selección.
+    await btnNatural.click();
+    await expect(page.getByText('· Natural')).not.toBeVisible();
+    await expect(page.getByText('Seleccioná una opción para ver el stock')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
+  });
+
   test('seleccionar una variante sin stock: mantiene el botón deshabilitado', async ({ page }) => {
     await mockProducto(page);
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
@@ -119,5 +136,80 @@ test.describe('Selector de variantes en producto', () => {
     expect(carrito.state.items).toHaveLength(1);
     expect(carrito.state.items[0].variante_id).toBe('variante-natural');
     expect(carrito.state.items[0].stock).toBe(8);
+  });
+});
+
+test.describe('Precio por variante en la PDP', () => {
+  // Natural sin precio propio (usa el base $8.000), Negro con precio_override
+  // $12.000. Ambas con stock → hay dispersión de precio.
+  const NEGRO_CON_STOCK = { ...VARIANTE_NEGRO, disponible: true, cantidad_maxima: 5 };
+  const NEGRO_CARO = { ...NEGRO_CON_STOCK, precio_override: 12000 };
+
+  const precioGrande = (page: import('@playwright/test').Page) => page.locator('span.text-3xl');
+
+  test('antes de elegir la combinación muestra "Desde $X" con el precio más barato', async ({ page }) => {
+    await mockProducto(page, { variantes_producto: [VARIANTE_NATURAL, NEGRO_CARO] });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await expect(page.getByText('Desde', { exact: true })).toBeVisible();
+    await expect(precioGrande(page)).toHaveText('$8.000');
+    await expect(page.getByText('El precio final depende de las opciones que elijas.')).toBeVisible();
+  });
+
+  test('elegir la variante con precio propio: muestra ese precio y el contexto, y va al carrito', async ({ page }) => {
+    await mockProducto(page, { variantes_producto: [VARIANTE_NATURAL, NEGRO_CARO] });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await page.getByRole('button', { name: 'Negro' }).click();
+
+    await expect(precioGrande(page)).toHaveText('$12.000');
+    await expect(page.getByText('Desde', { exact: true })).not.toBeVisible();
+    await expect(page.getByText(/Precio para/)).toContainText('$4.000 más que el precio base');
+
+    await page.getByRole('button', { name: /Agregar al carrito/i }).click();
+    const carrito = await page.evaluate(() => JSON.parse(localStorage.getItem('carrito-storage')!));
+    expect(carrito.state.items[0].variante_id).toBe('variante-negro');
+    expect(carrito.state.items[0].precio_unitario).toBe(12000);
+  });
+
+  test('elegir la variante sin precio propio: usa el precio base', async ({ page }) => {
+    await mockProducto(page, { variantes_producto: [VARIANTE_NATURAL, NEGRO_CARO] });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await page.getByRole('button', { name: 'Natural' }).click();
+
+    await expect(precioGrande(page)).toHaveText('$8.000');
+    await expect(page.getByText(/Precio para/)).not.toBeVisible();
+  });
+
+  test('el precio tachado y el "-%" se ocultan cuando el precio mostrado es un precio propio', async ({ page }) => {
+    // precio_base 8000, precio_tachado 15000 → -47% cuando aplica.
+    await mockProducto(page, {
+      precio_tachado: 15000,
+      variantes_producto: [VARIANTE_NATURAL, NEGRO_CARO],
+    });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    // Antes de elegir: hay una variante con precio propio en juego → sin "-%".
+    await expect(page.getByText('-47%')).not.toBeVisible();
+
+    // Variante sin override: el descuento sí aplica (es sobre el precio base).
+    await page.getByRole('button', { name: 'Natural' }).click();
+    await expect(page.getByText('-47%')).toBeVisible();
+    await expect(page.getByText('$15.000')).toBeVisible();
+
+    // Variante con override: el -47% se calculó sobre el base, no sobre lo que
+    // se paga → se oculta.
+    await page.getByRole('button', { name: 'Negro' }).click();
+    await expect(page.getByText('-47%')).not.toBeVisible();
+    await expect(page.getByText('$15.000')).not.toBeVisible();
+  });
+
+  test('sin ninguna variante con precio propio: la PDP no muestra "Desde"', async ({ page }) => {
+    await mockProducto(page, { variantes_producto: [VARIANTE_NATURAL, NEGRO_CON_STOCK] });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await expect(page.getByText('Desde', { exact: true })).not.toBeVisible();
+    await expect(precioGrande(page)).toHaveText('$8.000');
   });
 });

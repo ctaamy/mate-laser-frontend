@@ -64,7 +64,8 @@ export interface VarianteProducto {
   color?: string;
   /** @deprecated reemplazado por variante_valores */
   atributos: Record<string, any>;
-  precio_override?: number;
+  /** Precio absoluto de la variante (reemplaza al precio_base del producto). `null` = usa el precio_base. */
+  precio_override?: number | null;
   // Ídem Producto.stock: solo en admin. Público trae disponible/pocas_unidades/cantidad_maxima.
   stock?: number;
   disponible?: boolean;

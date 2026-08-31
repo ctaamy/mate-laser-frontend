@@ -142,7 +142,7 @@ test.describe('Cupón con alcance parcial (Fase 1)', () => {
           actualizadoEn: Date.now(),
           cupon: null,
         },
-        version: 1,
+        version: 2,
       }));
     });
     // El carrito revalida disponibilidad contra /productos?ids=... — que los

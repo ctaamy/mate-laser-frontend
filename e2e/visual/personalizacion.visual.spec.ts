@@ -33,10 +33,9 @@ test.describe('Visual — personalización de producto', () => {
     await expect(panelInfo(page)).toHaveScreenshot('inicial.png');
   });
 
-  test('toggle activado con color y texto cargados', async ({ page }) => {
+  test('toggle activado con texto cargado', async ({ page }) => {
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
     await page.getByText('Grabado personalizado').click();
-    await page.getByRole('button', { name: 'negro' }).click();
     const inputTexto = page.getByPlaceholder(PRODUCTO_MOCK.personalizado_placeholder);
     await inputTexto.fill('Para Juan');
     await page.locator('h1').first().focus(); // saca el foco del input para evitar el parpadeo del cursor en el screenshot

@@ -6,10 +6,11 @@ import type { TipoOpcion, VarianteProducto, ImagenProducto } from '../../types';
 
 interface VariantesTabProps {
   productoId: string;
+  precioBase: number;
   imagenesProducto: ImagenProducto[];
 }
 
-export default function VariantesTab({ productoId, imagenesProducto }: VariantesTabProps) {
+export default function VariantesTab({ productoId, precioBase, imagenesProducto }: VariantesTabProps) {
   const queryClient = useQueryClient();
   const [nuevoTipoNombre, setNuevoTipoNombre] = useState('');
   const [nuevoTipoValores, setNuevoTipoValores] = useState('');
@@ -71,7 +72,8 @@ export default function VariantesTab({ productoId, imagenesProducto }: Variantes
       <div>
         <p className="text-xs text-gray-400 mb-3">
           Definí los tipos de opción del producto (ej: Color, Talle) y sus valores. Después
-          generá las combinaciones para cargar stock e imagen por variante.
+          generá las combinaciones para cargar stock, imagen y —si esa variante cuesta
+          distinto— un precio propio. Sin precio propio, la variante usa el precio base.
         </p>
 
         <div className="flex flex-col gap-2 mb-3">
@@ -159,6 +161,28 @@ export default function VariantesTab({ productoId, imagenesProducto }: Variantes
                         const stock = parseInt(e.target.value);
                         if (!isNaN(stock) && stock !== variante.stock) {
                           actualizarVarianteMutation.mutate({ id: variante.id, data: { stock } });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 mb-1 block">Precio propio</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      aria-label="Precio propio"
+                      placeholder={`= $${Number(precioBase).toLocaleString('es-AR')}`}
+                      defaultValue={variante.precio_override ?? ''}
+                      title="Vacío = usa el precio base del producto. Un valor = precio absoluto de esta variante."
+                      className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-28 focus:outline-none focus:border-[#1D9E75]"
+                      onBlur={e => {
+                        const raw = e.target.value.trim();
+                        const nuevo = raw === '' ? null : Number(raw);
+                        if (nuevo !== null && (isNaN(nuevo) || nuevo < 0)) return;
+                        const actual = variante.precio_override ?? null;
+                        if (nuevo !== actual) {
+                          actualizarVarianteMutation.mutate({ id: variante.id, data: { precio_override: nuevo } });
                         }
                       }}
                     />

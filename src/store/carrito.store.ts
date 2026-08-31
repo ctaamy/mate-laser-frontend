@@ -191,15 +191,33 @@ export const useCarritoStore = create<CarritoState>()(
     }),
     {
       name: 'carrito-storage',
-      version: 1,
+      version: 2,
       // Carritos persistidos antes de la Fase 2 no tienen `actualizadoEn`.
       // Se completa con "ahora" en vez de dejarlo undefined (que se leería
       // como "hace milenios" y dispararía el aviso de carrito viejo de
       // entrada, sin base real para afirmar la antigüedad).
-      migrate: (persisted: any) => ({
-        ...persisted,
-        actualizadoEn: persisted?.actualizadoEn ?? Date.now(),
-      }),
+      migrate: (persisted: any, fromVersion: number) => {
+        const base = {
+          ...persisted,
+          actualizadoEn: persisted?.actualizadoEn ?? Date.now(),
+        };
+        // v2: entró el precio por variante (precio_override). Una línea con
+        // `variante_id` (o parte de un combo del configurador) guardada antes
+        // puede tener un `precio_unitario` que ya no coincide con el catálogo,
+        // y el checkout lo rechazaría. Se descartan solo esas líneas — las de
+        // producto simple conservan su precio (sigue siendo el precio_base).
+        if (fromVersion < 2) {
+          const previos: ItemCarrito[] = Array.isArray(persisted?.items) ? persisted.items : [];
+          const items = previos.filter((i) => !i.variante_id && !i.combo_id);
+          return {
+            ...base,
+            items,
+            // el cupón depende del contenido; si algo se descartó, se re-aplica a mano.
+            cupon: items.length === previos.length ? base.cupon ?? null : null,
+          };
+        }
+        return base;
+      },
     }
   )
 );

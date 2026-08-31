@@ -126,6 +126,63 @@ test.describe('Admin — editar producto', () => {
     expect(dialogVisto).toBe(false);
   });
 
+  test('tab Variantes — "Precio propio": carga el precio_override y manda null al limpiarlo', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page, { putStatus: 200 });
+
+    const TIPO_OPCION = {
+      id: 'tipo-1', producto_id: PRODUCTO_ADMIN_MOCK.id, nombre: 'Color', orden: 0,
+      valores: [{ id: 'val-negro', tipo_opcion_id: 'tipo-1', valor: 'Negro', orden: 0 }],
+    };
+    const VARIANTE = {
+      id: 'var-1', producto_id: PRODUCTO_ADMIN_MOCK.id, stock: 5, activo: true, imagen_id: null,
+      variante_valores: [{
+        variante_id: 'var-1', valor_opcion_id: 'val-negro',
+        valores_opcion: { ...TIPO_OPCION.valores[0], tipos_opcion: TIPO_OPCION },
+      }],
+    };
+
+    let precioOverride: number | null = null;
+    const putBodies: any[] = [];
+
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/opciones`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [TIPO_OPCION] });
+    });
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/variantes`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [{ ...VARIANTE, precio_override: precioOverride }] });
+    });
+    await page.route('**/api/v1/variantes/var-1', (route) => {
+      if (route.request().method() !== 'PUT') return route.continue();
+      const body = route.request().postDataJSON();
+      putBodies.push(body);
+      if ('precio_override' in body) precioOverride = body.precio_override;
+      return route.fulfill({ json: { ...VARIANTE, precio_override: precioOverride } });
+    });
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+    await page.getByRole('button', { name: 'Variantes' }).click();
+
+    // Sin precio_override: input vacío, el placeholder muestra el precio base.
+    const inputPrecio = page.getByLabel('Precio propio');
+    await expect(inputPrecio).toBeVisible();
+    await expect(inputPrecio).toHaveValue('');
+    await expect(inputPrecio).toHaveAttribute('placeholder', `= $${(8000).toLocaleString('es-AR')}`);
+
+    // Cargar un precio propio → PUT { precio_override: 10000 }
+    await inputPrecio.fill('10000');
+    await inputPrecio.blur();
+    await expect.poll(() => putBodies.at(-1)).toEqual({ precio_override: 10000 });
+
+    // Limpiar el campo → PUT { precio_override: null }
+    await inputPrecio.fill('');
+    await inputPrecio.blur();
+    await expect.poll(() => putBodies.at(-1)).toEqual({ precio_override: null });
+  });
+
   test('toggle apto_grabado: muestra/oculta costo de grabado y colores', async ({ page }) => {
     await loginComoAdmin(page);
     await mockBackendAdminProductos(page);

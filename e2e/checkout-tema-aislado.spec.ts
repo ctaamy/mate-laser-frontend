@@ -42,7 +42,7 @@ async function sembrarCarrito(page: import('@playwright/test').Page) {
   await page.addInitScript((item) => {
     window.localStorage.setItem(
       'carrito-storage',
-      JSON.stringify({ state: { items: [item] }, version: 0 }),
+      JSON.stringify({ state: { items: [item], actualizadoEn: Date.now() }, version: 2 }),
     );
   }, ITEM_CARRITO);
 }
