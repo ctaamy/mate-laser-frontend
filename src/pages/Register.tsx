@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Mail } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
 import FormError from '../components/ui/FormError';
 import GoogleButton from '../components/ui/GoogleButton';
@@ -14,6 +15,7 @@ export default function Register() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registrado, setRegistrado] = useState(false);
   const { register } = useAuthStore();
   const navigate = useNavigate();
 
@@ -27,7 +29,10 @@ export default function Register() {
     setLoading(true);
     try {
       await register(form);
-      navigate('/');
+      // La cuenta ya quedó creada y logueada; el mail de verificación se manda
+      // en el registro. Mostramos un acuse en vez de tirar directo a Home, así
+      // el usuario sabe que tiene que revisar la casilla (verificar no bloquea).
+      setRegistrado(true);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al registrarse');
     } finally {
@@ -44,9 +49,30 @@ export default function Register() {
           <Link to="/" className="text-lg font-bold tracking-tight text-black">
             mate<span className="font-light">laser</span> studio
           </Link>
-          <p className="text-xs text-black/40 mt-1.5 uppercase tracking-[0.12em]">Creá tu cuenta</p>
+          <p className="text-xs text-black/40 mt-1.5 uppercase tracking-[0.12em]">
+            {registrado ? 'Cuenta creada' : 'Creá tu cuenta'}
+          </p>
         </div>
 
+        {registrado ? (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-11 h-11 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center">
+              <Mail size={18} className="text-amber-700" />
+            </div>
+            <p className="text-sm text-black/70">
+              Tu cuenta ya está lista. Te mandamos un mail a{' '}
+              <strong className="text-black">{form.email}</strong> para verificarla —
+              podés hacerlo cuando quieras, no bloquea tu compra.
+            </p>
+            <p className="text-xs text-black/40">Revisá spam o la pestaña Promociones si no lo ves.</p>
+            <button
+              onClick={() => navigate('/')}
+              className="bg-black text-white py-2.5 px-6 text-sm font-semibold tracking-[0.06em] hover:bg-black/80 transition-colors mt-1"
+            >
+              Ir a la tienda
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -84,21 +110,26 @@ export default function Register() {
             {loading ? 'Creando cuenta...' : 'Crear cuenta'}
           </button>
         </form>
+        )}
 
-        <div className="flex items-center gap-3 my-5">
-          <div className="h-px bg-black/10 flex-1" />
-          <span className="text-[10px] uppercase tracking-[0.14em] text-black/30">o</span>
-          <div className="h-px bg-black/10 flex-1" />
-        </div>
+        {!registrado && (
+          <>
+            <div className="flex items-center gap-3 my-5">
+              <div className="h-px bg-black/10 flex-1" />
+              <span className="text-[10px] uppercase tracking-[0.14em] text-black/30">o</span>
+              <div className="h-px bg-black/10 flex-1" />
+            </div>
 
-        <GoogleButton />
+            <GoogleButton />
 
-        <p className="text-center text-xs text-black/40 mt-5">
-          ¿Ya tenés cuenta?{' '}
-          <Link to="/login" className="text-black font-medium hover:underline">
-            Iniciá sesión
-          </Link>
-        </p>
+            <p className="text-center text-xs text-black/40 mt-5">
+              ¿Ya tenés cuenta?{' '}
+              <Link to="/login" className="text-black font-medium hover:underline">
+                Iniciá sesión
+              </Link>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

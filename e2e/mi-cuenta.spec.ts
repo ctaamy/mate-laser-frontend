@@ -28,6 +28,11 @@ async function loginComoCliente(page: Page) {
     },
     { usuario: CLIENTE_MOCK, token: 'fake-cliente-token' },
   );
+  // PerfilSync (App.tsx) refresca el perfil al montar la app.
+  await page.route('**/api/v1/usuarios/perfil', (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: CLIENTE_MOCK });
+    return route.continue();
+  });
 }
 
 async function mockHomeMinimal(page: Page) {
@@ -88,7 +93,7 @@ test.describe('Mi cuenta — ownership, edición y estado vacío', () => {
     await loginComoCliente(page);
 
     await page.route('**/api/v1/usuarios/perfil', (route) => {
-      if (route.request().method() !== 'PUT') return route.continue();
+      if (route.request().method() !== 'PUT') return route.fallback(); // GET → mock de loginComoCliente
       const body = route.request().postDataJSON();
       return route.fulfill({ json: { ...CLIENTE_MOCK, ...body } });
     });
@@ -106,5 +111,34 @@ test.describe('Mi cuenta — ownership, edición y estado vacío', () => {
     await expect(page.getByText(/guardado/i)).toBeVisible();
     // El input sigue reflejando el valor nuevo sin recarga de página
     await expect(inputNombre).toHaveValue('Tamara');
+  });
+
+  test('banner de verificación: se ve, reenvía el mail y se puede descartar (M1)', async ({ page }) => {
+    await mockHomeMinimal(page);
+    await loginComoCliente(page); // CLIENTE_MOCK.email_verificado === false
+    await page.route('**/api/v1/ordenes/mis-ordenes', (r) => r.fulfill({ json: [] }));
+
+    let reenvios = 0;
+    await page.route('**/api/v1/auth/enviar-verificacion', (route) => {
+      reenvios++;
+      return route.fulfill({ json: { ok: true, mensaje: 'Te enviamos un email para verificar tu cuenta' } });
+    });
+
+    await page.goto('/mi-cuenta');
+
+    const banner = page.getByText(/Te falta verificar tu email/i);
+    await expect(banner).toBeVisible();
+
+    // Visible también en la tab "Mis pedidos" (está a nivel de página).
+    await page.getByRole('button', { name: /mis pedidos/i }).click();
+    await expect(banner).toBeVisible();
+
+    await page.getByRole('button', { name: /reenviar mail/i }).click();
+    await expect(page.getByText(/Te reenviamos el mail a/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /reenviar en 0:/i })).toBeVisible();
+    expect(reenvios).toBe(1);
+
+    await page.getByRole('button', { name: /descartar aviso/i }).click();
+    await expect(banner).toHaveCount(0);
   });
 });

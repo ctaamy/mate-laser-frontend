@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store/auth.store';
 import { useCarritoStore } from './store/carrito.store';
 import { useThemeGlobal } from './hooks/useThemeGlobal';
+import api from './lib/api';
 
 // Layout
 import Layout from './components/layout/Layout';
@@ -87,12 +88,39 @@ function CuponWatcher() {
   return null;
 }
 
+// Refresca el perfil del usuario logueado una vez al arrancar la app. El store
+// persiste (auth-storage-v2) lo que devolvió el último login, así que campos
+// agregados después (email_verificado) o cambios hechos en otra pestaña/sesión
+// no se verían sin esto. Silencioso: si falla, el interceptor de axios ya
+// maneja el 401.
+function PerfilSync() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const actualizarUsuario = useAuthStore((s) => s.actualizarUsuario);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    api
+      .get('/usuarios/perfil')
+      .then((r) => {
+        // Guarda: solo mergeamos si la respuesta es un usuario de verdad
+        // (evita corromper el store si el endpoint devuelve algo raro).
+        if (r.data && typeof r.data === 'object' && r.data.id) {
+          actualizarUsuario(r.data);
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated, actualizarUsuario]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeGlobalMount />
       <BrowserRouter>
         <CuponWatcher />
+        <PerfilSync />
         <Routes>
           {/* Rutas públicas con layout de tienda */}
           <Route path="/" element={<Layout />}>

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Mail, Package, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Package, ChevronRight, ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 import type { Orden, OrdenResumen } from '../types';
 import EstadoBadge from '../components/ui/EstadoBadge';
+import BannerVerificacion from '../components/ui/BannerVerificacion';
 import OrdenItems from '../components/orden/OrdenItems';
 import OrdenEnvioResumen from '../components/orden/OrdenEnvioResumen';
 import OrdenTimeline from '../components/orden/OrdenTimeline';
@@ -28,9 +29,6 @@ function DatosPersonales() {
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState('');
 
-  const [enviandoVerificacion, setEnviandoVerificacion] = useState(false);
-  const [verificacionEnviada, setVerificacionEnviada] = useState(false);
-
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
     setGuardando(true);
@@ -48,41 +46,8 @@ function DatosPersonales() {
     }
   };
 
-  const handleEnviarVerificacion = async () => {
-    if (!usuario?.email) return;
-    setEnviandoVerificacion(true);
-    try {
-      await api.post('/auth/enviar-verificacion', { email: usuario.email });
-      setVerificacionEnviada(true);
-    } catch {
-      setError('No pudimos enviar el email de verificación. Probá de nuevo en un rato.');
-    } finally {
-      setEnviandoVerificacion(false);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-4">
-      {usuario?.email_verificado === false && (
-        <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-2 text-amber-800">
-            <Mail size={16} className="flex-shrink-0" />
-            Todavía no verificaste tu email.
-          </div>
-          {verificacionEnviada ? (
-            <span className="text-amber-700 text-xs font-medium">Enviado ✓</span>
-          ) : (
-            <button
-              onClick={handleEnviarVerificacion}
-              disabled={enviandoVerificacion}
-              className="text-xs font-medium text-amber-800 underline hover:no-underline disabled:opacity-50 flex-shrink-0"
-            >
-              {enviandoVerificacion ? 'Enviando…' : 'Verificar email'}
-            </button>
-          )}
-        </div>
-      )}
-
       <form onSubmit={handleGuardar} data-testid="form-datos-personales" className="bg-white border border-gray-100 rounded-xl p-5 flex flex-col gap-4 max-w-md">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Email</label>
@@ -206,6 +171,7 @@ export default function MiCuenta() {
   if (id) {
     return (
       <div className="max-w-4xl mx-auto px-6 py-10">
+        <BannerVerificacion />
         <DetallePedido id={id} />
       </div>
     );
@@ -214,6 +180,8 @@ export default function MiCuenta() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
       <h1 className="text-2xl font-medium mb-6">Mi cuenta</h1>
+
+      <BannerVerificacion />
 
       <div className="flex gap-1 border-b border-gray-100 mb-6">
         <button
