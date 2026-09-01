@@ -15,7 +15,10 @@ export default defineConfig({
   },
   snapshotPathTemplate: '{testDir}/visual/baseline/{testFilePath}/{arg}{ext}',
   projects: [
-    { name: 'chromium', testIgnore: '**/visual/**', use: { ...devices['Desktop Chrome'] } },
+    // El smoke test post-deploy (e2e/smoke/) corre aparte, con
+    // playwright.smoke.config.ts, contra el frontend ya deployado — nunca
+    // acá, que levanta el dev server local.
+    { name: 'chromium', testIgnore: ['**/visual/**', '**/smoke/**'], use: { ...devices['Desktop Chrome'] } },
     { name: 'visual', testMatch: '**/visual/**', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
