@@ -283,6 +283,26 @@ test.describe('Cupón pendiente (?cupon=)', () => {
     await expect(page.getByText(/Descuento \(/)).toHaveCount(0);
   });
 
+  // M4: con el carrito vacío, ?cupon= no mostraba NADA (el banner vive dentro
+  // del resumen, que no se renderiza sin ítems). Ahora hay un toast al captarlo
+  // y un aviso en el carrito vacío.
+  test('carrito vacío: toast al captar el cupón + aviso en el carrito vacío', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await mockValidarCupon(page);
+
+    await page.goto('/productos?cupon=MATE20');
+    await expect(page.getByText(/Cupón MATE20 guardado/i)).toBeVisible(); // toast
+    await expect(page).toHaveURL(/\/productos$/); // ?cupon= se limpió
+
+    await page.goto('/carrito');
+    await expect(page.getByText(/Tu carrito está vacío/i)).toBeVisible();
+    await expect(page.getByText(/Tenés el cupón/i)).toBeVisible();
+    await expect(page.getByText('MATE20', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Descartar cupón' }).click();
+    await expect(page.getByText(/Tenés el cupón/i)).toHaveCount(0);
+  });
+
   // Regresión B3: aplicar el cupón pendiente y que falle (p. ej. no llega al
   // monto mínimo) NO debe borrar el pendiente — antes el banner desaparecía y,
   // como ?cupon= ya se sacó de la URL, el código quedaba irrecuperable.

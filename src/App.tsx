@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-r
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store/auth.store';
 import { useCarritoStore } from './store/carrito.store';
+import { useToastStore } from './store/toast.store';
 import { useThemeGlobal } from './hooks/useThemeGlobal';
 import api from './lib/api';
 
@@ -72,18 +73,23 @@ function ThemeGlobalMount() {
 
 // Captura ?cupon=CODIGO de cualquier URL (link del mail de bienvenida, campaña,
 // etc.), lo deja como "cupón pendiente" en el carrito y limpia el query param
-// para no re-dispararlo ni dejarlo pegado en la URL.
+// para no re-dispararlo ni dejarlo pegado en la URL. Un toast confirma que se
+// guardó — antes, si el carrito estaba vacío, no había ningún feedback visible
+// (el banner "tenés un cupón listo" vive dentro del resumen del carrito).
 function CuponWatcher() {
   const [searchParams, setSearchParams] = useSearchParams();
   const setCuponPendiente = useCarritoStore((s) => s.setCuponPendiente);
+  const mostrarToast = useToastStore((s) => s.agregar);
 
   useEffect(() => {
     const codigo = searchParams.get('cupon');
     if (!codigo) return;
+    const normalizado = codigo.trim().toUpperCase();
     setCuponPendiente(codigo);
+    if (normalizado) mostrarToast(`Cupón ${normalizado} guardado — se aplica en el carrito`);
     searchParams.delete('cupon');
     setSearchParams(searchParams, { replace: true });
-  }, [searchParams, setSearchParams, setCuponPendiente]);
+  }, [searchParams, setSearchParams, setCuponPendiente, mostrarToast]);
 
   return null;
 }

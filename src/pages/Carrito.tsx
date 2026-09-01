@@ -135,6 +135,21 @@ export default function Carrito() {
     <div className="flujo-compra max-w-6xl mx-auto px-6 py-24 flex flex-col items-center gap-5">
       <ShoppingBag size={40} className="text-black/10" />
       <h2 className="text-base font-medium text-black/40">Tu carrito está vacío</h2>
+      {cuponPendiente && !cupon && (
+        <div className="flex items-center gap-2 border border-amber-200 bg-amber-50 text-amber-900 px-4 py-2.5 text-xs max-w-sm">
+          <Tag size={13} className="flex-shrink-0" />
+          <span className="min-w-0">
+            Tenés el cupón <strong className="font-semibold">{cuponPendiente}</strong> guardado. Agregá productos para aplicarlo.
+          </span>
+          <button
+            onClick={limpiarCuponPendiente}
+            aria-label="Descartar cupón"
+            className="text-amber-700/60 hover:text-amber-900 flex-shrink-0"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
       <Link
         to="/productos"
         className="bg-black text-white px-6 py-2.5 text-sm font-medium hover:bg-black/80 transition-colors"
