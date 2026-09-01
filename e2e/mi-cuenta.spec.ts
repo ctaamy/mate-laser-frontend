@@ -113,6 +113,34 @@ test.describe('Mi cuenta — ownership, edición y estado vacío', () => {
     await expect(inputNombre).toHaveValue('Tamara');
   });
 
+  test('orden pendiente de MP: "Pagar ahora" genera la preferencia y redirige (M2)', async ({ page }) => {
+    await mockHomeMinimal(page);
+    await loginComoCliente(page);
+
+    const ordenPendiente = {
+      id: 'orden-pend-1', estado: 'pendiente', total: 12000,
+      creado_en: new Date().toISOString(), metodo_pago: 'mercadopago',
+      direccion_envio: {}, items_orden: [{ id: 'i1', nombre_producto: 'Mate', cantidad: 1 }],
+    };
+    await page.route('**/api/v1/ordenes/orden-pend-1', (r) => r.fulfill({ json: ordenPendiente }));
+
+    let preferenciaLlamada = false;
+    await page.route('**/api/v1/pagos/orden-pend-1/preferencia-mp', (route) => {
+      preferenciaLlamada = true;
+      return route.fulfill({ json: { preference_id: 'pref-1', init_point: '/?mp-checkout-pro-stub' } });
+    });
+
+    await page.goto('/mi-cuenta/pedidos/orden-pend-1');
+
+    const btn = page.getByRole('button', { name: /pagar ahora/i });
+    await expect(page.getByText(/esperando tu pago/i)).toBeVisible();
+    await btn.click();
+
+    await expect.poll(() => preferenciaLlamada).toBe(true);
+    // window.location.href = init_point → la SPA navega al stub.
+    await expect(page).toHaveURL(/mp-checkout-pro-stub/);
+  });
+
   test('banner de verificación: se ve, reenvía el mail y se puede descartar (M1)', async ({ page }) => {
     await mockHomeMinimal(page);
     await loginComoCliente(page); // CLIENTE_MOCK.email_verificado === false

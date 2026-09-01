@@ -126,6 +126,8 @@ function ListaPedidos() {
 
 function DetallePedido({ id }: { id: string }) {
   const navigate = useNavigate();
+  const [pagando, setPagando] = useState(false);
+  const [errorPago, setErrorPago] = useState('');
   const { data: orden, isLoading } = useQuery<Orden>({
     queryKey: ['orden', id],
     queryFn: () => api.get(`/ordenes/${id}`).then((r) => r.data),
@@ -136,7 +138,23 @@ function DetallePedido({ id }: { id: string }) {
 
   const pago = (orden as any).pagos?.[0];
   const isAprobado = orden.estado === 'pagado' || pago?.estado === 'aprobado';
-  const isPendiente = orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion';
+  const isPendiente = orden.estado === 'pendiente' || orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion';
+  // Solo se puede retomar el pago de una orden 'pendiente' de Mercado Pago
+  // (nunca hubo intento de pago → no hay boleto vivo). El backend valida igual.
+  const puedeRetomarPago = orden.estado === 'pendiente' && orden.metodo_pago === 'mercadopago';
+
+  const retomarPago = async () => {
+    setPagando(true);
+    setErrorPago('');
+    try {
+      const { data } = await api.post(`/pagos/${orden.id}/preferencia-mp`);
+      window.location.href = data.init_point;
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setErrorPago(e?.response?.data?.message ?? 'No pudimos generar el pago. Probá de nuevo en un rato.');
+      setPagando(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -148,6 +166,22 @@ function DetallePedido({ id }: { id: string }) {
         <h2 className="text-lg font-medium">Pedido #{orden.id.slice(0, 8).toUpperCase()}</h2>
         <EstadoBadge estado={orden.estado} />
       </div>
+
+      {puedeRetomarPago && (
+        <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-amber-900">Este pedido está esperando tu pago.</span>
+            <button
+              onClick={retomarPago}
+              disabled={pagando}
+              className="bg-[#1D9E75] text-white rounded-lg py-2 px-4 text-sm font-medium hover:bg-[#0F6E56] transition-colors disabled:opacity-50 flex-shrink-0"
+            >
+              {pagando ? 'Redirigiendo…' : 'Pagar ahora'}
+            </button>
+          </div>
+          {errorPago && <span className="text-xs text-red-600">{errorPago}</span>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 flex flex-col gap-4">

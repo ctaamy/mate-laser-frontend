@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Shield, ArrowLeft } from 'lucide-react';
+import { Shield, ArrowLeft, CheckCircle } from 'lucide-react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import type { Orden } from '../types';
 import CheckoutSteps from '../components/ui/CheckoutSteps';
+
+// Estados desde los que todavía tiene sentido mostrar el formulario de pago.
+const ESTADOS_PAGABLES = ['pendiente', 'reservado', 'esperando_confirmacion'];
 
 // Tipos del SDK de Mercado Pago
 declare global {
@@ -22,6 +25,7 @@ export default function Pago() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const limpiar = useCarritoStore(s => s.limpiar);
+  const items = useCarritoStore(s => s.items);
   const brickRef = useRef<{ unmount: () => void } | null>(null);
   const brickWrapperRef = useRef<HTMLDivElement>(null);
   const brickCreatedRef = useRef(false);
@@ -30,11 +34,14 @@ export default function Pago() {
   const [error, setError] = useState('');
 
 
-  const { data: orden } = useQuery<Orden>({
+  const { data: orden, isLoading } = useQuery<Orden>({
     queryKey: ['orden-pago', id],
     queryFn: () => api.get(`/ordenes/${id}`).then(r => r.data),
     enabled: !!id,
   });
+
+  const esPagable = !!orden && ESTADOS_PAGABLES.includes(orden.estado);
+  const yaPago = !!orden && (orden.estado === 'pagado' || orden.pagos?.[0]?.estado === 'aprobado');
 
   // Cargar SDK de MP
   useEffect(() => {
@@ -48,7 +55,7 @@ export default function Pago() {
 
   // Montar el Brick cuando SDK y preference estén listos
   useEffect(() => {
-    if (!sdkReady || brickCreatedRef.current || !orden) return;
+    if (!sdkReady || brickCreatedRef.current || !orden || !esPagable) return;
     brickCreatedRef.current = true;
 
     const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY as string;
@@ -132,20 +139,69 @@ export default function Pago() {
       brickRef.current = null;
       containerEl.remove();
     };
-  }, [sdkReady, orden, id, navigate]);
+  }, [sdkReady, orden, id, navigate, esPagable]);
+
+  // Orden que ya no admite pago (retomada desde el mail o MiCuenta cuando ya
+  // se pagó / se canceló / avanzó): no montamos el Brick, mostramos el estado.
+  if (orden && !esPagable) {
+    return (
+      <div className="flujo-compra max-w-2xl mx-auto px-4 sm:px-6 py-16 flex flex-col items-center gap-4 text-center">
+        {yaPago ? (
+          <>
+            <CheckCircle size={36} className="text-[#1D9E75]" />
+            <h2 className="text-base font-medium">Este pedido ya está pago</h2>
+            <Link to={`/confirmacion/${id}`} className="bg-black text-white px-6 py-2.5 text-sm font-medium hover:bg-black/80 transition-colors">
+              Ver mi pedido
+            </Link>
+          </>
+        ) : (
+          <>
+            <h2 className="text-base font-medium text-black/60">Este pedido ya no se puede pagar</h2>
+            <p className="text-sm text-black/40 max-w-sm">
+              Puede que se haya cancelado o que ya esté en preparación. Escribinos por WhatsApp si tenés dudas.
+            </p>
+            <Link to="/" className="bg-black text-white px-6 py-2.5 text-sm font-medium hover:bg-black/80 transition-colors">
+              Volver al inicio
+            </Link>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (!isLoading && !orden) {
+    return (
+      <div className="flujo-compra max-w-2xl mx-auto px-4 sm:px-6 py-16 flex flex-col items-center gap-4 text-center">
+        <h2 className="text-base font-medium text-black/60">No encontramos este pedido</h2>
+        <Link to="/" className="bg-black text-white px-6 py-2.5 text-sm font-medium hover:bg-black/80 transition-colors">
+          Volver al inicio
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flujo-compra max-w-2xl mx-auto px-4 sm:px-6 py-10">
 
       <CheckoutSteps current={2} />
 
-      {/* VOLVER */}
-      <button
-        onClick={() => navigate('/checkout')}
-        className="flex items-center gap-2 text-xs text-black/35 hover:text-black transition-colors mb-6"
-      >
-        <ArrowLeft size={12} /> Volver y cambiar método de pago
-      </button>
+      {/* VOLVER — "cambiar método" solo tiene sentido si venís del checkout
+          (carrito con ítems); retomando desde el mail, el carrito está vacío. */}
+      {items.length > 0 ? (
+        <button
+          onClick={() => navigate('/checkout')}
+          className="flex items-center gap-2 text-xs text-black/35 hover:text-black transition-colors mb-6"
+        >
+          <ArrowLeft size={12} /> Volver y cambiar método de pago
+        </button>
+      ) : (
+        <Link
+          to="/"
+          className="flex items-center gap-2 text-xs text-black/35 hover:text-black transition-colors mb-6 w-fit"
+        >
+          <ArrowLeft size={12} /> Volver al inicio
+        </Link>
+      )}
 
       {/* RESUMEN ORDEN */}
       {orden && (

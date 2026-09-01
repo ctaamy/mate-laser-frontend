@@ -24,3 +24,20 @@ test('montar /pago/:id NO dispara POST a /preferencia-mp', async ({ page }) => {
     'Pago.tsx no debe llamar a preferencia-mp al montar — el Brick no usa preferenceId',
   ).toHaveLength(0);
 });
+
+// M2: /pago/:id retomado (del mail o MiCuenta) para una orden que ya no admite
+// pago no debe montar el Brick — muestra el estado.
+test('/pago/:id de una orden ya pagada muestra "ya está pago", sin Brick', async ({ page }) => {
+  await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+  await page.route('**/api/v1/ordenes/orden-pagada-1', (route) =>
+    route.fulfill({
+      json: { id: 'orden-pagada-1', estado: 'pagado', total: 9000, direccion_envio: {}, items_orden: [], pagos: [{ estado: 'aprobado' }] },
+    }),
+  );
+
+  await page.goto('/pago/orden-pagada-1');
+
+  await expect(page.getByText(/este pedido ya está pago/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /ver mi pedido/i })).toBeVisible();
+  await expect(page.getByText(/formulario de pago/i)).toHaveCount(0);
+});
