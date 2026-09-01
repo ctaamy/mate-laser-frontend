@@ -128,9 +128,6 @@ export default function Carrito() {
       }
     } finally {
       setAplicandoCupon(false);
-      // Ya sea que se aplicó o falló con aviso, no seguimos ofreciendo el
-      // mismo código pendiente (el mensaje resultante ya quedó a la vista).
-      if (codigoArg) limpiarCuponPendiente();
     }
   };
 

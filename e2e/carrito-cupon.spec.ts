@@ -282,4 +282,59 @@ test.describe('Cupón pendiente (?cupon=)', () => {
     await expect(page.getByText(/Tenés un cupón listo/)).toHaveCount(0);
     await expect(page.getByText(/Descuento \(/)).toHaveCount(0);
   });
+
+  // Regresión B3: aplicar el cupón pendiente y que falle (p. ej. no llega al
+  // monto mínimo) NO debe borrar el pendiente — antes el banner desaparecía y,
+  // como ?cupon= ya se sacó de la URL, el código quedaba irrecuperable.
+  test('si falla al aplicarlo, el banner del cupón pendiente NO desaparece', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await page.route('**/api/v1/cupones/validar', (route) =>
+      route.fulfill({
+        status: 400,
+        json: { message: 'El monto mínimo para este cupón es $20000' },
+      }),
+    );
+
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito?cupon=MATE20');
+
+    const banner = page.getByText(/Tenés un cupón listo/);
+    await expect(banner).toBeVisible();
+
+    await page.getByRole('button', { name: 'Aplicar cupón pendiente' }).click();
+
+    await expect(page.getByText(/monto mínimo/i)).toBeVisible();
+    await expect(banner).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Aplicar cupón pendiente' })).toBeVisible();
+  });
+
+  test('falla por monto mínimo, se suman productos y recién ahí se aplica', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await page.route('**/api/v1/cupones/validar', (route) => {
+      const body = route.request().postDataJSON() as { items?: { precio_unitario: number; cantidad: number }[] };
+      const sub = (body.items ?? []).reduce((a, i) => a + i.precio_unitario * i.cantidad, 0);
+      if (sub < 12000) {
+        return route.fulfill({ status: 400, json: { message: 'El monto mínimo para este cupón es $12000' } });
+      }
+      return route.fulfill({ json: CUPON });
+    });
+
+    await agregarProductoAlCarrito(page); // 1 × $8.000
+    await page.goto('/carrito?cupon=MATE20');
+
+    const banner = page.getByText(/Tenés un cupón listo/);
+    await page.getByRole('button', { name: 'Aplicar cupón pendiente' }).click();
+    await expect(page.getByText(/monto mínimo/i)).toBeVisible();
+    await expect(banner).toBeVisible();
+
+    // Sumo otra unidad → subtotal $16.000, ya supera el mínimo.
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito');
+    await expect(banner).toBeVisible();
+    await expect(page.getByText(/monto mínimo/i)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Aplicar cupón pendiente' }).click();
+    await expect(page.getByText(/Descuento \(MATE20\)/)).toBeVisible();
+    await expect(banner).toHaveCount(0);
+  });
 });
