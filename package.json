@@ -11,6 +11,7 @@
     "test:e2e": "playwright test --project=chromium",
     "test:visual": "playwright test --project=visual",
     "test:visual:update": "playwright test --project=visual --update-snapshots",
+    "test:smoke": "playwright test --config=playwright.smoke.config.ts",
     "start": "serve -s dist -l $PORT"
   },
   "dependencies": {
