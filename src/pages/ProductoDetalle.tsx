@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, Truck, Shield, MessageCircle, ChevronRight, Minus, Plus, Zap } from 'lucide-react';
@@ -40,6 +40,21 @@ export default function ProductoDetalle() {
   const envioGratisConfirmado =
     config?.envio_gratis_activo === 'true' && Number.isFinite(montoEnvioGratis) && montoEnvioGratis > 0;
 
+  // Tipos de opción con un único valor: no son una elección real. Se
+  // autoseleccionan al cargar para no bloquear precio/stock/CTA sin motivo
+  // (caso típico: "Bombilla" con una sola variante).
+  useEffect(() => {
+    const tipos = producto?.tipos_opcion;
+    if (!tipos?.length) return;
+    const faltan = tipos.filter((t) => t.valores.length === 1 && !valoresSeleccionados[t.id]);
+    if (!faltan.length) return;
+    setValoresSeleccionados((prev) => {
+      const next = { ...prev };
+      for (const t of faltan) next[t.id] = t.valores[0].id;
+      return next;
+    });
+  }, [producto, valoresSeleccionados]);
+
 
   if (isLoading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -58,7 +73,12 @@ export default function ProductoDetalle() {
   const precioBaseProducto = Number(producto.precio_base);
 
   const imagenes = producto.imagenes_producto ?? [];
-  const tiposOpcion = producto.tipos_opcion ?? [];
+  // El backend ya devuelve tipos y valores ordenados por `orden` (findOne en
+  // productos.service.ts). Este sort es defensivo: que el componente no dependa
+  // en silencio del orden de la API.
+  const tiposOpcion = [...(producto.tipos_opcion ?? [])]
+    .sort((a, b) => a.orden - b.orden)
+    .map((t) => ({ ...t, valores: [...t.valores].sort((x, y) => x.orden - y.orden) }));
   const variantes = producto.variantes_producto ?? [];
   const tieneVariantes = tiposOpcion.length > 0;
 
@@ -77,14 +97,67 @@ export default function ProductoDetalle() {
   const disponible = fuenteStock.disponible ?? false;
   const pocasUnidades = fuenteStock.pocas_unidades ?? false;
   const cantidadMaxima = fuenteStock.cantidad_maxima ?? 0;
-  const imagenVariante = varianteSeleccionada?.imagenes_producto;
   const puedeAgregar = disponible && (!tieneVariantes || !!varianteSeleccionada);
+
+  // Imagen a mostrar: la de la variante resuelta; y si todavía es una selección
+  // parcial, la de la primera variante compatible que tenga imagen (preferimos
+  // una con stock). Da feedback visual antes de completar la combinación.
+  const seleccionParcial = !varianteSeleccionada && Object.keys(valoresSeleccionados).length > 0;
+  const matchImagenParcial = (soloConStock: boolean) =>
+    variantes.find((v) => {
+      if (!v.imagenes_producto) return false;
+      if (soloConStock && !(v.disponible ?? false)) return false;
+      const ids = new Set((v.variante_valores ?? []).map((vv) => vv.valor_opcion_id));
+      return Object.values(valoresSeleccionados).every((id) => ids.has(id));
+    });
+  const imagenVariante =
+    varianteSeleccionada?.imagenes_producto ??
+    (seleccionParcial
+      ? (matchImagenParcial(true) ?? matchImagenParcial(false))?.imagenes_producto
+      : undefined);
 
   const varianteDescripcion = varianteSeleccionada
     ? tiposOpcion
         .map((t) => `${t.nombre}: ${t.valores.find((v) => v.id === valoresSeleccionados[t.id])?.valor}`)
         .join(' / ')
     : undefined;
+
+  // Tipos que todavía no tienen un valor elegido, para mensajes accionables
+  // ("Elegí color y bombilla") en vez de un genérico "seleccioná una opción".
+  const tiposFaltantes = tiposOpcion.filter((t) => !valoresSeleccionados[t.id]);
+  const listarNombres = (xs: string[]) =>
+    xs.length <= 1 ? xs[0] ?? '' : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`;
+  const faltanNombres = listarNombres(tiposFaltantes.map((t) => t.nombre.toLowerCase()));
+  // Único caso que no tiene ya su propia línea visible: falta elegir opciones.
+  // Los otros ("sin stock", "combinación no disponible") los cubre la línea de
+  // stock / el texto bajo el selector.
+  const motivoNoAgregar =
+    tieneVariantes && !varianteSeleccionada && tiposFaltantes.length > 0
+      ? `Elegí ${faltanNombres} para continuar`
+      : '';
+
+  // ── Disponibilidad por valor (Fase 2) ──
+  // Para cada valor de cada tipo, decidir si combinándolo con lo ya elegido en
+  // los OTROS tipos existe al menos una variante con stock. Los que no, se
+  // marcan y deshabilitan. Salvaguarda: si TODOS los valores de un tipo
+  // quedarían deshabilitados, no se marca ninguno (así el tipo nunca queda sin
+  // opción clickeable y no se llega a un callejón sin salida, dado que en Fase 1
+  // el selector dejó de permitir deseleccionar).
+  const idsDeVariante = (v: (typeof variantes)[number]) =>
+    new Set((v.variante_valores ?? []).map((vv) => vv.valor_opcion_id));
+  const variantesConStock = variantes.filter((v) => v.disponible ?? false);
+  const valorAlcanzable = (tipoId: string, valorId: string) => {
+    const requeridos = Object.values({ ...valoresSeleccionados, [tipoId]: valorId });
+    return variantesConStock.some((v) => {
+      const ids = idsDeVariante(v);
+      return requeridos.every((id) => ids.has(id));
+    });
+  };
+  const valoresSinStock = new Set<string>();
+  for (const tipo of tiposOpcion) {
+    const sin = tipo.valores.filter((val) => !valorAlcanzable(tipo.id, val.id));
+    if (sin.length < tipo.valores.length) sin.forEach((val) => valoresSinStock.add(val.id));
+  }
 
   // Precio efectivo de una variante: su precio_override si tiene uno, si no el
   // precio_base del producto (mismo criterio que el backend).
@@ -104,6 +177,26 @@ export default function ProductoDetalle() {
   const hayDispersionPrecio = new Set(preciosComprables).size > 1;
   const precioDesde = preciosComprables.length ? Math.min(...preciosComprables) : precioBaseProducto;
   const mostrarDesde = tieneVariantes && !varianteSeleccionada && hayDispersionPrecio;
+
+  // Delta de precio por valor (solo si hay dispersión): si TODAS las variantes
+  // con stock que combinan ese valor con lo ya elegido comparten un mismo
+  // precio efectivo distinto del base, se muestra "+$X" / "−$X" junto al valor.
+  // Si es ambiguo (varios precios posibles), no se muestra nada.
+  const deltaPrecioValor = (tipoId: string, valorId: string): number | null => {
+    if (!hayDispersionPrecio) return null;
+    const requeridos = Object.values({ ...valoresSeleccionados, [tipoId]: valorId });
+    const precios = new Set(
+      variantesConStock
+        .filter((v) => {
+          const ids = idsDeVariante(v);
+          return requeridos.every((id) => ids.has(id));
+        })
+        .map(precioDeVariante),
+    );
+    if (precios.size !== 1) return null;
+    const delta = [...precios][0] - precioBaseProducto;
+    return delta !== 0 ? delta : null;
+  };
 
   const precioFinal =
     (mostrarDesde ? precioDesde : precioVariante) + (quierePersonalizar ? costoGrabado : 0);
@@ -285,8 +378,8 @@ export default function ProductoDetalle() {
             {tieneVariantes && (
               <div className="flex flex-col gap-4">
                 {tiposOpcion.map((tipo) => (
-                  <div key={tipo.id}>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35 mb-2">
+                  <div key={tipo.id} role="group" aria-labelledby={`opt-${tipo.id}`}>
+                    <p id={`opt-${tipo.id}`} className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35 mb-2">
                       {tipo.nombre}
                       {valoresSeleccionados[tipo.id] && (
                         <span className="text-black">
@@ -298,37 +391,52 @@ export default function ProductoDetalle() {
                     <div className="flex flex-wrap gap-2">
                       {tipo.valores.map((valor) => {
                         const elegido = valoresSeleccionados[tipo.id] === valor.id;
+                        const sinStock = !elegido && valoresSinStock.has(valor.id);
+                        const delta = sinStock ? null : deltaPrecioValor(tipo.id, valor.id);
                         return (
                           <button
                             key={valor.id}
                             aria-pressed={elegido}
-                            onClick={() =>
-                              setValoresSeleccionados((prev) => {
-                                // Segundo click sobre el valor ya elegido: lo deselecciona.
-                                const siguiente = { ...prev };
-                                if (siguiente[tipo.id] === valor.id) delete siguiente[tipo.id];
-                                else siguiente[tipo.id] = valor.id;
-                                return siguiente;
-                              })
-                            }
+                            aria-label={sinStock ? `${valor.valor} — sin stock para esta combinación` : undefined}
+                            disabled={sinStock}
+                            title={sinStock ? 'Sin stock para esta combinación' : undefined}
+                            onClick={() => {
+                              if (elegido) return; // selector obligatorio: no se deselecciona
+                              setCantidad(1);
+                              setValoresSeleccionados((prev) => ({ ...prev, [tipo.id]: valor.id }));
+                            }}
                             className={`px-3 py-1.5 text-xs font-medium border transition-colors ${
                               elegido
                                 ? 'border-black bg-black text-white'
-                                : 'border-black/15 text-black/60 hover:border-black/40'
+                                : sinStock
+                                  ? 'border-black/10 text-black/25 line-through cursor-not-allowed'
+                                  : 'border-black/15 text-black/60 hover:border-black/40'
                             }`}
                           >
                             {valor.valor}
+                            {delta != null && (
+                              <span className={`ml-1 ${elegido ? 'text-white/55' : 'text-black/35'}`}>
+                                {delta > 0 ? '+' : '−'}${Math.abs(delta).toLocaleString('es-AR')}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
                     </div>
                   </div>
                 ))}
-                {!combinacionCompleta && (
-                  <p className="text-[11px] text-black/40">Elegí una opción de cada tipo para ver el stock disponible.</p>
+                {tiposFaltantes.length > 0 && (
+                  <p className="text-[11px] text-black/40">
+                    Elegí {faltanNombres} para ver el stock y el precio.
+                  </p>
                 )}
-                {combinacionCompleta && !varianteSeleccionada && (
+                {tiposFaltantes.length === 0 && !varianteSeleccionada && (
                   <p className="text-[11px] text-black/40">Esa combinación todavía no está disponible.</p>
+                )}
+                {valoresSinStock.size > 0 && (
+                  <p className="text-[11px] text-black/40">
+                    Las opciones <span className="line-through">tachadas</span> no tienen stock para esta combinación.
+                  </p>
                 )}
               </div>
             )}
@@ -392,58 +500,67 @@ export default function ProductoDetalle() {
               </div>
             )}
 
-            {/* Stock */}
-            <div className="flex items-center gap-2 text-[11px] font-medium">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${disponible ? (pocasUnidades ? 'bg-amber-500' : 'bg-black') : 'bg-black/20'}`} />
-              <span className={disponible ? (pocasUnidades ? 'text-amber-600' : 'text-black/60') : 'text-black/25'}>
-                {!tieneVariantes || varianteSeleccionada
-                  ? disponible
+            {/* Stock — solo una vez que hay una variante resuelta (o el producto
+                no tiene variantes). Antes de eso, el mensaje bajo el selector
+                ("Elegí X para ver el stock y el precio") ya cubre el estado. */}
+            {(!tieneVariantes || varianteSeleccionada) && (
+              <div className="flex items-center gap-2 text-[11px] font-medium">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${disponible ? (pocasUnidades ? 'bg-amber-500' : 'bg-black') : 'bg-black/20'}`} />
+                <span className={disponible ? (pocasUnidades ? 'text-amber-600' : 'text-black/60') : 'text-black/25'}>
+                  {disponible
                     ? pocasUnidades
                       ? '¡Últimas unidades! · Entrega en 3–5 días hábiles'
                       : 'Stock disponible · Entrega en 3–5 días hábiles'
-                    : 'Sin stock disponible'
-                  : 'Seleccioná una opción para ver el stock'}
-              </span>
-            </div>
+                    : 'Sin stock disponible'}
+                </span>
+              </div>
+            )}
 
             {/* Cantidad + agregar — sticky al borde inferior en mobile para
                 que el CTA quede siempre a mano sin scrollear hasta el fondo. */}
-            <div className="flex items-stretch gap-3 sticky bottom-0 z-20 bg-white py-3 -mx-4 px-4 border-t border-black/[0.08] sm:static sm:bg-transparent sm:py-0 sm:mx-0 sm:px-0 sm:border-0">
-              {/* Selector cantidad */}
-              <div className="flex items-center border border-black/15 min-h-[44px] sm:min-h-0">
-                <button onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                  className="w-10 sm:w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
-                  <Minus size={12} />
-                </button>
-                <span className="w-8 text-center text-sm font-semibold text-black select-none">{cantidad}</span>
-                <button onClick={() => setCantidad(Math.min(cantidadMaxima, cantidad + 1))}
-                  className="w-10 sm:w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
-                  <Plus size={12} />
-                </button>
-              </div>
+            <div className="flex flex-col gap-2 sticky bottom-0 z-20 bg-white py-3 -mx-4 px-4 border-t border-black/[0.08] sm:static sm:bg-transparent sm:py-0 sm:mx-0 sm:px-0 sm:border-0">
+              {/* Motivo por el que el CTA está bloqueado, pegado al botón. */}
+              {!puedeAgregar && motivoNoAgregar && (
+                <p className="text-[11px] font-medium text-black/45">{motivoNoAgregar}</p>
+              )}
 
-              {/* Botón agregar */}
-              <motion.button
-                onClick={handleAgregar}
-                disabled={!puedeAgregar}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 sm:py-0 text-sm font-bold uppercase tracking-[0.08em] transition-colors disabled:opacity-30"
-                style={{ backgroundColor: agregado ? '#111' : '#111', color: '#fff' }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <AnimatePresence mode="wait">
-                  {agregado ? (
-                    <motion.span key="ok" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="flex items-center gap-2">
-                      ✓ Agregado
-                    </motion.span>
-                  ) : (
-                    <motion.span key="add" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="flex items-center gap-2">
-                      <ShoppingCart size={14} /> Agregar al carrito
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
+              <div className="flex items-stretch gap-3">
+                {/* Selector cantidad — inerte hasta que haya una variante con stock. */}
+                <div className={`flex items-center border border-black/15 min-h-[44px] sm:min-h-0 transition-opacity ${puedeAgregar ? '' : 'opacity-40 pointer-events-none'}`}>
+                  <button aria-label="Restar una unidad" disabled={!puedeAgregar} onClick={() => setCantidad(Math.max(1, cantidad - 1))}
+                    className="w-10 sm:w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
+                    <Minus size={12} />
+                  </button>
+                  <span className="w-8 text-center text-sm font-semibold text-black select-none">{cantidad}</span>
+                  <button aria-label="Sumar una unidad" disabled={!puedeAgregar} onClick={() => setCantidad(Math.min(Math.max(1, cantidadMaxima), cantidad + 1))}
+                    className="w-10 sm:w-9 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors h-full">
+                    <Plus size={12} />
+                  </button>
+                </div>
+
+                {/* Botón agregar */}
+                <motion.button
+                  onClick={handleAgregar}
+                  disabled={!puedeAgregar}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 sm:py-0 text-sm font-bold uppercase tracking-[0.08em] transition-colors disabled:opacity-30"
+                  style={{ backgroundColor: agregado ? '#111' : '#111', color: '#fff' }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <AnimatePresence mode="wait">
+                    {agregado ? (
+                      <motion.span key="ok" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        className="flex items-center gap-2">
+                        ✓ Agregado
+                      </motion.span>
+                    ) : (
+                      <motion.span key="add" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="flex items-center gap-2">
+                        <ShoppingCart size={14} /> Agregar al carrito
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+              </div>
             </div>
 
             <div className="h-px bg-black/[0.07]" />

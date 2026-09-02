@@ -78,7 +78,7 @@ test.describe('Selector de variantes en producto', () => {
     await mockProducto(page);
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
 
-    await expect(page.getByText('Seleccioná una opción para ver el stock')).toBeVisible();
+    await expect(page.getByText('Elegí color para ver el stock y el precio.')).toBeVisible();
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
   });
 
@@ -93,7 +93,7 @@ test.describe('Selector de variantes en producto', () => {
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
   });
 
-  test('volver a tocar el valor ya elegido lo deselecciona', async ({ page }) => {
+  test('volver a tocar el valor ya elegido lo mantiene (selector obligatorio, no se deselecciona)', async ({ page }) => {
     await mockProducto(page);
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
 
@@ -103,20 +103,49 @@ test.describe('Selector de variantes en producto', () => {
     await expect(page.getByText('· Natural')).toBeVisible();
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
 
-    // Segundo click sobre el mismo valor: limpia la selección.
+    // Segundo click sobre el mismo valor: no hace nada, la selección se mantiene.
     await btnNatural.click();
-    await expect(page.getByText('· Natural')).not.toBeVisible();
-    await expect(page.getByText('Seleccioná una opción para ver el stock')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
+    await expect(page.getByText('· Natural')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
   });
 
-  test('seleccionar una variante sin stock: mantiene el botón deshabilitado', async ({ page }) => {
+  test('tipo de opción con un único valor: se autoselecciona y no bloquea el CTA', async ({ page }) => {
+    const TIPO_BOMBILLA = {
+      id: 'tipo-bombilla', producto_id: PRODUCTO_MOCK.id, nombre: 'Bombilla', orden: 0,
+      valores: [{ id: 'valor-pico', tipo_opcion_id: 'tipo-bombilla', valor: 'Pico de loro', orden: 0 }],
+    };
+    const VARIANTE_UNICA = {
+      id: 'variante-unica', producto_id: PRODUCTO_MOCK.id, disponible: true, pocas_unidades: false,
+      cantidad_maxima: 4, activo: true,
+      variante_valores: [{ variante_id: 'variante-unica', valor_opcion_id: 'valor-pico', valores_opcion: { ...TIPO_BOMBILLA.valores[0], tipos_opcion: TIPO_BOMBILLA } }],
+    };
+    await mockProducto(page, { tipos_opcion: [TIPO_BOMBILLA], variantes_producto: [VARIANTE_UNICA] });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await expect(page.getByText('Stock disponible')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
+    await expect(page.getByText(/para ver el stock/)).not.toBeVisible();
+  });
+
+  test('la cantidad queda deshabilitada hasta elegir una variante con stock', async ({ page }) => {
     await mockProducto(page);
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
 
-    await page.getByRole('button', { name: 'Negro' }).click();
+    await expect(page.getByRole('button', { name: 'Sumar una unidad' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Restar una unidad' })).toBeDisabled();
 
-    await expect(page.getByText('Sin stock disponible')).toBeVisible();
+    await page.getByRole('button', { name: 'Natural' }).click();
+
+    await expect(page.getByRole('button', { name: 'Sumar una unidad' })).toBeEnabled();
+  });
+
+  test('un valor sin stock aparece deshabilitado y tachado, y no se puede agregar', async ({ page }) => {
+    await mockProducto(page);
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    const negro = page.getByRole('button', { name: 'Negro' });
+    await expect(negro).toBeDisabled();
+    await expect(negro).toHaveClass(/line-through/);
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
   });
 
@@ -139,6 +168,69 @@ test.describe('Selector de variantes en producto', () => {
   });
 });
 
+test.describe('Disponibilidad por opción (Fase 2)', () => {
+  const TIPO_MEDIDA = {
+    id: 'tipo-medida', producto_id: PRODUCTO_MOCK.id, nombre: 'Medida', orden: 1,
+    valores: [
+      { id: 'valor-chico', tipo_opcion_id: 'tipo-medida', valor: 'Chico', orden: 0 },
+      { id: 'valor-grande', tipo_opcion_id: 'tipo-medida', valor: 'Grande', orden: 1 },
+    ],
+  };
+  const vv = (varianteId: string, tipo: any, idx: number) => ({
+    variante_id: varianteId, valor_opcion_id: tipo.valores[idx].id,
+    valores_opcion: { ...tipo.valores[idx], tipos_opcion: tipo },
+  });
+  const mkVariante = (id: string, colorIdx: number, medidaIdx: number, disponible: boolean) => ({
+    id, producto_id: PRODUCTO_MOCK.id, disponible, pocas_unidades: false,
+    cantidad_maxima: disponible ? 5 : 0, activo: true,
+    variante_valores: [vv(id, TIPO_COLOR, colorIdx), vv(id, TIPO_MEDIDA, medidaIdx)],
+  });
+
+  test('elegir un valor deshabilita las opciones de otro tipo sin stock para esa combinación', async ({ page }) => {
+    await mockProducto(page, {
+      tipos_opcion: [TIPO_COLOR, TIPO_MEDIDA],
+      variantes_producto: [
+        mkVariante('v-nat-chico', 0, 0, true),
+        mkVariante('v-nat-grande', 0, 1, false),
+        mkVariante('v-neg-chico', 1, 0, false),
+        mkVariante('v-neg-grande', 1, 1, true),
+      ],
+    });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    const grande = page.getByRole('button', { name: 'Grande' });
+    await expect(grande).toBeEnabled(); // sin nada elegido, Negro+Grande tiene stock
+
+    await page.getByRole('button', { name: 'Natural' }).click();
+
+    await expect(grande).toBeDisabled(); // Natural+Grande no tiene stock
+    await expect(grande).toHaveClass(/line-through/);
+    await expect(page.getByRole('button', { name: 'Chico' })).toBeEnabled();
+
+    // Leyenda visible (el title no se ve en touch) + a11y en el botón.
+    await expect(page.getByText('no tienen stock para esta combinación')).toBeVisible();
+    await expect(grande).toHaveAttribute('aria-label', 'Grande — sin stock para esta combinación');
+  });
+
+  test('salvaguarda: si ningún valor de un tipo tiene stock, no se deshabilita ninguno', async ({ page }) => {
+    await mockProducto(page, {
+      variantes_producto: [
+        { ...VARIANTE_NATURAL, disponible: false, cantidad_maxima: 0 },
+        { ...VARIANTE_NEGRO, disponible: false, cantidad_maxima: 0 },
+      ],
+    });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await expect(page.getByRole('button', { name: 'Natural' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Negro' })).toBeEnabled();
+
+    // Igual no se puede comprar: al elegir, la línea de stock lo deja claro.
+    await page.getByRole('button', { name: 'Natural' }).click();
+    await expect(page.getByText('Sin stock disponible')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
+  });
+});
+
 test.describe('Precio por variante en la PDP', () => {
   // Natural sin precio propio (usa el base $8.000), Negro con precio_override
   // $12.000. Ambas con stock → hay dispersión de precio.
@@ -154,6 +246,14 @@ test.describe('Precio por variante en la PDP', () => {
     await expect(page.getByText('Desde', { exact: true })).toBeVisible();
     await expect(precioGrande(page)).toHaveText('$8.000');
     await expect(page.getByText('El precio final depende de las opciones que elijas.')).toBeVisible();
+  });
+
+  test('con dispersión de precio, el valor de opción muestra su "+$X" cuando es inequívoco', async ({ page }) => {
+    await mockProducto(page, { variantes_producto: [VARIANTE_NATURAL, NEGRO_CARO] });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await expect(page.getByRole('button', { name: 'Negro' })).toContainText('+$4.000');
+    await expect(page.getByRole('button', { name: 'Natural', exact: true })).not.toContainText('$');
   });
 
   test('elegir la variante con precio propio: muestra ese precio y el contexto, y va al carrito', async ({ page }) => {
@@ -211,5 +311,50 @@ test.describe('Precio por variante en la PDP', () => {
 
     await expect(page.getByText('Desde', { exact: true })).not.toBeVisible();
     await expect(precioGrande(page)).toHaveText('$8.000');
+  });
+});
+
+test.describe('Imagen en selección parcial (Fase 3)', () => {
+  const IMG_GENERICA = { id: 'img-gen', producto_id: PRODUCTO_MOCK.id, url: 'https://example.com/generica.png', orden: 0, es_principal: true };
+
+  const TIPO_MEDIDA = {
+    id: 'tipo-medida', producto_id: PRODUCTO_MOCK.id, nombre: 'Medida', orden: 1,
+    valores: [
+      { id: 'valor-chico', tipo_opcion_id: 'tipo-medida', valor: 'Chico', orden: 0 },
+      { id: 'valor-grande', tipo_opcion_id: 'tipo-medida', valor: 'Grande', orden: 1 },
+    ],
+  };
+  const vv = (varianteId: string, tipo: any, idx: number) => ({
+    variante_id: varianteId, valor_opcion_id: tipo.valores[idx].id,
+    valores_opcion: { ...tipo.valores[idx], tipos_opcion: tipo },
+  });
+
+  // Natural + Chico trae su propia imagen; el resto no.
+  const V_NAT_CHICO = {
+    id: 'v-nat-chico', producto_id: PRODUCTO_MOCK.id, disponible: true, pocas_unidades: false,
+    cantidad_maxima: 5, activo: true, imagen_id: 'img-natural', imagenes_producto: IMG_NATURAL,
+    variante_valores: [vv('v-nat-chico', TIPO_COLOR, 0), vv('v-nat-chico', TIPO_MEDIDA, 0)],
+  };
+  const V_NAT_GRANDE = {
+    id: 'v-nat-grande', producto_id: PRODUCTO_MOCK.id, disponible: true, pocas_unidades: false,
+    cantidad_maxima: 5, activo: true,
+    variante_valores: [vv('v-nat-grande', TIPO_COLOR, 0), vv('v-nat-grande', TIPO_MEDIDA, 1)],
+  };
+
+  const imagenPrincipal = (page: import('@playwright/test').Page) => page.locator('img.absolute').last();
+
+  test('con una sola opción elegida (combo incompleto) ya muestra la imagen de una variante compatible', async ({ page }) => {
+    await mockProducto(page, {
+      imagenes_producto: [IMG_GENERICA],
+      tipos_opcion: [TIPO_COLOR, TIPO_MEDIDA],
+      variantes_producto: [V_NAT_CHICO, V_NAT_GRANDE],
+    });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await expect(imagenPrincipal(page)).toHaveAttribute('src', 'https://example.com/generica.png');
+
+    await page.getByRole('button', { name: 'Natural' }).click(); // Medida sigue sin elegir
+
+    await expect(imagenPrincipal(page)).toHaveAttribute('src', 'https://example.com/natural.png');
   });
 });
