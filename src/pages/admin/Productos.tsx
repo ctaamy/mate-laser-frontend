@@ -461,7 +461,18 @@ export default function AdminProductos() {
 
               {/* ── Tab VARIANTES ── */}
               {tabModal === 'variantes' && productoEditando && (
-                <VariantesTab productoId={productoEditando.id} precioBase={Number(productoEditando.precio_base)} imagenesProducto={imagenesProducto ?? []} />
+                <VariantesTab
+                  productoId={productoEditando.id}
+                  precioBase={Number(productoEditando.precio_base)}
+                  imagenesProducto={imagenesProducto ?? []}
+                  stockProducto={productoEditando.stock ?? 0}
+                  stockCompartido={!!productoEditando.stock_compartido}
+                  onProductoActualizado={({ stock_compartido, stock }) => {
+                    setProductoEditando(prev => (prev ? { ...prev, stock_compartido, stock } : prev));
+                    setForm(f => ({ ...f, stock: stock.toString() }));
+                    queryClient.invalidateQueries({ queryKey: ['admin-productos-lista'] });
+                  }}
+                />
               )}
 
               {/* ── Tab DATOS ── */}
@@ -522,13 +533,21 @@ export default function AdminProductos() {
                   <input className={inputClass} type="number" value={form.precio_tachado} onChange={e => setForm(f => ({ ...f, precio_tachado: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-xs text-[var(--ink-soft)] mb-1 block">Stock</label>
+                  <label className="text-xs text-[var(--ink-soft)] mb-1 block">
+                    Stock{productoEditando?.stock_compartido && ' (único de las variantes)'}
+                  </label>
                   <input className={inputClass} type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-xs text-[var(--ink-soft)] mb-1 block">Alerta de stock bajo</label>
                   <input className={inputClass} type="number" value={form.stock_alerta} onChange={e => setForm(f => ({ ...f, stock_alerta: e.target.value }))} />
                 </div>
+                {productoEditando?.stock_compartido && (
+                  <p className="col-span-2 text-[11px] text-[var(--ink-soft)] -mt-1">
+                    Este número es el stock compartido por todas las variantes. Se activa y se
+                    reparte desde la pestaña Variantes.
+                  </p>
+                )}
               </div>
 
               <div className="text-xs font-medium text-[var(--ink-soft)] uppercase tracking-wider">Características</div>

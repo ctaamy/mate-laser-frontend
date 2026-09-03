@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, X, Trash2, Shuffle } from 'lucide-react';
+import { Plus, X, Trash2, Shuffle, Layers } from 'lucide-react';
 import api from '../../lib/api';
 import type { TipoOpcion, VarianteProducto, ImagenProducto } from '../../types';
 
@@ -8,6 +8,11 @@ interface VariantesTabProps {
   productoId: string;
   precioBase: number;
   imagenesProducto: ImagenProducto[];
+  /** Stock del producto — en modo compartido es el pool único de las variantes. */
+  stockProducto: number;
+  stockCompartido: boolean;
+  /** Aviso al padre para refrescar el producto tras prender/apagar el stock único. */
+  onProductoActualizado: (patch: { stock_compartido: boolean; stock: number }) => void;
 }
 
 interface PlanSync {
@@ -18,13 +23,30 @@ interface PlanSync {
   no_resueltas: { id: string; motivo: string }[];
 }
 
-export default function VariantesTab({ productoId, precioBase, imagenesProducto }: VariantesTabProps) {
+interface RepartoDesactivar {
+  stock: number;
+  pool: number;
+  reparto: { variante_id: string; descripcion: string; stock: number }[];
+}
+
+export default function VariantesTab({
+  productoId,
+  precioBase,
+  imagenesProducto,
+  stockProducto,
+  stockCompartido,
+  onProductoActualizado,
+}: VariantesTabProps) {
   const queryClient = useQueryClient();
   const [nuevoTipoNombre, setNuevoTipoNombre] = useState('');
   const [nuevoTipoValores, setNuevoTipoValores] = useState('');
   const [planSync, setPlanSync] = useState<PlanSync | null>(null);
   const [nuevoValorPorTipo, setNuevoValorPorTipo] = useState<Record<string, string>>({});
   const [verInactivas, setVerInactivas] = useState(false);
+  // Gate inline (estilo planSync) para prender/apagar el stock único.
+  const [gateStock, setGateStock] = useState<'activar' | 'desactivar' | null>(null);
+  const [totalInput, setTotalInput] = useState('');
+  const [repartoPreview, setRepartoPreview] = useState<RepartoDesactivar | null>(null);
 
   const { data: tiposOpcion } = useQuery<TipoOpcion[]>({
     queryKey: ['opciones-producto', productoId],
@@ -108,6 +130,41 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
     onSuccess: invalidar,
   });
 
+  const cerrarGateStock = () => {
+    setGateStock(null);
+    setTotalInput('');
+    setRepartoPreview(null);
+  };
+
+  // Prende / apaga productos.stock_compartido de forma coordinada con el stock.
+  const stockCompartidoMutation = useMutation({
+    mutationFn: (body: { activar: boolean; stock_total?: number }) =>
+      api
+        .post(`/productos/${productoId}/variantes/stock-compartido`, body)
+        .then((r) => r.data as { stock_compartido: boolean; stock: number }),
+    onSuccess: (res) => {
+      cerrarGateStock();
+      onProductoActualizado({ stock_compartido: res.stock_compartido, stock: res.stock });
+      invalidar();
+    },
+  });
+
+  // Dry-run de la desactivación: trae el reparto exacto del pool entre las
+  // variantes para mostrarlo antes de confirmar.
+  const previewDesactivarMutation = useMutation({
+    mutationFn: () =>
+      api
+        .post(`/productos/${productoId}/variantes/stock-compartido?dry_run=true`, { activar: false })
+        .then((r) => r.data as RepartoDesactivar),
+    onSuccess: (data) => {
+      setRepartoPreview(data);
+      setGateStock('desactivar');
+    },
+  });
+
+  const totalNum = Number(totalInput);
+  const totalValido = totalInput.trim() !== '' && Number.isInteger(totalNum) && totalNum >= 0;
+
   // Borra de verdad una variante huérfana (sin opciones). El backend la desactiva
   // en vez de borrarla si está referenciada por ventas o por el configurador.
   const purgarVarianteMutation = useMutation({
@@ -157,17 +214,23 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
         <div className="flex gap-3 items-start">
           <div>
             <label className="text-[10px] text-gray-500 mb-1 block">Stock</label>
-            <input
-              type="number"
-              defaultValue={variante.stock}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-24 focus:outline-none focus:border-[#1D9E75]"
-              onBlur={e => {
-                const stock = parseInt(e.target.value);
-                if (!isNaN(stock) && stock !== variante.stock) {
-                  actualizarVarianteMutation.mutate({ id: variante.id, data: { stock } });
-                }
-              }}
-            />
+            {stockCompartido ? (
+              <p className="text-sm text-gray-700 pt-1.5 whitespace-nowrap">
+                {stockProducto} u. <span className="text-[10px] text-gray-400">· compartido</span>
+              </p>
+            ) : (
+              <input
+                type="number"
+                defaultValue={variante.stock}
+                className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-24 focus:outline-none focus:border-[#1D9E75]"
+                onBlur={e => {
+                  const stock = parseInt(e.target.value);
+                  if (!isNaN(stock) && stock !== variante.stock) {
+                    actualizarVarianteMutation.mutate({ id: variante.id, data: { stock } });
+                  }
+                }}
+              />
+            )}
           </div>
           <div>
             <label className="text-[10px] text-gray-500 mb-1 block">Precio propio</label>
@@ -377,6 +440,116 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
             </button>
           </div>
 
+          {/* Stock único para todas las variantes (feature "stock compartido"):
+              cuando las variantes son el mismo objeto en otra presentación. */}
+          <div className="border border-gray-200 rounded-lg px-3 py-2.5 mb-2 bg-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+                  <Layers size={12} /> Stock único para todas las variantes
+                </p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Activalo cuando las variantes son el mismo objeto en distinta presentación o
+                  precio (ej: "Con bombilla" / "Sin bombilla" del mismo mate). Todas descuentan del
+                  mismo stock. Dejalo apagado si cada variante es una unidad distinta (ej: negro /
+                  azul, una de cada).
+                </p>
+                {stockCompartido && !gateStock && (
+                  <p className="text-[11px] text-[#0F6E56] mt-1">
+                    Activado — {stockProducto} u. compartidas entre {variantesActivas.length} variante(s).
+                  </p>
+                )}
+              </div>
+              {!gateStock &&
+                (stockCompartido ? (
+                  <button
+                    onClick={() => previewDesactivarMutation.mutate()}
+                    disabled={previewDesactivarMutation.isPending}
+                    className="text-xs text-gray-500 hover:text-gray-700 flex-shrink-0 disabled:opacity-50"
+                  >
+                    Desactivar
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setTotalInput('');
+                      setGateStock('activar');
+                    }}
+                    className="text-xs text-[#1D9E75] hover:text-[#0F6E56] flex-shrink-0"
+                  >
+                    Activar
+                  </button>
+                ))}
+            </div>
+
+            {gateStock === 'activar' && (
+              <div className="mt-2.5 border-t border-gray-100 pt-2.5">
+                <p className="text-[11px] text-gray-600 mb-1.5">
+                  Escribí el <span className="font-medium">stock total real</span> de estas unidades.
+                  No lo sumamos de las variantes a propósito (contaría de más).
+                </p>
+                {variantesActivas.length > 0 && (
+                  <p className="text-[11px] text-gray-400 mb-1.5">
+                    Stock por variante hoy (solo de referencia):{' '}
+                    {variantesActivas.map(v => `${describirCombinacion(v)}: ${v.stock ?? 0}`).join(' · ')}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    autoFocus
+                    value={totalInput}
+                    onChange={e => setTotalInput(e.target.value)}
+                    placeholder="Stock total"
+                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-28 focus:outline-none focus:border-[#1D9E75]"
+                  />
+                  <button
+                    onClick={() => stockCompartidoMutation.mutate({ activar: true, stock_total: totalNum })}
+                    disabled={!totalValido || stockCompartidoMutation.isPending}
+                    className="bg-[#1D9E75] text-white rounded px-3 py-1.5 text-xs hover:bg-[#0F6E56] disabled:opacity-40"
+                  >
+                    {stockCompartidoMutation.isPending ? 'Guardando…' : 'Confirmar'}
+                  </button>
+                  <button onClick={cerrarGateStock} className="text-gray-500 hover:text-gray-700 text-xs px-2 py-1.5">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {gateStock === 'desactivar' && repartoPreview && (
+              <div className="mt-2.5 border-t border-gray-100 pt-2.5 text-[11px]">
+                <p className="text-gray-600 mb-1">
+                  El pool actual ({repartoPreview.pool} u.) se reparte entre las variantes. Después
+                  podés ajustar cada una.
+                </p>
+                <ul className="text-gray-600 space-y-0.5 mb-2">
+                  {repartoPreview.reparto.map(r => (
+                    <li key={r.variante_id}>
+                      · {r.descripcion}: <span className="font-medium">{r.stock} u.</span>
+                    </li>
+                  ))}
+                  {repartoPreview.reparto.length === 0 && (
+                    <li>· no hay variantes activas — el pool ({repartoPreview.pool} u.) queda como stock del producto</li>
+                  )}
+                </ul>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => stockCompartidoMutation.mutate({ activar: false })}
+                    disabled={stockCompartidoMutation.isPending}
+                    className="bg-[#1D9E75] text-white rounded px-3 py-1 text-xs hover:bg-[#0F6E56] disabled:opacity-40"
+                  >
+                    {stockCompartidoMutation.isPending ? 'Guardando…' : 'Confirmar'}
+                  </button>
+                  <button onClick={cerrarGateStock} className="text-gray-500 hover:text-gray-700 px-2 py-1">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {planSync && (
             <div className="text-[11px] border border-gray-200 rounded-lg px-3 py-2.5 mb-2 bg-white">
               {planVacio ? (
@@ -385,9 +558,23 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
                 <>
                   <p className="font-medium text-gray-700 mb-1">Al sincronizar:</p>
                   <ul className="text-gray-600 space-y-0.5 mb-2">
-                    {planSync.va_a_crear > 0 && <li>· crear {planSync.va_a_crear} combinación(es) nueva(s) con stock 0</li>}
-                    {planSync.va_a_completar > 0 && <li>· completar {planSync.va_a_completar} variante(s) parcial(es) (conservan su stock)</li>}
-                    {planSync.va_a_fusionar > 0 && <li>· fusionar {planSync.va_a_fusionar}: mover su stock al combo completo y borrar la parcial</li>}
+                    {planSync.va_a_crear > 0 && (
+                      <li>
+                        · crear {planSync.va_a_crear} combinación(es) nueva(s)
+                        {stockCompartido ? ' (comparten el stock único)' : ' con stock 0'}
+                      </li>
+                    )}
+                    {planSync.va_a_completar > 0 && (
+                      <li>
+                        · completar {planSync.va_a_completar} variante(s) parcial(es)
+                        {stockCompartido ? '' : ' (conservan su stock)'}
+                      </li>
+                    )}
+                    {planSync.va_a_fusionar > 0 && (
+                      <li>
+                        · fusionar {planSync.va_a_fusionar}: {stockCompartido ? 'borrar la parcial (el stock lo lleva el pool)' : 'mover su stock al combo completo y borrar la parcial'}
+                      </li>
+                    )}
                     {planSync.va_a_purgar > 0 && <li>· purgar {planSync.va_a_purgar} huérfana(s) sin opciones</li>}
                   </ul>
                   {planSync.no_resueltas.length > 0 && (

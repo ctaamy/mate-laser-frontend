@@ -358,3 +358,44 @@ test.describe('Imagen en selección parcial (Fase 3)', () => {
     await expect(imagenPrincipal(page)).toHaveAttribute('src', 'https://example.com/natural.png');
   });
 });
+
+// Feature "stock compartido entre variantes": el backend (aVistaPublica) colapsa
+// la disponibilidad de cada variante contra el pool del producto, así que la PDP
+// no necesita lógica nueva — estos tests fijan que la rendea bien.
+test.describe('Stock compartido entre variantes (pool del producto)', () => {
+  test('pool a 0: cualquier variante que elija queda "Sin stock disponible" y el CTA bloqueado', async ({ page }) => {
+    await mockProducto(page, {
+      stock_compartido: true,
+      // Con el pool en 0, el backend manda TODAS las variantes sin stock,
+      // sin importar el contador propio de cada una.
+      variantes_producto: [
+        { ...VARIANTE_NATURAL, disponible: false, pocas_unidades: false, cantidad_maxima: 0 },
+        { ...VARIANTE_NEGRO, disponible: false, pocas_unidades: false, cantidad_maxima: 0 },
+      ],
+    });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await page.getByRole('button', { name: 'Natural' }).click();
+    await expect(page.getByText('Sin stock disponible')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Negro' }).click();
+    await expect(page.getByText('Sin stock disponible')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
+  });
+
+  test('pool con pocas unidades: todas las variantes muestran el aviso y comparten el tope de cantidad', async ({ page }) => {
+    await mockProducto(page, {
+      stock_compartido: true,
+      variantes_producto: [
+        { ...VARIANTE_NATURAL, disponible: true, pocas_unidades: true, cantidad_maxima: 2 },
+        { ...VARIANTE_NEGRO, disponible: true, pocas_unidades: true, cantidad_maxima: 2 },
+      ],
+    });
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+
+    await page.getByRole('button', { name: 'Negro' }).click();
+    await expect(page.getByText('¡Últimas unidades!', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
+  });
+});

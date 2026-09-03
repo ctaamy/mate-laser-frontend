@@ -14,6 +14,9 @@ export interface Producto {
   stock?: number;
   stock_alerta?: number;
   sku?: string;
+  // Pool único: todas las variantes descuentan de `stock`. Se gestiona desde la
+  // pestaña Variantes (ver VariantesTab). Público lo recibe para ajustar copy.
+  stock_compartido?: boolean;
   disponible?: boolean;
   pocas_unidades?: boolean;
   cantidad_maxima?: number;

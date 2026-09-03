@@ -276,7 +276,8 @@ test.describe('Admin — editar producto', () => {
     await page.getByRole('button', { name: 'Agregar valor' }).click();
 
     await expect.poll(() => bodyEnviado).toEqual({ valor: 'Sin bombilla' });
-    await expect(page.getByText('Sin bombilla')).toBeVisible();
+    // exact: la ayuda de "Stock único" también menciona "Sin bombilla" como ejemplo.
+    await expect(page.getByText('Sin bombilla', { exact: true })).toBeVisible();
   });
 
   test('tab Variantes — "Sincronizar variantes": muestra el plan (dry-run) y recién al confirmar aplica', async ({ page }) => {
@@ -336,6 +337,60 @@ test.describe('Admin — editar producto', () => {
 
     await expect.poll(() => calls).toEqual(['dry_run', 'apply']);
     await expect(page.getByText('crear 2 combinación(es) nueva(s) con stock 0')).not.toBeVisible();
+  });
+
+  test('tab Variantes — "Stock único": el gate obliga a tipear el total y no lo pre-llena con la suma', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page, { putStatus: 200 });
+
+    const TIPO = {
+      id: 'tipo-b', producto_id: PRODUCTO_ADMIN_MOCK.id, nombre: 'Bombilla', orden: 0,
+      valores: [
+        { id: 'v-con', tipo_opcion_id: 'tipo-b', valor: 'Con bombilla', orden: 0 },
+        { id: 'v-sin', tipo_opcion_id: 'tipo-b', valor: 'Sin bombilla', orden: 1 },
+      ],
+    };
+    const mkVar = (id: string, valId: string, val: string, stock: number) => ({
+      id, producto_id: PRODUCTO_ADMIN_MOCK.id, stock, activo: true, imagen_id: null, precio_override: null,
+      variante_valores: [{ variante_id: id, valor_opcion_id: valId, valores_opcion: { id: valId, valor: val, tipos_opcion: TIPO } }],
+    });
+    let compartido = false;
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/opciones`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [TIPO] });
+    });
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/variantes`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [mkVar('var-con', 'v-con', 'Con bombilla', 1), mkVar('var-sin', 'v-sin', 'Sin bombilla', 1)] });
+    });
+    let body: any = null;
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/variantes/stock-compartido`, (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      body = route.request().postDataJSON();
+      compartido = true;
+      return route.fulfill({ json: { stock_compartido: true, stock: body.stock_total } });
+    });
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await page.getByRole('button', { name: 'Variantes' }).click();
+
+    await page.getByRole('button', { name: 'Activar', exact: true }).click();
+
+    // El input arranca vacío (NO 1+1=2) y Confirmar está bloqueado.
+    const input = page.getByPlaceholder('Stock total');
+    await expect(input).toHaveValue('');
+    const confirmar = page.getByRole('button', { name: 'Confirmar' });
+    await expect(confirmar).toBeDisabled();
+
+    await input.fill('12');
+    await expect(confirmar).toBeEnabled();
+    await confirmar.click();
+
+    await expect.poll(() => body).toEqual({ activar: true, stock_total: 12 });
+    // Las filas de variante pasan a texto estático "N u. · compartido".
+    await expect(page.getByText('· compartido').first()).toBeVisible();
+    expect(compartido).toBe(true);
   });
 
   test('toggle apto_grabado: muestra/oculta costo de grabado y colores', async ({ page }) => {
