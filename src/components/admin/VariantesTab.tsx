@@ -56,6 +56,23 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
     onSuccess: invalidar,
   });
 
+  // Borra de verdad una variante huérfana (sin opciones). El backend la desactiva
+  // en vez de borrarla si está referenciada por ventas o por el configurador.
+  const purgarVarianteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/variantes/${id}/purgar`),
+    onSuccess: (res) => {
+      if (res.data?.accion === 'desactivada') {
+        alert(
+          'No se pudo borrar: la variante está referenciada (ventas o configurador). Se desactivó en su lugar.',
+        );
+      }
+      invalidar();
+    },
+  });
+
+  const esHuerfana = (v: VarianteProducto) => (v.variante_valores ?? []).length === 0;
+  const huerfanas = (variantes ?? []).filter(esHuerfana);
+
   const handleCrearTipo = () => {
     const valores = nuevoTipoValores.split(',').map(v => v.trim()).filter(Boolean);
     if (!nuevoTipoNombre.trim() || valores.length === 0) return;
@@ -132,7 +149,8 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-              Variantes ({variantes?.length ?? 0})
+              Variantes ({variantes?.length ?? 0}
+              {huerfanas.length > 0 && ` · ${huerfanas.length} sin opciones`})
             </div>
             <button
               onClick={() => generarCombinacionesMutation.mutate()}
@@ -143,11 +161,24 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
             </button>
           </div>
 
+          {huerfanas.length > 0 && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+              Hay {huerfanas.length} variante{huerfanas.length > 1 ? 's' : ''} sin ninguna opción
+              asociada (quedaron de borrar un tipo o valor). No se pueden vender. Borralas con la
+              papelera 🗑 de cada fila.
+            </p>
+          )}
+
           <div className="flex flex-col gap-2">
             {variantes?.map(variante => (
               <div key={variante.id} className="bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-900">{describirCombinacion(variante)}</span>
+                  <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                    {describirCombinacion(variante)}
+                    {esHuerfana(variante) && (
+                      <span className="text-[10px] text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">huérfana</span>
+                    )}
+                  </span>
                   {!variante.activo && <span className="text-[10px] text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">Inactiva</span>}
                 </div>
                 <div className="flex gap-3 items-end">
@@ -207,18 +238,37 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
                       ))}
                     </select>
                   </div>
-                  <button
-                    onClick={() =>
-                      actualizarVarianteMutation.mutate({
-                        id: variante.id,
-                        data: { activo: !variante.activo },
-                      })
-                    }
-                    title={variante.activo ? 'Desactivar variante' : 'Activar variante'}
-                    className="text-gray-400 hover:text-red-500 pb-1.5"
-                  >
-                    <X size={16} />
-                  </button>
+                  {esHuerfana(variante) ? (
+                    <button
+                      onClick={() => {
+                        const aviso =
+                          (variante.stock ?? 0) > 0
+                            ? `Esta variante tiene ${variante.stock} de stock que se van a perder. `
+                            : '';
+                        if (confirm(`${aviso}¿Borrar esta variante sin opciones?`)) {
+                          purgarVarianteMutation.mutate(variante.id);
+                        }
+                      }}
+                      disabled={purgarVarianteMutation.isPending}
+                      title="Borrar variante huérfana"
+                      className="text-gray-400 hover:text-red-500 pb-1.5 disabled:opacity-50"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        actualizarVarianteMutation.mutate({
+                          id: variante.id,
+                          data: { activo: !variante.activo },
+                        })
+                      }
+                      title={variante.activo ? 'Desactivar variante' : 'Activar variante'}
+                      className="text-gray-400 hover:text-red-500 pb-1.5"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

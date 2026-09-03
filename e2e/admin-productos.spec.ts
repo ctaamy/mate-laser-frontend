@@ -183,6 +183,60 @@ test.describe('Admin — editar producto', () => {
     await expect.poll(() => putBodies.at(-1)).toEqual({ precio_override: null });
   });
 
+  test('tab Variantes — variante huérfana: se marca y la papelera llama a /purgar', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page, { putStatus: 200 });
+
+    const TIPO_OPCION = {
+      id: 'tipo-1', producto_id: PRODUCTO_ADMIN_MOCK.id, nombre: 'Color', orden: 0,
+      valores: [{ id: 'val-negro', tipo_opcion_id: 'tipo-1', valor: 'Negro', orden: 0 }],
+    };
+    const VARIANTE_OK = {
+      id: 'var-ok', producto_id: PRODUCTO_ADMIN_MOCK.id, stock: 5, activo: true, imagen_id: null,
+      precio_override: null,
+      variante_valores: [{
+        variante_id: 'var-ok', valor_opcion_id: 'val-negro',
+        valores_opcion: { ...TIPO_OPCION.valores[0], tipos_opcion: TIPO_OPCION },
+      }],
+    };
+    // Huérfana: sin variante_valores (quedó de borrar un tipo/valor).
+    const VARIANTE_HUERFANA = {
+      id: 'var-huerfana', producto_id: PRODUCTO_ADMIN_MOCK.id, stock: 0, activo: false,
+      imagen_id: null, precio_override: null, variante_valores: [],
+    };
+
+    let purgada = false;
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/opciones`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [TIPO_OPCION] });
+    });
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/variantes`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: purgada ? [VARIANTE_OK] : [VARIANTE_OK, VARIANTE_HUERFANA] });
+    });
+    await page.route('**/api/v1/variantes/var-huerfana/purgar', (route) => {
+      if (route.request().method() !== 'DELETE') return route.continue();
+      purgada = true;
+      return route.fulfill({ json: { accion: 'eliminada' } });
+    });
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+    await page.getByRole('button', { name: 'Variantes' }).click();
+
+    await expect(page.getByText('Variantes (2 · 1 sin opciones)')).toBeVisible();
+    await expect(page.getByText('sin ninguna opción asociada')).toBeVisible();
+    await expect(page.getByText('huérfana')).toBeVisible();
+
+    page.once('dialog', (d) => d.accept());
+    await page.getByTitle('Borrar variante huérfana').click();
+
+    await expect.poll(() => purgada).toBe(true);
+    await expect(page.getByText('huérfana')).not.toBeVisible();
+    await expect(page.getByText('Variantes (1)')).toBeVisible();
+  });
+
   test('toggle apto_grabado: muestra/oculta costo de grabado y colores', async ({ page }) => {
     await loginComoAdmin(page);
     await mockBackendAdminProductos(page);
