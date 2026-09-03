@@ -10,10 +10,19 @@ interface VariantesTabProps {
   imagenesProducto: ImagenProducto[];
 }
 
+interface PlanSync {
+  va_a_crear: number;
+  va_a_completar: number;
+  va_a_fusionar: number;
+  va_a_purgar: number;
+  no_resueltas: { id: string; motivo: string }[];
+}
+
 export default function VariantesTab({ productoId, precioBase, imagenesProducto }: VariantesTabProps) {
   const queryClient = useQueryClient();
   const [nuevoTipoNombre, setNuevoTipoNombre] = useState('');
   const [nuevoTipoValores, setNuevoTipoValores] = useState('');
+  const [planSync, setPlanSync] = useState<PlanSync | null>(null);
 
   const { data: tiposOpcion } = useQuery<TipoOpcion[]>({
     queryKey: ['opciones-producto', productoId],
@@ -45,10 +54,35 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
     onSuccess: invalidar,
   });
 
-  const generarCombinacionesMutation = useMutation({
-    mutationFn: () => api.post(`/productos/${productoId}/variantes/generar-combinaciones`),
-    onSuccess: invalidar,
+  // Sincronizar = crear combos faltantes + completar parciales + fusionar stock
+  // + purgar huérfanas. Se corre primero en dry-run para mostrar el plan, y
+  // recién al confirmar se aplica.
+  const sincronizarDryRunMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/productos/${productoId}/variantes/sincronizar?dry_run=true`).then((r) => r.data as PlanSync),
+    onSuccess: (plan) => setPlanSync(plan),
   });
+
+  const aplicarSincronizacionMutation = useMutation({
+    mutationFn: () => api.post(`/productos/${productoId}/variantes/sincronizar`).then((r) => r.data),
+    onSuccess: (res) => {
+      setPlanSync(null);
+      if (res?.no_resueltas?.length) {
+        alert(
+          `Sincronizado. Quedaron ${res.no_resueltas.length} variante(s) sin resolver que hay que arreglar a mano (ver el detalle en el panel).`,
+        );
+      }
+      invalidar();
+    },
+  });
+
+  const planVacio =
+    planSync != null &&
+    planSync.va_a_crear === 0 &&
+    planSync.va_a_completar === 0 &&
+    planSync.va_a_fusionar === 0 &&
+    planSync.va_a_purgar === 0 &&
+    planSync.no_resueltas.length === 0;
 
   const actualizarVarianteMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<VarianteProducto> }) =>
@@ -153,13 +187,55 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
               {huerfanas.length > 0 && ` · ${huerfanas.length} sin opciones`})
             </div>
             <button
-              onClick={() => generarCombinacionesMutation.mutate()}
-              disabled={generarCombinacionesMutation.isPending}
+              onClick={() => sincronizarDryRunMutation.mutate()}
+              disabled={sincronizarDryRunMutation.isPending || aplicarSincronizacionMutation.isPending}
               className="text-xs text-[#1D9E75] hover:text-[#0F6E56] flex items-center gap-1 disabled:opacity-50"
             >
-              <Shuffle size={12} /> Generar combinaciones faltantes
+              <Shuffle size={12} /> Sincronizar variantes
             </button>
           </div>
+
+          {planSync && (
+            <div className="text-[11px] border border-gray-200 rounded-lg px-3 py-2.5 mb-2 bg-white">
+              {planVacio ? (
+                <p className="text-gray-500">Las variantes ya están sincronizadas con las opciones actuales.</p>
+              ) : (
+                <>
+                  <p className="font-medium text-gray-700 mb-1">Al sincronizar:</p>
+                  <ul className="text-gray-600 space-y-0.5 mb-2">
+                    {planSync.va_a_crear > 0 && <li>· crear {planSync.va_a_crear} combinación(es) nueva(s) con stock 0</li>}
+                    {planSync.va_a_completar > 0 && <li>· completar {planSync.va_a_completar} variante(s) parcial(es) (conservan su stock)</li>}
+                    {planSync.va_a_fusionar > 0 && <li>· fusionar {planSync.va_a_fusionar}: mover su stock al combo completo y borrar la parcial</li>}
+                    {planSync.va_a_purgar > 0 && <li>· purgar {planSync.va_a_purgar} huérfana(s) sin opciones</li>}
+                  </ul>
+                  {planSync.no_resueltas.length > 0 && (
+                    <div className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mb-2">
+                      <p className="font-medium">{planSync.no_resueltas.length} sin resolver (arreglar a mano):</p>
+                      <ul className="space-y-0.5">
+                        {planSync.no_resueltas.map((nr) => (
+                          <li key={nr.id}>· {nr.motivo}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="flex gap-2 mt-1">
+                {!planVacio && (
+                  <button
+                    onClick={() => aplicarSincronizacionMutation.mutate()}
+                    disabled={aplicarSincronizacionMutation.isPending}
+                    className="bg-[#1D9E75] text-white rounded px-3 py-1 hover:bg-[#0F6E56] disabled:opacity-50"
+                  >
+                    {aplicarSincronizacionMutation.isPending ? 'Aplicando…' : 'Confirmar'}
+                  </button>
+                )}
+                <button onClick={() => setPlanSync(null)} className="text-gray-500 hover:text-gray-700 px-2 py-1">
+                  {planVacio ? 'Cerrar' : 'Cancelar'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {huerfanas.length > 0 && (
             <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
@@ -274,7 +350,7 @@ export default function VariantesTab({ productoId, precioBase, imagenesProducto 
             ))}
             {(!variantes || variantes.length === 0) && (
               <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
-                Todavía no hay variantes generadas. Usá "Generar combinaciones faltantes".
+                Todavía no hay variantes generadas. Usá "Sincronizar variantes".
               </p>
             )}
           </div>

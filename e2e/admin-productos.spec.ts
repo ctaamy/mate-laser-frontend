@@ -237,6 +237,65 @@ test.describe('Admin — editar producto', () => {
     await expect(page.getByText('Variantes (1)')).toBeVisible();
   });
 
+  test('tab Variantes — "Sincronizar variantes": muestra el plan (dry-run) y recién al confirmar aplica', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page, { putStatus: 200 });
+
+    const TIPO_OPCION = {
+      id: 'tipo-1', producto_id: PRODUCTO_ADMIN_MOCK.id, nombre: 'Color', orden: 0,
+      valores: [{ id: 'val-negro', tipo_opcion_id: 'tipo-1', valor: 'Negro', orden: 0 }],
+    };
+    const VARIANTE = {
+      id: 'var-1', producto_id: PRODUCTO_ADMIN_MOCK.id, stock: 5, activo: true, imagen_id: null,
+      precio_override: null,
+      variante_valores: [{
+        variante_id: 'var-1', valor_opcion_id: 'val-negro',
+        valores_opcion: { ...TIPO_OPCION.valores[0], tipos_opcion: TIPO_OPCION },
+      }],
+    };
+    const calls: string[] = [];
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/opciones`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [TIPO_OPCION] });
+    });
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/variantes`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [VARIANTE] });
+    });
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/variantes/sincronizar**`, (route) => {
+      const url = route.request().url();
+      calls.push(url.includes('dry_run=true') ? 'dry_run' : 'apply');
+      if (url.includes('dry_run=true')) {
+        return route.fulfill({
+          json: {
+            dry_run: true, va_a_crear: 2, va_a_completar: 1, va_a_fusionar: 0, va_a_purgar: 0,
+            no_resueltas: [{ id: 'v-x', motivo: '2 completaciones posibles' }],
+          },
+        });
+      }
+      return route.fulfill({ json: { creadas: 2, completadas: 1, fusionadas: 0, purgadas: 0, no_resueltas: [] } });
+    });
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+    await page.getByRole('button', { name: 'Variantes' }).click();
+
+    await page.getByRole('button', { name: 'Sincronizar variantes' }).click();
+
+    // Se ve el plan del dry-run, todavía sin aplicar.
+    await expect(page.getByText('crear 2 combinación(es) nueva(s) con stock 0')).toBeVisible();
+    await expect(page.getByText('completar 1 variante(s) parcial(es)')).toBeVisible();
+    await expect(page.getByText('1 sin resolver (arreglar a mano):')).toBeVisible();
+    await expect(page.getByText('2 completaciones posibles')).toBeVisible();
+    expect(calls).toEqual(['dry_run']);
+
+    await page.getByRole('button', { name: 'Confirmar' }).click();
+
+    await expect.poll(() => calls).toEqual(['dry_run', 'apply']);
+    await expect(page.getByText('crear 2 combinación(es) nueva(s) con stock 0')).not.toBeVisible();
+  });
+
   test('toggle apto_grabado: muestra/oculta costo de grabado y colores', async ({ page }) => {
     await loginComoAdmin(page);
     await mockBackendAdminProductos(page);
