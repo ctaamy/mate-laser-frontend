@@ -9,6 +9,7 @@ import { useToastStore } from '../store/toast.store';
 import type { Producto } from '../types';
 import BadgeAptoGrabado from '../components/ui/BadgeAptoGrabado';
 import CuotasBanner from '../components/ui/CuotasBanner';
+import ProductosRecomendados from '../components/ui/ProductosRecomendados';
 
 const T = { duration: 0.4, ease: 'easeOut' as const };
 
@@ -589,6 +590,11 @@ export default function ProductoDetalle() {
           </motion.div>
         </div>
       </div>
+
+      {/* Tira "También te puede interesar" — ancho completo, después del bloque
+          de confianza, antes del footer. No se renderiza si el backend trae
+          menos de 2 (ver ProductosRecomendados). */}
+      <ProductosRecomendados slug={producto.slug} categoriaSlug={producto.categorias?.slug} />
     </div>
   );
 }

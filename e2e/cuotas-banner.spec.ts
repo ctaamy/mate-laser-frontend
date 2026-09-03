@@ -21,6 +21,11 @@ async function mockPDP(page: import('@playwright/test').Page) {
   await page.route(`**/api/v1/productos/${PRODUCTO_MOCK.slug}`, (route) => route.fulfill({ json: PRODUCTO_MOCK }));
   await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => route.fulfill({ json: [] }));
   await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (route) => route.fulfill({ json: {} }));
+  // Tira de recomendados al pie de la PDP — vacía = no se renderiza (y sus
+  // cards no disparan más CuotasBanner que los que el test cuenta).
+  await page.route(/\/api\/v1\/productos\/[^/]+\/recomendados(\?|$)/, (route) =>
+    route.fulfill({ json: { data: [], algoritmo: 'heuristica' } }),
+  );
 }
 
 test.describe('CuotasBanner — PDP (fetch individual)', () => {

@@ -34,6 +34,10 @@ async function mockProductoDetalle(page: import('@playwright/test').Page, overri
     if (route.request().method() !== 'GET') return route.continue();
     return route.fulfill({ json: config });
   });
+  // Tira de recomendados al pie de la PDP — vacía = no se renderiza.
+  await page.route(/\/api\/v1\/productos\/[^/]+\/recomendados(\?|$)/, (route) =>
+    route.fulfill({ json: { data: [], algoritmo: 'heuristica' } }),
+  );
   return producto;
 }
 

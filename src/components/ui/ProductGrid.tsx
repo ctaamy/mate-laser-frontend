@@ -27,6 +27,15 @@ interface ProductGridProps {
   // (imagen grande, más protagonismo) sin cambiar el default de
   // productos_destacados en el home.
   colClassName?: string;
+  // Sangrado del carrusel en modo scroll (mobile). Default asume un
+  // contenedor con `px-8` (home). La tira de recomendados de la PDP vive en
+  // un contenedor con `px-4`, así que pasa `-mx-4 px-4 sm:mx-0 sm:px-0` para
+  // que el "peek" de la card siguiente no quede cortado contra el borde.
+  bleedClassName?: string;
+  // Si viene y scroll=true, el contenedor del carrusel se marca como landmark
+  // navegable por teclado (role="region" + aria-label + tabindex). Solo lo
+  // usa la tira de recomendados; el resto no pasa nada y no cambia.
+  regionLabel?: string;
 }
 
 // El contenedor orquesta la cascada: staggerChildren hace que cada hijo
@@ -57,10 +66,12 @@ const mdColClass: Record<number, string> = {
   4: 'md:grid-cols-4',
 };
 
-export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, tituloFontSize, linkFontSize, scroll = false, colClassName }: ProductGridProps) {
+export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, tituloFontSize, linkFontSize, scroll = false, colClassName, bleedClassName = '-mx-8 px-8 sm:mx-0 sm:px-0', regionLabel }: ProductGridProps) {
   const containerClass = scroll
-    ? `flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-8 px-8 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:gap-x-4 sm:gap-y-8 ${mdColClass[cols] ?? 'md:grid-cols-3'}`
+    ? `flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory ${bleedClassName} sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:gap-x-4 sm:gap-y-8 ${mdColClass[cols] ?? 'md:grid-cols-3'}`
     : `grid ${colClassName ?? colClass[cols] ?? 'grid-cols-2 md:grid-cols-3'} gap-x-4 gap-y-8`;
+  const regionProps =
+    scroll && regionLabel ? { role: 'region' as const, 'aria-label': regionLabel, tabIndex: 0 } : {};
 
   return (
     // Batch de promociones bancarias para toda la grilla en una sola
@@ -75,6 +86,7 @@ export default function ProductGrid({ productos, onAgregar, cols = 3, variant, a
       whileInView="visible"
       viewport={{ once: true, margin: '-80px' }}
       className={containerClass}
+      {...regionProps}
     >
       {productos.map((producto, i) => {
         // ProductCard ya tiene sus propias variants (hidden/visible), por

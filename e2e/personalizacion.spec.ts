@@ -27,6 +27,10 @@ async function mockProducto(page: import('@playwright/test').Page, overrides: Re
   await page.route(/\/api\/v1\/productos\/[^/]+\/promociones-bancarias$/, (route) =>
     route.fulfill({ json: { tiene_promo_sin_interes: false, cuotas: 12, sin_interes: false } }),
   );
+  // Tira de recomendados al pie de la PDP — vacía = no se renderiza.
+  await page.route(/\/api\/v1\/productos\/[^/]+\/recomendados(\?|$)/, (route) =>
+    route.fulfill({ json: { data: [], algoritmo: 'heuristica' } }),
+  );
   return producto;
 }
 

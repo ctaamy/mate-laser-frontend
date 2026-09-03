@@ -147,6 +147,12 @@ export async function mockBackendYMercadoPago(
     route.fulfill({ json: { tiene_promo_sin_interes: false, cuotas: 12, sin_interes: false } }),
   );
 
+  // Tira "También te puede interesar" al pie de la PDP (ProductoDetalle) — sin
+  // mock la request se cuela a la red real. Vacía = la sección no se renderiza.
+  await page.route(/\/api\/v1\/productos\/[^/]+\/recomendados(\?|$)/, (route) =>
+    route.fulfill({ json: { data: [], algoritmo: 'heuristica' } }),
+  );
+
   // Georef (cascada Provincia/Ciudad en "Método de envío") — mockeado para que
   // el test sea hermético y no dependa de la red real de datos.gob.ar.
   await page.route('https://apis.datos.gob.ar/georef/api/provincias**', (route) =>
