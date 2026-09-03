@@ -88,6 +88,11 @@ export default function Productos() {
   const totalProductos = paginas?.pages[0]?.total ?? 0;
 
   const handleAgregar = (producto: Producto) => {
+    // Defensa extra: la card ya no muestra el botón para productos sin stock,
+    // pero cortamos acá también para que ninguna ruta futura re-cuele el
+    // "add silencioso" (te dejaba sumar algo no vendible y recién te frenaba
+    // el carrito).
+    if (producto.disponible === false) return;
     agregar({
       producto_id: producto.id,
       nombre_producto: producto.nombre,

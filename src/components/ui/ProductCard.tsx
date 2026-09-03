@@ -40,14 +40,28 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
     : 0;
   const esOverlay = variant === 'overlay';
   const esGrid = variant === 'grid';
+  // `disponible === false` = confirmado sin stock (mismo criterio que Carrito.tsx
+  // y el store: `undefined` es "todavía no se sabe" y no bloquea). Cuando está
+  // sin stock la card se apaga (imagen atenuada, un solo badge neutro) y deja
+  // de ofrecer el "Agregar al carrito" — el add silencioso desde el listado
+  // era el bug: te dejaba sumar algo no vendible y recién te frenaba el carrito.
+  const sinStock = producto.disponible === false;
 
   const badges = (
     <div className="absolute top-0 left-0 flex flex-col gap-0 z-10">
-      {producto.apto_grabado && <BadgeAptoGrabado compact={esOverlay} />}
-      {tieneDescuento && (
-        <span className={`font-bold bg-white text-black border-l-2 border-black ${esOverlay ? 'text-[8px] px-1.5 py-1' : 'text-[10px] px-2.5 py-1'}`}>
-          -{descuentoPct}%
+      {sinStock ? (
+        <span className={`font-semibold text-white bg-black/75 backdrop-blur-sm ${esOverlay ? 'text-[8px] px-1.5 py-1' : 'text-[10px] px-2.5 py-1'}`}>
+          Sin stock
         </span>
+      ) : (
+        <>
+          {producto.apto_grabado && <BadgeAptoGrabado compact={esOverlay} />}
+          {tieneDescuento && (
+            <span className={`font-bold bg-white text-black border-l-2 border-black ${esOverlay ? 'text-[8px] px-1.5 py-1' : 'text-[10px] px-2.5 py-1'}`}>
+              -{descuentoPct}%
+            </span>
+          )}
+        </>
       )}
     </div>
   );
@@ -75,20 +89,28 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
               alt={img1.alt_texto || producto.nombre}
               loading="lazy"
               className="absolute inset-0 w-full h-full object-cover"
-              animate={{ scale: hovered ? 1.04 : 1 }}
+              animate={{ scale: hovered ? 1.04 : 1, opacity: sinStock ? 0.6 : 1 }}
               transition={{ duration: 0.45, ease: 'easeInOut' }}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-5xl text-gray-200">☕</div>
           )}
 
-          {producto.apto_grabado && (
-            <BadgeAptoGrabado compact className="absolute top-2 left-2 z-10" />
-          )}
-          {tieneDescuento && (
-            <span className="absolute top-2 right-2 z-10 text-[10px] font-bold bg-black text-white px-2 py-1 rounded">
-              {descuentoPct}% OFF
+          {sinStock ? (
+            <span className="absolute top-2 left-2 z-10 rounded bg-black/75 backdrop-blur-sm px-2 py-1 text-[10px] font-semibold text-white">
+              Sin stock
             </span>
+          ) : (
+            <>
+              {producto.apto_grabado && (
+                <BadgeAptoGrabado compact className="absolute top-2 left-2 z-10" />
+              )}
+              {tieneDescuento && (
+                <span className="absolute top-2 right-2 z-10 text-[10px] font-bold bg-black text-white px-2 py-1 rounded">
+                  {descuentoPct}% OFF
+                </span>
+              )}
+            </>
           )}
         </Link>
 
@@ -108,7 +130,11 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
               </span>
             )}
           </div>
-          <div className="mt-0.5"><CuotasBanner productoId={producto.id} /></div>
+          {sinStock ? (
+            <p className="mt-1 text-[11px] font-medium text-black/40">Sin stock por ahora</p>
+          ) : (
+            <div className="mt-0.5"><CuotasBanner productoId={producto.id} /></div>
+          )}
         </div>
       </motion.div>
     );
@@ -184,7 +210,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
             alt={img1.alt_texto || producto.nombre}
             loading="lazy"
             className="absolute inset-0 w-full h-full object-cover"
-            animate={{ scale: hovered ? 1.04 : 1, opacity: hovered && img2 ? 0 : 1 }}
+            animate={{ scale: hovered ? 1.04 : 1, opacity: hovered && img2 ? 0 : sinStock ? 0.6 : 1 }}
             transition={{ duration: 0.45, ease: 'easeInOut' }}
           />
         ) : (
@@ -202,7 +228,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
                 loading="lazy"
                 className="absolute inset-0 w-full h-full object-cover"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1, scale: 1.03 }}
+                animate={{ opacity: sinStock ? 0.6 : 1, scale: 1.03 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.4, ease: 'easeInOut' }}
               />
@@ -210,26 +236,40 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
           </AnimatePresence>
         )}
 
-        {/* Badges — chicos y suaves, para no competir con la foto */}
+        {/* Badges — chicos y suaves, para no competir con la foto. Sin stock:
+            un solo badge neutro (gris, no rojo — el rojo del carrito es "tenés
+            que actuar"; acá es "para que sepas"), y se suprime el -X% (anunciar
+            un descuento sobre algo no comprable es ruido). */}
         <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
-          {producto.apto_grabado && <BadgeAptoGrabado compact className="rounded-[3px] opacity-90 shadow-sm" />}
-          {tieneDescuento && (
-            <span className="rounded-[3px] bg-black/70 backdrop-blur-sm px-2 py-0.5 text-[9px] font-bold text-white">
-              -{descuentoPct}%
+          {sinStock ? (
+            <span className="rounded-[3px] bg-black/75 backdrop-blur-sm px-2 py-0.5 text-[9px] font-semibold text-white shadow-sm">
+              Sin stock
             </span>
+          ) : (
+            <>
+              {producto.apto_grabado && <BadgeAptoGrabado compact className="rounded-[3px] opacity-90 shadow-sm" />}
+              {tieneDescuento && (
+                <span className="rounded-[3px] bg-black/70 backdrop-blur-sm px-2 py-0.5 text-[9px] font-bold text-white">
+                  -{descuentoPct}%
+                </span>
+              )}
+            </>
           )}
         </div>
 
         {/* Botón agregar — reveal al hover sobre la imagen (desktop). En
-            touch no hay hover: la card entera linkea al producto. */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
-          <button
-            onClick={e => { e.preventDefault(); onAgregar(producto); }}
-            className="w-full py-3 bg-black text-white text-xs font-semibold tracking-widest uppercase hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <ShoppingCart size={12} /> Agregar al carrito
-          </button>
-        </div>
+            touch no hay hover: la card entera linkea al producto. Sin stock:
+            no se ofrece — el add silencioso desde el listado era el bug. */}
+        {!sinStock && (
+          <div className="absolute bottom-0 left-0 right-0 z-10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
+            <button
+              onClick={e => { e.preventDefault(); onAgregar(producto); }}
+              className="w-full py-3 bg-black text-white text-xs font-semibold tracking-widest uppercase hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+            >
+              <ShoppingCart size={12} /> Agregar al carrito
+            </button>
+          </div>
+        )}
       </Link>
 
       {/* Info debajo de la imagen */}
@@ -252,7 +292,14 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
             </span>
           )}
         </div>
-        <div className="mt-0.5"><CuotasBanner productoId={producto.id} /></div>
+        {/* En mobile no hay hover: el badge sobre la imagen es la única señal
+            de disponibilidad, y hay gente que escanea la columna de texto
+            (nombre → material → precio) más que las fotos. Segunda señal barata. */}
+        {sinStock ? (
+          <p className="mt-1 text-[11px] font-medium text-black/40">Sin stock por ahora</p>
+        ) : (
+          <div className="mt-0.5"><CuotasBanner productoId={producto.id} /></div>
+        )}
       </div>
     </motion.div>
   );

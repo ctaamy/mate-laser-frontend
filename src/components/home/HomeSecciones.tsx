@@ -996,6 +996,9 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
   });
 
   const handleAgregar = (p: Producto) => {
+    // Defensa extra (ver Productos.tsx): no colar al carrito un producto sin
+    // stock aunque una ruta futura llame acá con el botón visible.
+    if (p.disponible === false) return;
     agregar({ producto_id: p.id, nombre_producto: p.nombre, precio_unitario: Number(p.precio_base), cantidad: 1,
       imagen_url: p.imagenes_producto?.[0]?.url, stock: p.stock });
     mostrarToast(p.nombre, p.imagenes_producto?.[0]?.url);

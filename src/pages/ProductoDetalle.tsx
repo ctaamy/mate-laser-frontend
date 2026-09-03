@@ -505,13 +505,17 @@ export default function ProductoDetalle() {
                 ("Elegí X para ver el stock y el precio") ya cubre el estado. */}
             {(!tieneVariantes || varianteSeleccionada) && (
               <div className="flex items-center gap-2 text-[11px] font-medium">
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${disponible ? (pocasUnidades ? 'bg-amber-500' : 'bg-black') : 'bg-black/20'}`} />
-                <span className={disponible ? (pocasUnidades ? 'text-amber-600' : 'text-black/60') : 'text-black/25'}>
+                {/* Sin stock: contraste real (era bg-black/20 + text-black/25,
+                    ilegible en un celular al sol). Neutro, no rojo — el rojo
+                    del carrito es "tenés que actuar"; acá el usuario todavía
+                    no se comprometió. "por ahora" = señal de que vuelve. */}
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${disponible ? (pocasUnidades ? 'bg-amber-500' : 'bg-black') : 'bg-black/40'}`} />
+                <span className={disponible ? (pocasUnidades ? 'text-amber-600' : 'text-black/60') : 'text-black/55'}>
                   {disponible
                     ? pocasUnidades
                       ? '¡Últimas unidades! · Entrega en 3–5 días hábiles'
                       : 'Stock disponible · Entrega en 3–5 días hábiles'
-                    : 'Sin stock disponible'}
+                    : 'Sin stock por ahora'}
                 </span>
               </div>
             )}

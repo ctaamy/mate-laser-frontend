@@ -226,7 +226,7 @@ test.describe('Disponibilidad por opción (Fase 2)', () => {
 
     // Igual no se puede comprar: al elegir, la línea de stock lo deja claro.
     await page.getByRole('button', { name: 'Natural' }).click();
-    await expect(page.getByText('Sin stock disponible')).toBeVisible();
+    await expect(page.getByText('Sin stock por ahora')).toBeVisible();
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
   });
 });
@@ -363,7 +363,7 @@ test.describe('Imagen en selección parcial (Fase 3)', () => {
 // la disponibilidad de cada variante contra el pool del producto, así que la PDP
 // no necesita lógica nueva — estos tests fijan que la rendea bien.
 test.describe('Stock compartido entre variantes (pool del producto)', () => {
-  test('pool a 0: cualquier variante que elija queda "Sin stock disponible" y el CTA bloqueado', async ({ page }) => {
+  test('pool a 0: cualquier variante que elija queda "Sin stock por ahora" y el CTA bloqueado', async ({ page }) => {
     await mockProducto(page, {
       stock_compartido: true,
       // Con el pool en 0, el backend manda TODAS las variantes sin stock,
@@ -376,11 +376,11 @@ test.describe('Stock compartido entre variantes (pool del producto)', () => {
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
 
     await page.getByRole('button', { name: 'Natural' }).click();
-    await expect(page.getByText('Sin stock disponible')).toBeVisible();
+    await expect(page.getByText('Sin stock por ahora')).toBeVisible();
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
 
     await page.getByRole('button', { name: 'Negro' }).click();
-    await expect(page.getByText('Sin stock disponible')).toBeVisible();
+    await expect(page.getByText('Sin stock por ahora')).toBeVisible();
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeDisabled();
   });
 
