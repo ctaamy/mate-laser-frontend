@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useLocation, useNavigationType } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store/auth.store';
 import { useCarritoStore } from './store/carrito.store';
@@ -71,6 +71,25 @@ function ThemeGlobalMount() {
   return null;
 }
 
+// React Router no resetea el scroll al navegar (SPA). Sin esto, al entrar a
+// una categoría desde el Home el scroll quedaba donde estaba — y si la
+// categoría tenía pocos productos, la página nueva es más corta que ese
+// offset y el navegador lo clampeaba al fondo: "entrás y arrancás en el final".
+// Solo reseteamos en PUSH/REPLACE (navegación nueva); en POP (atrás/adelante)
+// dejamos que el navegador restaure la posición previa.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+
+  useEffect(() => {
+    if (navigationType !== 'POP') {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, navigationType]);
+
+  return null;
+}
+
 // Captura ?cupon=CODIGO de cualquier URL (link del mail de bienvenida, campaña,
 // etc.), lo deja como "cupón pendiente" en el carrito y limpia el query param
 // para no re-dispararlo ni dejarlo pegado en la URL. Un toast confirma que se
@@ -125,6 +144,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeGlobalMount />
       <BrowserRouter>
+        <ScrollToTop />
         <CuponWatcher />
         <PerfilSync />
         <Routes>
