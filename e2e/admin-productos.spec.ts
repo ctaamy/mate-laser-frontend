@@ -225,16 +225,58 @@ test.describe('Admin — editar producto', () => {
     await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
     await page.getByRole('button', { name: 'Variantes' }).click();
 
-    await expect(page.getByText('Variantes (2 · 1 sin opciones)')).toBeVisible();
+    // 1 activa + 1 inactiva; la huérfana inactiva vive en la sección colapsada.
+    await expect(page.getByText('Variantes (1 · 1 inactiva)')).toBeVisible();
     await expect(page.getByText('sin ninguna opción asociada')).toBeVisible();
+
+    await page.getByRole('button', { name: /Mostrar 1 inactiva/ }).click();
     await expect(page.getByText('huérfana')).toBeVisible();
 
-    page.once('dialog', (d) => d.accept());
-    await page.getByTitle('Borrar variante huérfana').click();
+    await page.getByTitle(/Intentar borrar/).click();
 
     await expect.poll(() => purgada).toBe(true);
     await expect(page.getByText('huérfana')).not.toBeVisible();
-    await expect(page.getByText('Variantes (1)')).toBeVisible();
+    await expect(page.getByText('Variantes (1)', { exact: false })).toBeVisible();
+  });
+
+  test('tab Variantes — agregar un valor a un tipo existente sin borrarlo', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page, { putStatus: 200 });
+
+    const TIPO = {
+      id: 'tipo-bombilla', producto_id: PRODUCTO_ADMIN_MOCK.id, nombre: 'Bombilla', orden: 0,
+      valores: [{ id: 'val-pico', tipo_opcion_id: 'tipo-bombilla', valor: 'Pico de loro', orden: 0 }],
+    };
+    let agregado = false;
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/opciones`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({
+        json: [agregado
+          ? { ...TIPO, valores: [...TIPO.valores, { id: 'val-sin', tipo_opcion_id: 'tipo-bombilla', valor: 'Sin bombilla', orden: 1 }] }
+          : TIPO],
+      });
+    });
+    await page.route(`**/api/v1/productos/${PRODUCTO_ADMIN_MOCK.id}/variantes`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({ json: [] });
+    });
+    let bodyEnviado: any = null;
+    await page.route('**/api/v1/opciones/tipo-bombilla/valores', (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      bodyEnviado = route.request().postDataJSON();
+      agregado = true;
+      return route.fulfill({ json: { id: 'val-sin', valor: 'Sin bombilla' } });
+    });
+
+    await page.goto('/admin/productos');
+    await page.locator('tr', { hasText: PRODUCTO_ADMIN_MOCK.nombre }).getByRole('button').first().click();
+    await page.getByRole('button', { name: 'Variantes' }).click();
+
+    await page.getByPlaceholder('+ valor').fill('Sin bombilla');
+    await page.getByRole('button', { name: 'Agregar valor' }).click();
+
+    await expect.poll(() => bodyEnviado).toEqual({ valor: 'Sin bombilla' });
+    await expect(page.getByText('Sin bombilla')).toBeVisible();
   });
 
   test('tab Variantes — "Sincronizar variantes": muestra el plan (dry-run) y recién al confirmar aplica', async ({ page }) => {
