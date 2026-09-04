@@ -55,6 +55,7 @@ export default function AdminOrdenes() {
   const [nombreCliente, setNombreCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
   const [notasManual, setNotasManual] = useState('');
+  const [errorVentaManual, setErrorVentaManual] = useState('');
 
   // Método de envío (opcional) — mismo patrón que el checkout público:
   // Georef con fallback a texto libre si la API externa falla/tarda.
@@ -143,6 +144,10 @@ export default function AdminOrdenes() {
       queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
       cerrarModalVentaManual();
     },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message;
+      setErrorVentaManual(Array.isArray(msg) ? msg.join(' / ') : msg || 'No se pudo cargar la venta.');
+    },
   });
 
   const registrarPagoMutation = useMutation({
@@ -213,6 +218,7 @@ export default function AdminOrdenes() {
     setProvinciaEnvio('');
     setPartidoEnvio(undefined);
     setEspecificacionesEnvio('');
+    setErrorVentaManual('');
   };
 
   const handleSeleccionarProducto = (id: string) => {
@@ -266,6 +272,7 @@ export default function AdminOrdenes() {
 
   const handleCrearVentaManual = () => {
     if (ventaItems.length === 0) return;
+    setErrorVentaManual('');
     crearVentaManualMutation.mutate({
       items: ventaItems,
       metodo_pago: metodoPagoManual,
@@ -589,6 +596,11 @@ export default function AdminOrdenes() {
           <p className="text-xs text-[var(--ink-soft)]">
             Para ventas realizadas fuera de la web (presencial, redes, feria). Descuenta stock al cargarla, aunque solo se haya cobrado una seña.
           </p>
+          {errorVentaManual && (
+            <div className="text-xs text-[var(--error)] bg-[var(--error-soft)] border border-[var(--error)]/30 rounded-[var(--radius-el)] px-3 py-2">
+              {errorVentaManual}
+            </div>
+          )}
 
           <div>
             <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Productos</div>

@@ -40,6 +40,28 @@ test.describe('Admin — Órdenes — cargar venta manual', () => {
     expect(bodyEnviado.nombre_cliente).toBe('Juan Pérez');
   });
 
+  test('si el backend rechaza la venta (400), muestra el error en vez de fallar en silencio', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [] } }));
+
+    await page.route('**/api/v1/ordenes/venta-manual', (route) =>
+      route.fulfill({ status: 400, json: { statusCode: 400, message: ['cp debe ser un código postal argentino de 4 dígitos'] } }),
+    );
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+
+    await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+
+    await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
+
+    await expect(page.getByText('cp debe ser un código postal argentino de 4 dígitos')).toBeVisible();
+    // El modal sigue abierto (no se limpia como en un onSuccess).
+    await expect(page.getByRole('button', { name: 'Cargar venta', exact: true })).toBeVisible();
+  });
+
   test('el botón "Cargar venta" queda deshabilitado sin productos agregados', async ({ page }) => {
     await loginComoAdmin(page);
     await mockBackendAdminProductos(page);
