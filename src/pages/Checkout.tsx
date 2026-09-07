@@ -21,6 +21,18 @@ const ICONO_ENVIO: Record<string, string> = {
   correo: '✉️',
 };
 
+// Orden de las cards de envío: primero las opciones con precio real y cerrado
+// (Retiro sin costo; Logística privada con tarifa por zona), después
+// Correo/Andreani, que hoy van con una tarifa fija estimada mientras no está
+// la cotización en vivo. Dentro de cada grupo se respeta el orden que ya trae
+// el backend (columna `orden` del admin). Mismo criterio que `isPrivada` para
+// detectar "logística privada": cualquier proveedor que no sea retiro/correo/andreani.
+const prioridadEnvio = (proveedor: string): number => {
+  if (proveedor === 'retiro') return 0;
+  if (!['andreani', 'correo'].includes(proveedor)) return 1; // logística privada
+  return 2;
+};
+
 // Teléfono argentino: código de área (2-4 dígitos) + número (6-8 dígitos), con o sin +54 9 / espacios / guiones.
 const TELEFONO_AR_REGEX = /^(\+?54)?\s?(9\s?)?(\(?\d{2,4}\)?[\s-]?)\d{6,8}$/;
 const CP_AR_REGEX = /^\d{4}$/;
@@ -108,6 +120,12 @@ export default function Checkout() {
     queryFn: () => api.post('/envios/calcular', { partido, subtotal: sub }).then(r => r.data),
     enabled: !!provincia && !!ciudad,
   });
+
+  // Sort estable (ES2019+): reordena por grupo de prioridad sin alterar el
+  // orden relativo del backend dentro de cada grupo.
+  const enviosOrdenados = envios
+    ? [...envios].sort((a, b) => prioridadEnvio(a.proveedor) - prioridadEnvio(b.proveedor))
+    : undefined;
 
   const envioSeleccionado = envios?.find(e => e.id === metodoEnvioId && e.disponible !== false);
   const isRetiro = envioSeleccionado?.proveedor === 'retiro';
@@ -419,9 +437,9 @@ export default function Checkout() {
                 {envios?.length === 0 && (
                   <div className="text-sm text-black/30 py-4 text-center">No hay métodos disponibles para tu zona.</div>
                 )}
-                {envios && envios.length > 0 && (
+                {enviosOrdenados && enviosOrdenados.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    {envios.map((envio) => {
+                    {enviosOrdenados.map((envio) => {
                       const disponible = envio.disponible !== false;
                       const activo = disponible && metodoEnvioId === envio.id;
                       const icono = ICONO_ENVIO[envio.proveedor] ?? '🚚';
