@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { PRODUCTO_MOCK } from './fixtures';
+import { PRODUCTO_MOCK, mockGeoref } from './fixtures';
 
 // Fase B del sistema de variantes: selector de opciones en ProductoDetalle.tsx,
 // cambio de imagen y stock según la combinación elegida. No toca carrito/checkout
@@ -64,6 +64,8 @@ async function mockProducto(page: import('@playwright/test').Page, overrides: Re
   await page.route(/\/api\/v1\/productos\/[^/]+\/recomendados(\?|$)/, (route) =>
     route.fulfill({ json: { data: [], algoritmo: 'heuristica' } }),
   );
+  // Calculadora de envío de la PDP: Georef determinista.
+  await mockGeoref(page);
   return producto;
 }
 

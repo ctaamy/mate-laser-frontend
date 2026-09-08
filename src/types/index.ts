@@ -204,6 +204,10 @@ export interface MetodoEnvio {
   proveedor: string;
   descripcion?: string;
   costo: number | null;
+  // Precio de lista antes de aplicar envío gratis (para el tachado).
+  costo_original?: number | null;
+  // true cuando este pedido califica para envío gratis por monto.
+  envio_gratis?: boolean;
   api_conectada: boolean;
   envio_gratis_disponible: boolean;
   monto_envio_gratis: number;

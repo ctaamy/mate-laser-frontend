@@ -102,6 +102,20 @@ const FAKE_MP_SDK = `
   };
 `;
 
+// Georef (datos.gob.ar) — cascada Provincia/Ciudad, usada por el "Método de
+// envío" del checkout y por la calculadora de envío de la PDP. Mockeado para
+// que el test sea hermético y no dependa de la red real.
+export async function mockGeoref(page: Page) {
+  await page.route('https://apis.datos.gob.ar/georef/api/provincias**', (route) =>
+    route.fulfill({ json: { provincias: [{ id: '06', nombre: 'Buenos Aires' }] } }),
+  );
+  await page.route('https://apis.datos.gob.ar/georef/api/localidades**', (route) =>
+    route.fulfill({
+      json: { localidades: [{ id: 'loc-1', nombre: 'Ciudad E2E', departamento_nombre: 'Partido E2E' }] },
+    }),
+  );
+}
+
 export async function mockBackendYMercadoPago(
   page: Page,
   opts: { estadoPagoBrick: 'approved' | 'rejected' },
@@ -153,16 +167,7 @@ export async function mockBackendYMercadoPago(
     route.fulfill({ json: { data: [], algoritmo: 'heuristica' } }),
   );
 
-  // Georef (cascada Provincia/Ciudad en "Método de envío") — mockeado para que
-  // el test sea hermético y no dependa de la red real de datos.gob.ar.
-  await page.route('https://apis.datos.gob.ar/georef/api/provincias**', (route) =>
-    route.fulfill({ json: { provincias: [{ id: '06', nombre: 'Buenos Aires' }] } }),
-  );
-  await page.route('https://apis.datos.gob.ar/georef/api/localidades**', (route) =>
-    route.fulfill({
-      json: { localidades: [{ id: 'loc-1', nombre: 'Ciudad E2E', departamento_nombre: 'Partido E2E' }] },
-    }),
-  );
+  await mockGeoref(page);
 
   // Creación de la orden (checkout → pago)
   await page.route('**/api/v1/ordenes', (route) => {

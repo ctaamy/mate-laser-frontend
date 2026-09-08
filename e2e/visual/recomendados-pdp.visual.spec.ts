@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { PRODUCTO_MOCK } from '../fixtures';
+import { PRODUCTO_MOCK, mockGeoref } from '../fixtures';
 
 // Baseline visual de la tira "También te puede interesar" al pie de la PDP.
 // Corre con `npx playwright test --project visual --update-snapshots` la
@@ -45,6 +45,7 @@ test.describe('Visual — tira de recomendados en la PDP', () => {
     await page.route(/\/api\/v1\/productos\/[^/]+\/recomendados(\?|$)/, (route) =>
       route.fulfill({ json: { data: REC, algoritmo: 'heuristica' } }),
     );
+    await mockGeoref(page);
   });
 
   test('tira con 4 recomendados', async ({ page }) => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, Truck, Shield, MessageCircle, ChevronRight, Minus, Plus, Zap } from 'lucide-react';
+import { ShoppingCart, Shield, MessageCircle, ChevronRight, Minus, Plus, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
@@ -10,6 +10,7 @@ import type { Producto } from '../types';
 import BadgeAptoGrabado from '../components/ui/BadgeAptoGrabado';
 import CuotasBanner from '../components/ui/CuotasBanner';
 import ProductosRecomendados from '../components/ui/ProductosRecomendados';
+import CalculadoraEnvioPDP from '../components/ui/CalculadoraEnvioPDP';
 
 const T = { duration: 0.4, ease: 'easeOut' as const };
 
@@ -40,6 +41,11 @@ export default function ProductoDetalle() {
   const montoEnvioGratis = Number(config?.envio_gratis_monto);
   const envioGratisConfirmado =
     config?.envio_gratis_activo === 'true' && Number.isFinite(montoEnvioGratis) && montoEnvioGratis > 0;
+
+  const telefonoWa = (config?.telefono_contacto || '').replace(/\D/g, '');
+  const whatsappHref = telefonoWa
+    ? `https://wa.me/${telefonoWa}?text=${encodeURIComponent(config?.whatsapp_mensaje || '¡Hola! Quiero hacer una consulta 🧉')}`
+    : undefined;
 
   // Tipos de opción con un único valor: no son una elección real. Se
   // autoseleccionan al cargar para no bloquear precio/stock/CTA sin motivo
@@ -568,14 +574,23 @@ export default function ProductoDetalle() {
               </div>
             </div>
 
+            {/* Calculadora de envío — reemplaza el bullet suelto de "envío
+                gratis desde $X" (que ahora vive dentro de la caja). pb extra
+                en mobile para que la barra sticky de "Agregar" no la tape. */}
+            <div className="pb-2 sm:pb-0">
+              <CalculadoraEnvioPDP
+                subtotal={precioFinal * cantidad}
+                categoriaSlug={producto.categorias?.slug}
+                envioGratisMonto={envioGratisConfirmado ? montoEnvioGratis : null}
+                whatsappHref={whatsappHref}
+              />
+            </div>
+
             <div className="h-px bg-black/[0.07]" />
 
             {/* Info extra */}
             <div className="flex flex-col gap-3">
               {[
-                ...(envioGratisConfirmado
-                  ? [{ Icon: Truck, bold: 'Envío gratis', rest: `en compras mayores a $${montoEnvioGratis.toLocaleString('es-AR')}` }]
-                  : []),
                 { Icon: Shield, bold: 'Garantía de calidad', rest: 'o te devolvemos el dinero' },
                 { Icon: MessageCircle, bold: 'Consultas por WhatsApp', rest: 'antes y después de tu compra' },
               ].map(({ Icon, bold, rest }) => (

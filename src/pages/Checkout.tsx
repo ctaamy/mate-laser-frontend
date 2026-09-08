@@ -481,9 +481,9 @@ export default function Checkout() {
                             )}
                           </div>
                           <div className="text-right flex-shrink-0">
-                            {!disponible ? null : (envio as any).envio_gratis && envio.proveedor !== 'retiro' ? (
+                            {!disponible ? null : envio.envio_gratis && envio.proveedor !== 'retiro' ? (
                               <div>
-                                <div className="text-xs text-black/30 line-through">${Number((envio as any).costo_original || 0).toLocaleString('es-AR')}</div>
+                                <div className="text-xs text-black/30 line-through">${Number(envio.costo_original || 0).toLocaleString('es-AR')}</div>
                                 <div className="text-sm font-bold text-black">Gratis</div>
                               </div>
                             ) : envio.costo === 0 ? (

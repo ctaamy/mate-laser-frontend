@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { PRODUCTO_MOCK } from '../fixtures';
+import { PRODUCTO_MOCK, mockGeoref } from '../fixtures';
 
 // Screenshots de baseline: corren con `npx playwright test --update-snapshots`
 // la primera vez, y luego detectan cambios visuales no intencionales.
@@ -23,6 +23,8 @@ test.describe('Visual — personalización de producto', () => {
     await page.route(/\/api\/v1\/productos\/[^/]+\/recomendados(\?|$)/, (route) =>
       route.fulfill({ json: { data: [], algoritmo: 'heuristica' } }),
     );
+    // Calculadora de envío de la PDP: Georef determinista para el snapshot.
+    await mockGeoref(page);
   });
 
   // Screenshots acotados al panel de info del producto (no la página

@@ -5,6 +5,7 @@
 const GEOREF_BASE = 'https://apis.datos.gob.ar/georef/api';
 const TIMEOUT_MS = 2500;
 const PROVINCIAS_CACHE_KEY = 'mls_georef_provincias_v1';
+const LOCALIDADES_CACHE_PREFIX = 'mls_georef_localidades_v1:';
 
 export interface Provincia {
   id: string;
@@ -66,6 +67,17 @@ export async function obtenerProvincias(): Promise<Provincia[] | null> {
 export async function obtenerLocalidadesPorProvincia(provinciaNombre: string): Promise<Localidad[] | null> {
   if (!provinciaNombre) return null;
 
+  // Cache en localStorage: son hasta 3000 ítems por provincia y no cambian.
+  // Sirve al checkout y a la calculadora de envío de la PDP (que si no pega a
+  // Georef en cada ficha de producto).
+  const cacheKey = LOCALIDADES_CACHE_PREFIX + provinciaNombre.trim().toLowerCase();
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {
+    // localStorage no disponible o corrupto — seguimos con el fetch
+  }
+
   const caba = esCABA(provinciaNombre);
   // "departamento" en Georef equivale a "partido" en la provincia de Buenos Aires.
   // Con aplanar=true, el objeto anidado departamento:{id,nombre} llega como departamento_nombre.
@@ -88,5 +100,12 @@ export async function obtenerLocalidadesPorProvincia(provinciaNombre: string): P
       partido: caba ? 'CABA' : (l.departamento_nombre || undefined),
     });
   }
+
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify(localidades));
+  } catch {
+    // si no se puede cachear, no es crítico
+  }
+
   return localidades;
 }
