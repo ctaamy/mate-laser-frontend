@@ -24,10 +24,24 @@ export interface Producto {
   dimensiones?: string;
   peso_kg?: number;
   apto_grabado: boolean;
+  costo_grabado?: number;
   colores_disponibles: string[];
   personalizado_habilitado: boolean;
   personalizado_max_chars: number;
   personalizado_placeholder?: string;
+  // "Bombilla como add-on" — config del toggle (viene en /productos/admin/*).
+  bombilla_opcional?: boolean;
+  bombilla_precio_adicional?: number;
+  bombilla_producto_id?: string | null;
+  bombilla_label?: string | null;
+  // Resuelta por el backend (aVistaPublica) en GET /productos/:slug — la usa la PDP.
+  bombilla?: {
+    nombre: string;
+    label: string;
+    precio_adicional: number;
+    imagen: string | null;
+    disponible: boolean;
+  } | null;
   activo: boolean;
   destacado: boolean;
   orden: number;

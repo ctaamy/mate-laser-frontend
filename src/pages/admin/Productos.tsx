@@ -57,6 +57,8 @@ export default function AdminProductos() {
     apto_grabado: false, costo_grabado: '0', colores_disponibles: '',
     personalizado_habilitado: false, personalizado_max_chars: '30',
     personalizado_placeholder: '', activo: true, destacado: false, orden: '0',
+    bombilla_opcional: false, bombilla_precio_adicional: '0',
+    bombilla_producto_id: '', bombilla_label: '',
   });
   // Evita perder lo cargado si se hace click afuera del modal por error —
   // ver bug reportado: el modal se cerraba solo con cualquier click en el
@@ -82,6 +84,16 @@ export default function AdminProductos() {
   const { data: categorias } = useQuery<Categoria[]>({
     queryKey: ['categorias'],
     queryFn: () => api.get('/categorias').then(r => r.data),
+  });
+
+  // "Bombilla como add-on": productos simples que pueden ser la bombilla que se
+  // entrega con un mate (dropdown del form). Solo se pide con el modal abierto.
+  const { data: candidatasBombilla = [] } = useQuery<
+    { id: string; nombre: string; precio_base: number; stock: number; categoria: string | null }[]
+  >({
+    queryKey: ['candidatas-bombilla'],
+    queryFn: () => api.get('/productos/admin/candidatas-bombilla').then(r => r.data),
+    enabled: modalAbierto,
   });
 
   // Bugfix: leía /configuracion/homepage (PUBLICADO). El checkbox "Aparece en
@@ -166,6 +178,10 @@ export default function AdminProductos() {
         activo: producto.activo,
         destacado: producto.destacado,
         orden: (producto.orden ?? 0).toString(),
+        bombilla_opcional: producto.bombilla_opcional ?? false,
+        bombilla_precio_adicional: (producto.bombilla_precio_adicional ?? 0).toString(),
+        bombilla_producto_id: producto.bombilla_producto_id ?? '',
+        bombilla_label: producto.bombilla_label ?? '',
       };
       setForm(formCargado);
       marcarSnapshot(formCargado);
@@ -179,6 +195,8 @@ export default function AdminProductos() {
         apto_grabado: false, costo_grabado: '0', colores_disponibles: '',
         personalizado_habilitado: false, personalizado_max_chars: '30',
         personalizado_placeholder: '', activo: true, destacado: false, orden: '0',
+        bombilla_opcional: false, bombilla_precio_adicional: '0',
+        bombilla_producto_id: '', bombilla_label: '',
       };
       setForm(formVacio);
       marcarSnapshot(formVacio);
@@ -228,6 +246,22 @@ export default function AdminProductos() {
   };
 
   const handleSubmit = async () => {
+    // "Bombilla como add-on": validaciones antes de guardar, no un 400 críptico.
+    if (form.bombilla_opcional) {
+      if (!form.bombilla_producto_id) {
+        alert('Elegí qué bombilla se entrega con este mate.');
+        return;
+      }
+      if (!(parseFloat(form.bombilla_precio_adicional || '0') > 0) &&
+          !confirm('¿La bombilla va sin costo adicional?')) {
+        return;
+      }
+      const b = candidatasBombilla.find(x => x.id === form.bombilla_producto_id);
+      if (b && b.stock <= 0 &&
+          !confirm(`"${b.nombre}" no tiene stock. El toggle va a aparecer deshabilitado en la tienda hasta que repongas. ¿Guardar igual?`)) {
+        return;
+      }
+    }
     const data = {
       ...form,
       categoria_id: form.categoria_id ? parseInt(form.categoria_id) : undefined,
@@ -243,6 +277,10 @@ export default function AdminProductos() {
       colores_disponibles: form.colores_disponibles
         ? form.colores_disponibles.split(',').map(c => c.trim()).filter(Boolean)
         : [],
+      bombilla_opcional: form.bombilla_opcional,
+      bombilla_precio_adicional: form.bombilla_opcional ? parseFloat(form.bombilla_precio_adicional || '0') : 0,
+      bombilla_producto_id: form.bombilla_opcional ? (form.bombilla_producto_id || null) : null,
+      bombilla_label: form.bombilla_opcional ? (form.bombilla_label.trim() || undefined) : undefined,
     };
     setGuardando(true);
     try {
@@ -599,6 +637,87 @@ export default function AdminProductos() {
                     <p className="text-xs text-[var(--accent-hover)] mt-1">Se suma al precio cuando el cliente elige personalizar</p>
                   </div>
                 )}
+
+                {/* OFRECER BOMBILLA OPCIONAL — toggle "add-on", no una variante */}
+                <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
+                  <div>
+                    <div className="text-sm font-medium text-[var(--ink)]">Ofrecer bombilla opcional</div>
+                    <div className="text-xs text-[var(--ink-soft)]">El cliente puede sumarla desde la ficha del producto</div>
+                  </div>
+                  <button
+                    onClick={() => setForm(f => ({ ...f, bombilla_opcional: !f.bombilla_opcional }))}
+                    className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${form.bombilla_opcional ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}
+                  >
+                    <div className={`w-4 h-4 bg-[var(--panel)] rounded-full absolute top-0.5 transition-all ${form.bombilla_opcional ? 'left-4' : 'left-0.5'}`} />
+                  </button>
+                </div>
+
+                {form.bombilla_opcional && (() => {
+                  const bomb = candidatasBombilla.find(b => b.id === form.bombilla_producto_id);
+                  const adicional = parseFloat(form.bombilla_precio_adicional || '0');
+                  return (
+                    <div className="bg-[var(--accent-soft)] rounded-lg px-4 py-3 border border-[var(--accent)] flex flex-col gap-3">
+                      <div>
+                        <label className="text-xs text-[var(--accent-hover)] font-medium mb-1 block">Precio adicional de la bombilla</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-[var(--accent-hover)]">$</span>
+                          <input
+                            type="number"
+                            value={form.bombilla_precio_adicional}
+                            onChange={e => setForm(f => ({ ...f, bombilla_precio_adicional: e.target.value }))}
+                            className="border border-[var(--accent)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-28 bg-[var(--panel)]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-[var(--accent-hover)] font-medium mb-1 block">¿Qué bombilla entregás con este mate?</label>
+                        <select
+                          value={form.bombilla_producto_id}
+                          onChange={e => setForm(f => ({ ...f, bombilla_producto_id: e.target.value }))}
+                          className="border border-[var(--accent)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-full bg-[var(--panel)]"
+                        >
+                          <option value="">— Elegí una bombilla —</option>
+                          {candidatasBombilla.map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.nombre}{b.categoria ? ` · ${b.categoria}` : ''} — stock {b.stock}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-[var(--accent-hover)] font-medium mb-1 block">Texto del botón (opcional)</label>
+                        <input
+                          value={form.bombilla_label}
+                          onChange={e => setForm(f => ({ ...f, bombilla_label: e.target.value }))}
+                          placeholder="Agregar bombilla"
+                          maxLength={60}
+                          className="border border-[var(--accent)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-full bg-[var(--panel)]"
+                        />
+                      </div>
+
+                      <div className="text-xs text-[var(--accent-hover)] border-t border-[var(--accent)] pt-2">
+                        <p>
+                          En la tienda se va a ver: <span className="font-medium">
+                            "{form.bombilla_label.trim() || 'Agregar bombilla'}{bomb ? ` — ${bomb.nombre}` : ''}
+                            {adicional > 0 ? ` · +$${adicional.toLocaleString('es-AR')}` : ''}"
+                          </span>
+                        </p>
+                        <p className="mt-1">
+                          Cada mate vendido con bombilla descuenta 1 unidad de{' '}
+                          <span className="font-medium">{bomb ? `"${bomb.nombre}"` : 'la bombilla elegida'}</span> de tu stock.
+                        </p>
+                        {bomb && bomb.stock <= 0 && (
+                          <p className="mt-1 font-medium">⚠ "{bomb.nombre}" no tiene stock — el toggle va a aparecer deshabilitado en la tienda.</p>
+                        )}
+                        {candidatasBombilla.length === 0 && (
+                          <p className="mt-1">No hay productos simples para elegir. Cargá la bombilla como producto (sin variantes) primero.</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {[
                   { key: 'activo', label: 'Producto activo', sub: 'Visible en la tienda' },
