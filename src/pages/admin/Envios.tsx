@@ -522,7 +522,7 @@ function AgregarMetodoCard() {
             <AdminInput
               value={form.nombre}
               onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-              placeholder={esRetiro ? 'Ej: Retiro en Villa Crespo' : 'Ej: Envío Express'}
+              placeholder={esRetiro ? 'Ej: Retiro en Villa Crespo' : 'Ej: BENI Express'}
             />
           </div>
           <div>

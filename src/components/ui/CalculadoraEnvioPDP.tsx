@@ -6,12 +6,13 @@ import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type
 import type { MetodoEnvio } from '../../types/index';
 
 // F4 — caja "Envío y retiro" en la PDP. Muestra, calculado igual que el
-// checkout (POST /envios/calcular), solo el "Envío Express" (proveedor `oca`,
-// 24–72 hs CABA/GBA) y los puntos de retiro. Correo/Andreani NO se muestran
-// acá: hoy van con tarifa fija plana y el costo real se ve en el checkout.
+// checkout (POST /envios/calcular), solo la mensajería BENI ("BENI Express",
+// proveedor interno `oca`, 24–72 hs CABA/GBA) y los puntos de retiro.
+// Correo/Andreani NO se muestran acá: hoy van con tarifa fija plana y el
+// costo real se ve en el checkout.
 //
 // Decisiones firmadas con arquitecto / ux-reviewer / cm-marketing:
-//  - título neutro "Envío y retiro" (no "Envío Express", que es una opción)
+//  - título neutro "Envío y retiro" (no el nombre de la opción)
 //  - input por provincia+ciudad (Georef), no por CP: no hay dataset CP→partido
 //    libre para AR; la ubicación resuelta se persiste para no re-pedirla
 //  - fuera de la zona Express → NO decir "no disponible": "llega a todo el
@@ -130,7 +131,7 @@ export default function CalculadoraEnvioPDP({ subtotal, categoriaSlug, envioGrat
     setLocalidades(null);
   };
 
-  // Solo Envío Express (cualquier proveedor que no sea retiro/correo/andreani)
+  // Solo BENI Express (cualquier proveedor que no sea retiro/correo/andreani)
   // y retiros. El recomendado va primero entre los retiros.
   const express = envios?.find((e) => !['retiro', 'correo', 'andreani'].includes(e.proveedor) && e.disponible !== false);
   const retiros = (envios ?? [])

@@ -4,7 +4,7 @@ import { PRODUCTO_MOCK, mockGeoref } from './fixtures';
 // F4 — caja "Envío y retiro" en la ficha de producto (ProductoDetalle).
 
 const EXPRESS = {
-  id: 1, nombre: 'Envío Express', proveedor: 'oca', descripcion: 'Llega en 24 a 72 hs',
+  id: 1, nombre: 'BENI Express', proveedor: 'oca', descripcion: 'Llega en 24 a 72 hs',
   costo: 6000, costo_original: 6000, api_conectada: false, envio_gratis: false, disponible: true,
 };
 const RETIRO = {
@@ -73,7 +73,7 @@ test.describe('PDP — calculadora de envío', () => {
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
     await elegirDestino(page);
 
-    await expect(page.getByText('Envío Express')).toBeVisible();
+    await expect(page.getByText('BENI Express')).toBeVisible();
     await expect(page.getByText('Llega en 24 a 72 hs')).toBeVisible();
     await expect(page.getByText('$6.000')).toBeVisible();
     await expect(page.getByText('Retiro en Once')).toBeVisible();
@@ -90,10 +90,10 @@ test.describe('PDP — calculadora de envío', () => {
 
     await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
     await elegirDestino(page);
-    await expect(page.getByText('Envío Express')).toBeVisible();
+    await expect(page.getByText('BENI Express')).toBeVisible();
 
     await page.reload();
-    await expect(page.getByText('Envío Express')).toBeVisible();
+    await expect(page.getByText('BENI Express')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Cambiar' })).toBeVisible();
     await expect(page.getByTestId('calculadora-envio').getByRole('combobox')).toHaveCount(0);
   });
