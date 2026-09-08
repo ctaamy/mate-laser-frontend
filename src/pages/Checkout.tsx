@@ -21,15 +21,16 @@ const ICONO_ENVIO: Record<string, string> = {
   correo: '✉️',
 };
 
-// Orden de las cards de envío: primero las opciones con precio real y cerrado
-// (Retiro sin costo; Logística privada con tarifa por zona), después
-// Correo/Andreani, que hoy van con una tarifa fija estimada mientras no está
-// la cotización en vivo. Dentro de cada grupo se respeta el orden que ya trae
-// el backend (columna `orden` del admin). Mismo criterio que `isPrivada` para
-// detectar "logística privada": cualquier proveedor que no sea retiro/correo/andreani.
-const prioridadEnvio = (proveedor: string): number => {
-  if (proveedor === 'retiro') return 0;
-  if (!['andreani', 'correo'].includes(proveedor)) return 1; // logística privada
+// Orden de las cards de envío: primero el punto de retiro recomendado (más
+// cercano al comprador), después el resto de los retiros, luego Logística
+// privada, y al final Correo/Andreani, que hoy van con una tarifa fija
+// estimada mientras no está la cotización en vivo. Dentro de cada grupo se
+// respeta el orden que ya trae el backend (columna `orden` del admin). Mismo
+// criterio que `isPrivada` para detectar "logística privada": cualquier
+// proveedor que no sea retiro/correo/andreani.
+const prioridadEnvio = (e: MetodoEnvio): number => {
+  if (e.proveedor === 'retiro') return e.recomendado ? -1 : 0;
+  if (!['andreani', 'correo'].includes(e.proveedor)) return 1; // logística privada
   return 2;
 };
 
@@ -117,14 +118,14 @@ export default function Checkout() {
   // (sin cotización en vivo, porque el CP todavía no existe en este paso).
   const { data: envios } = useQuery<MetodoEnvio[]>({
     queryKey: ['envios', provincia, ciudad, partido, sub],
-    queryFn: () => api.post('/envios/calcular', { partido, subtotal: sub }).then(r => r.data),
+    queryFn: () => api.post('/envios/calcular', { partido, localidad: ciudad, subtotal: sub }).then(r => r.data),
     enabled: !!provincia && !!ciudad,
   });
 
   // Sort estable (ES2019+): reordena por grupo de prioridad sin alterar el
   // orden relativo del backend dentro de cada grupo.
   const enviosOrdenados = envios
-    ? [...envios].sort((a, b) => prioridadEnvio(a.proveedor) - prioridadEnvio(b.proveedor))
+    ? [...envios].sort((a, b) => prioridadEnvio(a) - prioridadEnvio(b))
     : undefined;
 
   const envioSeleccionado = envios?.find(e => e.id === metodoEnvioId && e.disponible !== false);
@@ -460,10 +461,24 @@ export default function Checkout() {
                           </div>
                           <span className="text-base flex-shrink-0">{icono}</span>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-black">{envio.nombre}</div>
-                            <div className="text-xs text-black/40 mt-0.5">
-                              {disponible ? envio.descripcion : 'No disponible para la localidad elegida'}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="text-sm font-semibold text-black">{envio.nombre}</div>
+                              {disponible && envio.recomendado && (
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                  Más cerca tuyo
+                                </span>
+                              )}
                             </div>
+                            <div className="text-xs text-black/40 mt-0.5">
+                              {!disponible
+                                ? 'No disponible para la localidad elegida'
+                                : envio.proveedor === 'retiro' && envio.ubicacion
+                                  ? [envio.ubicacion.direccion, envio.ubicacion.localidad].filter(Boolean).join(', ')
+                                  : envio.descripcion}
+                            </div>
+                            {disponible && envio.proveedor === 'retiro' && envio.ubicacion?.horarios && (
+                              <div className="text-[11px] text-black/30 mt-0.5">{envio.ubicacion.horarios}</div>
+                            )}
                           </div>
                           <div className="text-right flex-shrink-0">
                             {!disponible ? null : (envio as any).envio_gratis && envio.proveedor !== 'retiro' ? (
@@ -487,7 +502,18 @@ export default function Checkout() {
 
                 {isRetiro && (
                   <div className="mt-3 border border-black/[0.07] bg-black/[0.02] px-4 py-3 text-xs text-black/60">
-                    📍 Te contactaremos por WhatsApp para coordinar el retiro.
+                    {envioSeleccionado?.ubicacion ? (
+                      <>
+                        📍 Retirás en{' '}
+                        <span className="font-medium text-black/80">
+                          {[envioSeleccionado.ubicacion.direccion, envioSeleccionado.ubicacion.localidad].filter(Boolean).join(', ')}
+                        </span>
+                        {envioSeleccionado.ubicacion.horarios ? ` · ${envioSeleccionado.ubicacion.horarios}` : ''}. Te
+                        contactamos por WhatsApp para coordinar.
+                      </>
+                    ) : (
+                      <>📍 Te contactaremos por WhatsApp para coordinar el retiro.</>
+                    )}
                   </div>
                 )}
               </div>

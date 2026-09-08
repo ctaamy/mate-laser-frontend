@@ -188,6 +188,16 @@ export interface Pago {
   pagado_en?: string;
 }
 
+export interface UbicacionRetiro {
+  direccion: string;
+  localidad: string;
+  partido: string;
+  horarios?: string;
+  google_maps_url?: string;
+  lat?: number;
+  lng?: number;
+}
+
 export interface MetodoEnvio {
   id: number;
   nombre: string;
@@ -201,6 +211,10 @@ export interface MetodoEnvio {
   // (ej. logística privada fuera de zona de cobertura) — se muestra
   // deshabilitado en vez de ocultarse.
   disponible?: boolean;
+  // Solo en filas de retiro: dirección del local y si es el punto más cercano
+  // al comprador (para el badge "Más cerca tuyo" y ordenarlo primero).
+  ubicacion?: UbicacionRetiro | null;
+  recomendado?: boolean;
 }
 
 export interface Cupon {
