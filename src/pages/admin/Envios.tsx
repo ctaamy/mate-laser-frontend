@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Save, Plug, PlugZap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Plug, PlugZap, ChevronDown, ChevronUp, Plus, MapPin } from 'lucide-react';
 import api from '../../lib/api';
 import AdminButton from '../../components/admin/ui/AdminButton';
 import AdminCard from '../../components/admin/ui/AdminCard';
-import { AdminInput, AdminLabel } from '../../components/admin/ui/AdminInput';
+import { AdminInput, AdminLabel, AdminSelect } from '../../components/admin/ui/AdminInput';
+
+interface UbicacionRetiro {
+  direccion: string;
+  localidad: string;
+  partido: string;
+  horarios?: string;
+  google_maps_url?: string;
+  lat?: number;
+  lng?: number;
+}
 
 interface MetodoEnvio {
   id: number;
@@ -16,7 +26,23 @@ interface MetodoEnvio {
   activo: boolean;
   api_conectada: boolean;
   orden: number;
+  ubicacion?: UbicacionRetiro | null;
 }
+
+// Espeja PROVEEDORES_ENVIO del backend (create-metodo-envio.dto.ts). El
+// backend valida contra esta lista blanca — un valor fuera de acá da 400.
+const PROVEEDORES: { value: string; label: string }[] = [
+  { value: 'retiro', label: 'Retiro en un local' },
+  { value: 'oca', label: 'Logística privada (precio por zona)' },
+  { value: 'correo', label: 'Correo Argentino' },
+  { value: 'andreani', label: 'Andreani' },
+];
+
+const USA_COSTO_FIJO = (proveedor: string) => proveedor === 'correo' || proveedor === 'andreani';
+
+// Mensaje de error del backend (axios), con fallback.
+const msgError = (e: unknown, fallback: string) =>
+  (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
 
 interface PrecioZona {
   id: number;
@@ -80,6 +106,61 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
+// Campos de la ubicación de un punto de retiro. Se reusa en el alta de método
+// (AgregarMetodoCard) y en la edición de una fila de retiro (MetodoCard).
+function UbicacionRetiroFields({
+  value,
+  onChange,
+}: {
+  value: Partial<UbicacionRetiro>;
+  onChange: (u: Partial<UbicacionRetiro>) => void;
+}) {
+  const set = (k: keyof UbicacionRetiro, v: string) => onChange({ ...value, [k]: v });
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="col-span-2">
+        <AdminLabel>Dirección *</AdminLabel>
+        <AdminInput value={value.direccion ?? ''} onChange={e => set('direccion', e.target.value)} placeholder="Ej: Larrea 324" />
+      </div>
+      <div>
+        <AdminLabel>Localidad / barrio *</AdminLabel>
+        <AdminInput value={value.localidad ?? ''} onChange={e => set('localidad', e.target.value)} placeholder="Ej: Once" />
+      </div>
+      <div>
+        <AdminLabel>Partido *</AdminLabel>
+        <AdminInput value={value.partido ?? ''} onChange={e => set('partido', e.target.value)} placeholder="Ej: CABA" />
+        <p className="text-[10px] text-[var(--ink-soft)] mt-1">
+          Tal cual figura en el checkout (partido/departamento). Para Capital: CABA. Sirve para recomendar este local al comprador que está cerca.
+        </p>
+      </div>
+      <div className="col-span-2">
+        <AdminLabel>Horario de atención</AdminLabel>
+        <AdminInput value={value.horarios ?? ''} onChange={e => set('horarios', e.target.value)} placeholder="Ej: Lun a Vie de 9 a 18 h" />
+      </div>
+      <div className="col-span-2">
+        <AdminLabel>Link de Google Maps (opcional)</AdminLabel>
+        <AdminInput value={value.google_maps_url ?? ''} onChange={e => set('google_maps_url', e.target.value)} placeholder="https://maps.app.goo.gl/..." />
+      </div>
+    </div>
+  );
+}
+
+// direccion + localidad + partido son los 3 campos que el backend exige para
+// activar un punto de retiro.
+const ubicacionCompleta = (u: Partial<UbicacionRetiro>) =>
+  !!u.direccion?.trim() && !!u.localidad?.trim() && !!u.partido?.trim();
+
+// Deja solo los campos con valor, con las claves que espera el backend.
+function ubicacionPayload(u: Partial<UbicacionRetiro>) {
+  return {
+    direccion: u.direccion?.trim() ?? '',
+    localidad: u.localidad?.trim() ?? '',
+    partido: u.partido?.trim() ?? '',
+    ...(u.horarios?.trim() && { horarios: u.horarios.trim() }),
+    ...(u.google_maps_url?.trim() && { google_maps_url: u.google_maps_url.trim() }),
+  };
+}
+
 function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
@@ -122,6 +203,23 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['envios-admin'] }),
   });
 
+  // ── Ubicación (solo filas de retiro) ──
+  const esRetiro = metodo.proveedor === 'retiro';
+  const [showUbic, setShowUbic] = useState(false);
+  const [ubic, setUbic] = useState<Partial<UbicacionRetiro>>(metodo.ubicacion ?? {});
+  const [ubicError, setUbicError] = useState<string | null>(null);
+  const [ubicSaved, setUbicSaved] = useState(false);
+  const guardarUbicacionMut = useMutation({
+    mutationFn: () => api.put(`/envios/${metodo.id}`, { ubicacion: ubicacionPayload(ubic) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['envios-admin'] });
+      setUbicError(null);
+      setUbicSaved(true);
+      setTimeout(() => setUbicSaved(false), 2000);
+    },
+    onError: (e: unknown) => setUbicError(msgError(e, 'No se pudo guardar la ubicación.')),
+  });
+
   const [verificando, setVerificando] = useState(false);
   const [verificacionResult, setVerificacionResult] = useState<{ ok: boolean; mensaje: string } | null>(null);
   const verificarConexion = async () => {
@@ -150,6 +248,11 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
           <div className="text-[11px] text-[var(--ink-soft)] uppercase tracking-[0.1em]">{metodo.proveedor}</div>
         </div>
         <div className="flex items-center gap-3">
+          {esRetiro && !metodo.ubicacion && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--error)] bg-[var(--error-soft)] px-2 py-1 rounded">
+              Sin ubicación
+            </span>
+          )}
           {metodo.api_conectada && (
             <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink)] bg-[var(--n-100)] px-2 py-1 rounded">
               <PlugZap size={10} /> API activa
@@ -201,6 +304,18 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
               <Plug size={12} />
               {metodo.api_conectada ? 'Gestionar API' : 'Conectar API'}
               {showApi ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          )}
+
+          {/* Ubicación — solo para filas de retiro */}
+          {esRetiro && (
+            <button
+              onClick={() => setShowUbic(v => !v)}
+              className="flex items-center gap-1.5 text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
+            >
+              <MapPin size={12} />
+              {metodo.ubicacion ? 'Editar ubicación' : 'Agregar ubicación'}
+              {showUbic ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
           )}
         </div>
@@ -263,6 +378,37 @@ function MetodoCard({ metodo }: { metodo: MetodoEnvio }) {
           </motion.div>
         )}
         </AnimatePresence>
+
+        {/* Panel de ubicación — filas de retiro */}
+        <AnimatePresence initial={false}>
+        {showUbic && esRetiro && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }} className="overflow-hidden"
+          >
+          <div className="border border-[var(--line)] bg-[var(--n-50)] rounded-[var(--radius-el)] p-4 flex flex-col gap-3">
+            <p className="text-[11px] text-[var(--ink-soft)] leading-relaxed">
+              Se muestra en el checkout y en el mail "listo para retirar" para que el cliente sepa a qué local ir. Un punto de retiro activo necesita dirección, localidad y partido.
+            </p>
+            <UbicacionRetiroFields value={ubic} onChange={setUbic} />
+            <div className="flex items-center gap-2 mt-1">
+              <AdminButton
+                variant="primary" size="sm" icon={<Save size={11} />}
+                disabled={guardarUbicacionMut.isPending || !ubicacionCompleta(ubic)}
+                onClick={() => guardarUbicacionMut.mutate()}
+              >
+                {ubicSaved ? '¡Guardado!' : guardarUbicacionMut.isPending ? 'Guardando...' : 'Guardar ubicación'}
+              </AdminButton>
+            </div>
+            {ubicError && (
+              <div className="text-xs px-3 py-2 border border-[var(--error)]/30 bg-[var(--error-soft)] text-[var(--error)] rounded-[var(--radius-el)]">
+                {ubicError}
+              </div>
+            )}
+          </div>
+          </motion.div>
+        )}
+        </AnimatePresence>
       </div>
     </AdminCard>
   );
@@ -299,6 +445,142 @@ function PrecioZonaRow({ zona }: { zona: PrecioZona }) {
         {saved ? '¡Guardado!' : updateMut.isPending ? 'Guardando...' : 'Guardar'}
       </AdminButton>
     </div>
+  );
+}
+
+// Alta de un método de envío nuevo (POST /envios). Card colapsada por default
+// que se despliega en un form. `proveedor` es un select con la lista blanca
+// del backend; para retiro se pide la ubicación del local.
+function AgregarMetodoCard() {
+  const qc = useQueryClient();
+  const [abierto, setAbierto] = useState(false);
+  const [form, setForm] = useState({ nombre: '', proveedor: 'retiro', descripcion: '', costo_fijo: '', activo: false });
+  const [ubic, setUbic] = useState<Partial<UbicacionRetiro>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const esRetiro = form.proveedor === 'retiro';
+  const usaCostoFijo = USA_COSTO_FIJO(form.proveedor);
+
+  const reset = () => {
+    setForm({ nombre: '', proveedor: 'retiro', descripcion: '', costo_fijo: '', activo: false });
+    setUbic({});
+    setError(null);
+  };
+
+  const crearMut = useMutation({
+    mutationFn: () => {
+      const body: Record<string, unknown> = {
+        nombre: form.nombre.trim(),
+        proveedor: form.proveedor,
+        activo: form.activo,
+      };
+      const desc = form.descripcion.trim();
+      if (desc) body.descripcion = desc;
+      if (usaCostoFijo) body.costo_fijo = parseFloat(form.costo_fijo) || 0;
+      // La ubicación se manda si está completa (obligatoria para activar el
+      // retiro; opcional si nace inactivo y se completa después).
+      if (esRetiro && ubicacionCompleta(ubic)) body.ubicacion = ubicacionPayload(ubic);
+      return api.post('/envios', body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['envios-admin'] });
+      setAbierto(false);
+      reset();
+    },
+    onError: (e: unknown) => setError(msgError(e, 'No se pudo crear el método.')),
+  });
+
+  const faltaUbicParaActivar = esRetiro && form.activo && !ubicacionCompleta(ubic);
+  const puedeCrear = form.nombre.trim().length >= 2 && !faltaUbicParaActivar;
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-[var(--line)] rounded-[var(--radius-el)] text-sm text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--ink-soft)] transition-colors"
+      >
+        <Plus size={14} /> Agregar método de envío
+      </button>
+    );
+  }
+
+  return (
+    <AdminCard padded={false}>
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--line)]">
+        <span className="text-xl">{PROVEEDOR_INFO[form.proveedor]?.icono ?? '🚚'}</span>
+        <div className="flex-1 font-semibold text-sm text-[var(--ink)]">Nuevo método de envío</div>
+        <label className="flex items-center gap-2 text-xs text-[var(--ink-soft)]">
+          Activo
+          <Toggle on={form.activo} onClick={() => setForm(f => ({ ...f, activo: !f.activo }))} />
+        </label>
+      </div>
+
+      <div className="px-5 py-4 flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <AdminLabel>Nombre visible *</AdminLabel>
+            <AdminInput
+              value={form.nombre}
+              onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+              placeholder={esRetiro ? 'Ej: Retiro en Villa Crespo' : 'Ej: Envío Express'}
+            />
+          </div>
+          <div>
+            <AdminLabel>Tipo</AdminLabel>
+            <AdminSelect value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))}>
+              {PROVEEDORES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </AdminSelect>
+          </div>
+          <div>
+            <AdminLabel>
+              Costo fijo ($) {esRetiro ? '— siempre gratis' : form.proveedor === 'oca' ? '— usa precio por zona' : '— fallback si no hay API'}
+            </AdminLabel>
+            <AdminInput
+              type="number"
+              value={usaCostoFijo ? form.costo_fijo : ''}
+              onChange={e => setForm(f => ({ ...f, costo_fijo: e.target.value }))}
+              disabled={!usaCostoFijo}
+              placeholder={usaCostoFijo ? '0' : '—'}
+            />
+          </div>
+          <div className="col-span-2">
+            <AdminLabel>Descripción</AdminLabel>
+            <AdminInput
+              value={form.descripcion}
+              onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+              placeholder={esRetiro ? 'Ej: Coordinamos por WhatsApp cuándo pasás a buscarlo' : 'Ej: Llega en 24 a 72 hs. Solo CABA y GBA.'}
+            />
+          </div>
+        </div>
+
+        {esRetiro && (
+          <div className="border border-[var(--line)] bg-[var(--n-50)] rounded-[var(--radius-el)] p-4 flex flex-col gap-3">
+            <p className="text-[11px] text-[var(--ink-soft)]">Ubicación del punto de retiro (obligatoria para activarlo).</p>
+            <UbicacionRetiroFields value={ubic} onChange={setUbic} />
+          </div>
+        )}
+
+        {error && (
+          <div className="text-xs px-3 py-2 border border-[var(--error)]/30 bg-[var(--error-soft)] text-[var(--error)] rounded-[var(--radius-el)]">
+            {error}
+          </div>
+        )}
+        {faltaUbicParaActivar && !error && (
+          <p className="text-[11px] text-[var(--ink-soft)]">Completá dirección, localidad y partido, o desactivá el método para crearlo y cargar la ubicación después.</p>
+        )}
+
+        <div className="flex items-center gap-2">
+          <AdminButton
+            variant="primary" icon={<Plus size={12} />}
+            disabled={crearMut.isPending || !puedeCrear}
+            onClick={() => crearMut.mutate()}
+          >
+            {crearMut.isPending ? 'Creando...' : 'Crear método'}
+          </AdminButton>
+          <AdminButton variant="secondary" onClick={() => { setAbierto(false); reset(); }}>Cancelar</AdminButton>
+        </div>
+      </div>
+    </AdminCard>
   );
 }
 
@@ -394,6 +676,7 @@ export default function AdminEnvios() {
       ) : (
         <div className="flex flex-col gap-3">
           {metodos?.map(m => <MetodoCard key={m.id} metodo={m} />)}
+          <AgregarMetodoCard />
         </div>
       )}
     </div>
