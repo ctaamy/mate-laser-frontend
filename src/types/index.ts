@@ -187,6 +187,8 @@ export interface ItemOrden {
   nombre_producto: string;
   color?: string;
   texto_grabado?: string;
+  con_bombilla?: boolean;
+  atributos?: { bombilla_nombre?: string } | null;
   precio_unitario: number;
   cantidad: number;
   subtotal: number;

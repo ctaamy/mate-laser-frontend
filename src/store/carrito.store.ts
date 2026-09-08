@@ -18,6 +18,10 @@ interface ItemCarrito {
   color?: string;
   texto_grabado?: string;
   con_grabado?: boolean;
+  // "Bombilla como add-on": la línea lleva la bombilla opcional del producto.
+  // `bombilla_nombre` es sólo para mostrar (la fuente de precio/stock es el backend).
+  con_bombilla?: boolean;
+  bombilla_nombre?: string;
   precio_unitario: number;
   cantidad: number;
   imagen_url?: string;
@@ -74,8 +78,8 @@ interface CarritoState {
   // cuando tenga items. Se limpia al aplicarlo, al descartarlo o al vaciar.
   cuponPendiente: string | null;
   agregar: (item: ItemCarrito) => void;
-  quitar: (producto_id: string, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
-  actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, con_grabado?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
+  quitar: (producto_id: string, variante_id?: string, con_grabado?: boolean, con_bombilla?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
+  actualizarCantidad: (producto_id: string, cantidad: number, variante_id?: string, con_grabado?: boolean, con_bombilla?: boolean, texto_grabado?: string, color?: string, selecciones_configurador?: SeleccionConfigurador[]) => void;
   aplicarCupon: (cupon: CuponAplicado) => void;
   quitarCupon: () => void;
   setCuponPendiente: (codigo: string) => void;
@@ -105,6 +109,7 @@ const mismoItem = (a: ItemCarrito, b: Partial<ItemCarrito>) =>
   a.producto_id === b.producto_id &&
   a.variante_id === b.variante_id &&
   a.con_grabado === b.con_grabado &&
+  !!a.con_bombilla === !!b.con_bombilla &&
   a.texto_grabado === b.texto_grabado &&
   a.color === b.color &&
   hashSelecciones(a.selecciones_configurador) === hashSelecciones(b.selecciones_configurador);
@@ -137,22 +142,22 @@ export const useCarritoStore = create<CarritoState>()(
         }
       },
 
-      quitar: (producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador) => {
+      quitar: (producto_id, variante_id, con_grabado, con_bombilla, texto_grabado, color, selecciones_configurador) => {
         set({
-          items: get().items.filter(i => !mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador })),
+          items: get().items.filter(i => !mismoItem(i, { producto_id, variante_id, con_grabado, con_bombilla, texto_grabado, color, selecciones_configurador })),
           actualizadoEn: Date.now(),
           cupon: null,
         });
       },
 
-      actualizarCantidad: (producto_id, cantidad, variante_id, con_grabado, texto_grabado, color, selecciones_configurador) => {
+      actualizarCantidad: (producto_id, cantidad, variante_id, con_grabado, con_bombilla, texto_grabado, color, selecciones_configurador) => {
         if (cantidad <= 0) {
-          get().quitar(producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador);
+          get().quitar(producto_id, variante_id, con_grabado, con_bombilla, texto_grabado, color, selecciones_configurador);
           return;
         }
         set({
           items: get().items.map(i => {
-            if (!mismoItem(i, { producto_id, variante_id, con_grabado, texto_grabado, color, selecciones_configurador })) return i;
+            if (!mismoItem(i, { producto_id, variante_id, con_grabado, con_bombilla, texto_grabado, color, selecciones_configurador })) return i;
             const max = i.stock ?? Infinity;
             return { ...i, cantidad: Math.min(cantidad, max) };
           }),
@@ -191,7 +196,10 @@ export const useCarritoStore = create<CarritoState>()(
     }),
     {
       name: 'carrito-storage',
-      version: 2,
+      // v3: entró `con_bombilla` en la identidad de la línea (mismoItem). Los
+      // items viejos sin el flag se leen como "sin bombilla", que es correcto —
+      // no hace falta reparar nada.
+      version: 3,
       // Carritos persistidos antes de la Fase 2 no tienen `actualizadoEn`.
       // Se completa con "ahora" en vez de dejarlo undefined (que se leería
       // como "hace milenios" y dispararía el aviso de carrito viejo de

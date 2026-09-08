@@ -18,7 +18,8 @@ export default function OrdenItems({ orden }: Props) {
               <div className="text-sm font-medium">{item.nombre_producto}</div>
               <div className="text-xs text-gray-400">
                 {item.color && `Color: ${item.color} · `}
-                {item.texto_grabado && `"${item.texto_grabado}" · `}
+                {item.texto_grabado && `Grabado "${item.texto_grabado}" · `}
+                {item.con_bombilla && `Bombilla${item.atributos?.bombilla_nombre ? ` ${item.atributos.bombilla_nombre}` : ''} · `}
                 x{item.cantidad}
               </div>
             </div>

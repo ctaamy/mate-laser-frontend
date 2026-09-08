@@ -234,19 +234,27 @@ export default function Carrito() {
                         )}
                       </div>
                     )}
+                    {/* Add-on liviano, más discreto que el badge de grabado (que
+                        es la estrella de la personalización). */}
+                    {item.con_bombilla && (
+                      <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-black/60 bg-black/[0.04] px-2 py-0.5 rounded-sm self-start w-fit">
+                        <Plus size={10} className="flex-shrink-0" />
+                        {item.bombilla_nombre ? `Bombilla ${item.bombilla_nombre}` : 'Con bombilla'}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center flex-wrap gap-x-3 gap-y-2">
                     <div className="flex items-center border border-black/15">
                       <button
-                        onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
+                        onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.con_grabado, item.con_bombilla, item.texto_grabado, item.color)}
                         className="w-8 h-8 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors"
                       >
                         <Minus size={11} />
                       </button>
                       <span className="w-8 text-center text-sm font-medium text-black select-none">{item.cantidad}</span>
                       <button
-                        onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
+                        onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.con_grabado, item.con_bombilla, item.texto_grabado, item.color)}
                         disabled={item.stock !== undefined && item.cantidad >= item.stock}
                         className="w-8 h-8 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
                       >
@@ -254,7 +262,7 @@ export default function Carrito() {
                       </button>
                     </div>
                     <button
-                      onClick={() => quitar(item.producto_id, item.variante_id, item.con_grabado, item.texto_grabado, item.color)}
+                      onClick={() => quitar(item.producto_id, item.variante_id, item.con_grabado, item.con_bombilla, item.texto_grabado, item.color)}
                       className="text-xs text-black/30 hover:text-black flex items-center gap-1 transition-colors"
                     >
                       <Trash2 size={11} /> Eliminar

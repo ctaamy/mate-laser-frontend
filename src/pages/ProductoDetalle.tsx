@@ -18,6 +18,7 @@ export default function ProductoDetalle() {
   const { slug } = useParams<{ slug: string }>();
   const [valoresSeleccionados, setValoresSeleccionados] = useState<Record<string, string>>({});
   const [quierePersonalizar, setQuierePersonalizar] = useState(false);
+  const [quiereBombilla, setQuiereBombilla] = useState(false);
   const [textoGrabado, setTextoGrabado] = useState('');
   const [cantidad, setCantidad] = useState(1);
   const [imagenActiva, setImagenActiva] = useState(0);
@@ -78,6 +79,12 @@ export default function ProductoDetalle() {
 
   const costoGrabado = Number((producto as any).costo_grabado || 0);
   const precioBaseProducto = Number(producto.precio_base);
+
+  // "Bombilla como add-on": el backend resuelve `producto.bombilla` (o null).
+  const bombilla = producto.bombilla ?? null;
+  const bombillaPrecio = bombilla ? Number(bombilla.precio_adicional) : 0;
+  const bombillaDisponible = bombilla?.disponible ?? false;
+  const bombillaActiva = quiereBombilla && !!bombilla && bombillaDisponible;
 
   const imagenes = producto.imagenes_producto ?? [];
   // El backend ya devuelve tipos y valores ordenados por `orden` (findOne en
@@ -206,7 +213,9 @@ export default function ProductoDetalle() {
   };
 
   const precioFinal =
-    (mostrarDesde ? precioDesde : precioVariante) + (quierePersonalizar ? costoGrabado : 0);
+    (mostrarDesde ? precioDesde : precioVariante) +
+    (quierePersonalizar ? costoGrabado : 0) +
+    (bombillaActiva ? bombillaPrecio : 0);
 
   // precio_tachado se calcula contra precio_base. Si el precio que se muestra
   // no es el base (variante con precio propio, o "Desde" con variantes de
@@ -233,6 +242,8 @@ export default function ProductoDetalle() {
       cantidad,
       con_grabado: quierePersonalizar || undefined,
       texto_grabado: quierePersonalizar ? (textoGrabado || undefined) : undefined,
+      con_bombilla: bombillaActiva || undefined,
+      bombilla_nombre: bombillaActiva ? bombilla!.nombre : undefined,
       imagen_url: imagenVariante?.url ?? producto.imagenes_producto?.[0]?.url,
       stock: cantidadMaxima,
     });
@@ -341,7 +352,7 @@ export default function ProductoDetalle() {
                 >
                   ${precioFinal.toLocaleString('es-AR')}
                 </motion.span>
-                {tieneDescuento && !quierePersonalizar && (
+                {tieneDescuento && !quierePersonalizar && !bombillaActiva && (
                   <span className="text-base text-black/30 line-through font-medium">
                     ${Number(producto.precio_tachado).toLocaleString('es-AR')}
                   </span>
@@ -362,9 +373,11 @@ export default function ProductoDetalle() {
                 </p>
               )}
 
-              {!mostrarDesde && quierePersonalizar && costoGrabado > 0 && (
+              {!mostrarDesde && ((quierePersonalizar && costoGrabado > 0) || bombillaActiva) && (
                 <p className="text-[11px] text-black/35">
-                  ${precioVariante.toLocaleString('es-AR')} + ${costoGrabado.toLocaleString('es-AR')} grabado
+                  ${precioVariante.toLocaleString('es-AR')} mate
+                  {quierePersonalizar && costoGrabado > 0 && ` + $${costoGrabado.toLocaleString('es-AR')} grabado`}
+                  {bombillaActiva && ` + $${bombillaPrecio.toLocaleString('es-AR')} bombilla`}
                 </p>
               )}
             </div>
@@ -445,6 +458,55 @@ export default function ProductoDetalle() {
                     Las opciones <span className="line-through">tachadas</span> no tienen stock para esta combinación.
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Toggle "agregar bombilla" — add-on a nivel producto, mismo patrón
+                que el de grabado. Deshabilitado (gris, no rojo) si la bombilla
+                se quedó sin stock: el mate se compra igual. */}
+            {bombilla && (
+              <div className={`border transition-colors ${bombillaActiva ? 'border-black' : 'border-black/10'} ${!bombillaDisponible ? 'opacity-60' : ''}`}>
+                <button
+                  onClick={() => bombillaDisponible && setQuiereBombilla((v) => !v)}
+                  disabled={!bombillaDisponible}
+                  className="w-full flex items-center justify-between px-4 py-3.5 text-left disabled:cursor-not-allowed"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Plus size={13} className={bombillaActiva ? 'text-black' : 'text-black/30'} />
+                      <span className="text-sm font-semibold text-black">{bombilla.label || 'Agregar bombilla'}</span>
+                    </div>
+                    <p className="text-[11px] text-black/40 mt-0.5 pl-5">
+                      {bombillaDisponible
+                        ? `${bombilla.nombre} · ${bombillaPrecio > 0 ? `+$${bombillaPrecio.toLocaleString('es-AR')}` : 'sin costo adicional'}`
+                        : 'Sin stock por ahora'}
+                    </p>
+                  </div>
+                  <div className={`w-10 h-5 rounded-full relative transition-colors flex-shrink-0 ${bombillaActiva ? 'bg-black' : 'bg-black/15'}`}>
+                    <motion.div
+                      className="w-4 h-4 bg-white rounded-full absolute top-0.5"
+                      animate={{ left: bombillaActiva ? '22px' : '2px' }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {bombillaActiva && bombilla.imagen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22 }}
+                      className="overflow-hidden border-t border-black/[0.07]"
+                    >
+                      <div className="px-4 py-3 flex items-center gap-3">
+                        <img src={bombilla.imagen} alt={bombilla.nombre} loading="lazy" className="w-12 h-12 object-cover bg-[#f5f5f5] flex-shrink-0" />
+                        <span className="text-xs text-black/55">{bombilla.nombre}</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
 

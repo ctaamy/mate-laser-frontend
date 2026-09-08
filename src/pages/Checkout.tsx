@@ -291,6 +291,7 @@ export default function Checkout() {
           nombre_producto: item.nombre_producto,
           color: item.color,
           texto_grabado: item.texto_grabado,
+          con_bombilla: item.con_bombilla,
           precio_unitario: item.precio_unitario,
           cantidad: item.cantidad,
           subtotal: item.precio_unitario * item.cantidad,
