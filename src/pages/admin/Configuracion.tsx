@@ -135,7 +135,7 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
     bg_color: '#1D9E75', texto_color: '#ffffff',
   },
   como_funciona: {
-    variante: 'ficha',
+    variante: 'banda',
     titulo: 'De tu idea al mate, en 3 pasos',
     subtitulo: '',
     pasos: [
@@ -241,7 +241,7 @@ const ALINEACIONES_CON_HEREDAR = [
 
 // Estilo visual del bloque "Cómo funciona".
 const VARIANTES_COMO_FUNCIONA = [
-  { value: 'ficha', label: 'Ficha técnica — lista con número grande, hairlines, tipo planilla de grabado' },
+  { value: 'banda', label: 'Banda plana — franja a lo ancho, íconos finos, sin tarjetas' },
   { value: 'tarjetas', label: 'Tarjetas — cada paso en una card con burbuja de ícono y hover' },
 ];
 
@@ -1162,7 +1162,7 @@ function EditorContenido({ tipo, datos, set }: {
         <div>
           <SelectField label="Estilo visual" value={datos.variante || 'tarjetas'} onChange={v => set('variante', v)} options={VARIANTES_COMO_FUNCIONA} />
           <p className="text-[10px] text-[var(--ink-soft)] mt-1">
-            En "Ficha técnica" el número (01, 02…) se numera solo y va grande a la izquierda — escribí solo el texto del título (ej: "Elegí y personalizá"). Los pasos 1 a 3 usan íconos propios de MLS; del 4º en adelante, el ícono que elijas acá. El color de acento y la línea conectora son de la variante "Tarjetas".
+            En "Banda plana" el número (1., 2.…) se antepone solo al título — escribí solo el texto (ej: "Elegí y personalizá"). El título de sección es opcional: si lo dejás vacío queda la franja sola. Los pasos 1 a 3 usan íconos propios de MLS; del 4º en adelante, el ícono que elijas acá. El color de acento y la línea conectora son de la variante "Tarjetas".
           </p>
         </div>
         <div>

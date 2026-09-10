@@ -1105,72 +1105,96 @@ function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema
   // reproduce ese 0.5rem histórico.
   const gapTituloSubtitulo = gapVertical(datos.titulo_subtitulo_gap, 0.5, 'sm');
   // Variante visual. 'tarjetas' = layout histórico (cards con burbuja de
-  // ícono + badge "01" + hover + línea conectora). 'ficha' = "ficha
-  // técnica": lista vertical, número grande y fino en columna izquierda con
-  // el ícono a medida como sello, reglas hairline de 1px entre filas
-  // (arriba y abajo también), alineado a la izquierda. Lenguaje de planilla
-  // de grabado — evita el "kit de tarjetas SaaS" que marca la skill
-  // mls-frontend-design. Default 'tarjetas' para no alterar bloques ya
-  // configurados; 'ficha' se activa desde el admin (tab Contenido).
-  const variante = datos.variante === 'ficha' ? 'ficha' : 'tarjetas';
+  // ícono + badge "01" + hover + línea conectora). 'banda' = franja plana a
+  // lo ancho (full-bleed), 3 pasos en fila con ícono fino a la izquierda +
+  // texto a la derecha y hairlines verticales entre columnas; sin cards, sin
+  // hover, sin números grandes. Colapsa a lista apilada en pantallas chicas.
+  // Referencia: la franja "cómo comprar" de tiendas tipo MAC. Default
+  // 'tarjetas' para no alterar bloques ya configurados; 'banda' se activa
+  // desde el admin (tab Contenido).
+  const variante = datos.variante === 'banda' ? 'banda' : 'tarjetas';
+  // En 'banda' el título de sección es opcional de verdad: si el admin lo
+  // deja vacío, no se renderiza nada (franja pura, sin encabezado).
+  const tituloBanda = variante === 'banda' ? datos.titulo : (datos.titulo || '¿Cómo funciona?');
+  const mostrarHeaderBanda = variante === 'banda' && !!(tituloBanda || datos.subtitulo || eyebrow);
 
   return (
     <section
-      className={`w-full px-8 flex items-center ${variante === 'ficha' ? 'py-16 md:py-24' : 'py-20 md:py-28'}`}
+      className={`w-full px-6 md:px-8 flex items-center ${variante === 'banda' ? 'py-12 md:py-16' : 'py-20 md:py-28'}`}
       style={{ backgroundColor: bg, color: tc, fontFamily, minHeight, ...padding }}
     >
       <div className="max-w-6xl mx-auto w-full">
         <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER} style={{ textAlign: datos.alineacion || undefined }}>
-          {eyebrow && <SectionLabel light>{eyebrow}</SectionLabel>}
-          <div className={variante === 'ficha' ? 'mb-10 md:mb-12' : 'mb-16'}>
-            <motion.h2 variants={FADE_UP} transition={T}
-              className="text-2xl md:text-3xl font-bold tracking-tight"
-              style={{ marginBottom: datos.subtitulo ? gapTituloSubtitulo : undefined }}>
-              {datos.titulo || '¿Cómo funciona?'}
-            </motion.h2>
-            {datos.subtitulo && (
-              <motion.p variants={FADE_UP} transition={{ ...T, delay: 0.05 }}
-                className="text-sm max-w-md"
-                style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily }}>
-                {datos.subtitulo}
-              </motion.p>
-            )}
-          </div>
+          {variante === 'banda' ? (
+            mostrarHeaderBanda && (
+              <div className="mb-8 md:mb-10">
+                {eyebrow && <SectionLabel light>{eyebrow}</SectionLabel>}
+                {tituloBanda && (
+                  <motion.h2 variants={FADE_UP} transition={T}
+                    className="text-xl md:text-2xl font-bold tracking-tight"
+                    style={{ marginBottom: datos.subtitulo ? gapTituloSubtitulo : undefined }}>
+                    {tituloBanda}
+                  </motion.h2>
+                )}
+                {datos.subtitulo && (
+                  <motion.p variants={FADE_UP} transition={{ ...T, delay: 0.05 }}
+                    className="text-sm max-w-md"
+                    style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily }}>
+                    {datos.subtitulo}
+                  </motion.p>
+                )}
+              </div>
+            )
+          ) : (
+            <>
+              {eyebrow && <SectionLabel light>{eyebrow}</SectionLabel>}
+              <div className="mb-16">
+                <motion.h2 variants={FADE_UP} transition={T}
+                  className="text-2xl md:text-3xl font-bold tracking-tight"
+                  style={{ marginBottom: datos.subtitulo ? gapTituloSubtitulo : undefined }}>
+                  {datos.titulo || '¿Cómo funciona?'}
+                </motion.h2>
+                {datos.subtitulo && (
+                  <motion.p variants={FADE_UP} transition={{ ...T, delay: 0.05 }}
+                    className="text-sm max-w-md"
+                    style={{ color: subtitulo.tc, fontFamily: subtitulo.fontFamily }}>
+                    {datos.subtitulo}
+                  </motion.p>
+                )}
+              </div>
+            </>
+          )}
 
-          {variante === 'ficha' ? (
-            /* "Ficha técnica": lista vertical contenida (ancho de documento),
-               cada fila = número grande y fino + ícono a medida como sello
-               en la columna izquierda, título + descripción a la derecha.
-               Reglas hairline de 1px arriba, entre filas y abajo (el
-               contenedor pone border-y; cada fila salvo la primera agrega
-               su border-t). Alineado a la izquierda, asimétrico. Sin cards,
-               sin hover; accent_color no interviene (es de 'tarjetas'). */
-            <div className="max-w-3xl border-y" style={{ borderColor: `${tc}1f` }}>
+          {variante === 'banda' ? (
+            /* Franja plana: 3 pasos en fila (1 columna apilada en < lg —
+               el corte a 3 columnas recién en lg porque a 768-1023 se
+               apretaban demasiado), ícono fino a la izquierda + texto a la
+               derecha. Hairlines de 1px VERTICALES entre columnas en desktop
+               (border-l en los pasos 2+), HORIZONTALES entre filas al apilar
+               (border-t). Sin cards, sin fondo por paso, sin hover, sin
+               número grande — el "1." va chico dentro del título, como en la
+               referencia. accent_color no interviene (es de 'tarjetas'). */
+            <div className="grid grid-cols-1 lg:grid-cols-3">
               {pasos.map((paso, i) => {
-                // Pasos 1-3: ícono a medida de MLS (mismo mate a un trazo en
-                // los tres). 4º+ o si no hay: cae en la librería lucide, como
-                // la variante tarjetas. paso.icono solo aplica al fallback.
+                // Pasos 1-3: ícono a medida de MLS (mismo mate a un trazo).
+                // 4º+ o si no hay: cae en lucide. paso.icono solo aplica al
+                // fallback.
                 const IconoMls = PASOS_ICONOS_MLS[i];
                 const IconLucide = STAT_ICONS[paso.icono || ''] ?? STAT_ICONS[PASO_ICON_FALLBACK[i % PASO_ICON_FALLBACK.length]];
-                const iconoCls = 'w-6 h-6 md:w-7 md:h-7';
+                const iconoCls = 'w-9 h-9 md:w-10 md:h-10 shrink-0';
                 return (
                   <motion.div key={i} variants={FADE_UP} transition={{ ...T, delay: i * 0.08 }}
-                    className="grid grid-cols-[3.25rem_1fr] md:grid-cols-[5rem_1fr] gap-x-5 md:gap-x-9 py-7 md:py-9 border-t first:border-t-0"
+                    className="flex items-start gap-4 py-6 first:pt-0 border-t first:border-t-0 lg:py-0 lg:px-8 lg:first:pl-0 lg:last:pr-0 lg:border-t-0 lg:border-l lg:first:border-l-0"
                     style={{ borderColor: `${tc}1f` }}>
-                    <div className="flex flex-col items-start gap-3">
-                      {IconoMls
-                        ? <IconoMls className={iconoCls} style={{ color: tc, opacity: 0.8 }} />
-                        : <IconLucide aria-hidden="true" strokeWidth={1.25} className={iconoCls} style={{ color: tc, opacity: 0.8 }} />}
-                      <span className="text-[2.75rem] md:text-[3.5rem] font-light leading-[0.9] tabular-nums" style={{ color: tc }}>
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                    </div>
-                    <div className="min-w-0 pt-1">
-                      <div className="text-base md:text-lg font-semibold leading-snug" style={{ color: tc }}>{paso.titulo}</div>
-                      {/* Alfa 0xb3 (~70%) — más contraste que el 0x70 de la
-                          variante 'tarjetas' para pasar 4.5:1 sobre fondos
-                          oscuros (ver review de ux-reviewer). */}
-                      <p className="text-sm mt-2 leading-relaxed max-w-md" style={{ color: `${tc}b3` }}>{paso.desc}</p>
+                    {IconoMls
+                      ? <IconoMls className={iconoCls} style={{ color: tc, opacity: 0.9 }} />
+                      : <IconLucide aria-hidden="true" strokeWidth={1.25} className={iconoCls} style={{ color: tc, opacity: 0.9 }} />}
+                    <div className="min-w-0">
+                      <div className="text-[15px] md:text-base font-medium leading-snug" style={{ color: tc }}>
+                        {i + 1}. {paso.titulo}
+                      </div>
+                      {/* Alfa 0xb3 (~70%) para pasar 4.5:1 sobre fondos oscuros. */}
+                      <p className="text-[13px] md:text-sm mt-2 leading-relaxed" style={{ color: `${tc}b3` }}>{paso.desc}</p>
                     </div>
                   </motion.div>
                 );

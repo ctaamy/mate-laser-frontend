@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
 // renderizaba — ahora se muestra siempre, con fallback por posición.
 //
 // Esta spec cubre la variante 'tarjetas' (default, sin datos.variante).
-// La variante 'ficha' tiene su propia spec: como-funciona-ficha.spec.ts.
+// La variante 'banda' tiene su propia spec: como-funciona-banda.spec.ts.
 
 async function mockHome(page: import('@playwright/test').Page, secciones: any[], config: Record<string, any> = {}) {
   await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => route.fulfill({ json: secciones }));
