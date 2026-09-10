@@ -11,7 +11,12 @@ import { useTemaGlobalData } from '../hooks/useThemeGlobal';
 // solo existen la ruta y el template. Se renderiza con react-markdown (sin
 // rehype-raw), que no interpreta HTML embebido — evita XSS sin necesidad de
 // sanitizar manualmente.
-export default function PaginaEstatica({ claveBase, tituloDefault }: { claveBase: string; tituloDefault: string }) {
+// markdownDefault: contenido de arranque cuando todavía no se cargó nada en
+// el admin, para páginas que se enlazan desde un lugar prominente (ej.
+// /nosotros desde el navbar) y no deberían mostrarle a un cliente el
+// placeholder genérico "todavía no fue cargado". Las páginas legales del
+// footer no lo pasan y siguen con ese placeholder.
+export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefault }: { claveBase: string; tituloDefault: string; markdownDefault?: string }) {
   const tema = useTemaGlobalData();
   const { data: config, isLoading } = useQuery<Record<string, any>>({
     queryKey: ['configuracion'],
@@ -37,7 +42,7 @@ export default function PaginaEstatica({ claveBase, tituloDefault }: { claveBase
   }
 
   const titulo: string = config?.[`${claveBase}_titulo`] || tituloDefault;
-  const markdown: string = config?.[`${claveBase}_markdown`] || 'Este contenido todavía no fue cargado.';
+  const markdown: string = config?.[`${claveBase}_markdown`] || markdownDefault || 'Este contenido todavía no fue cargado.';
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-16" style={{ color: tema.texto_color, fontFamily: tema.font_family || undefined }}>

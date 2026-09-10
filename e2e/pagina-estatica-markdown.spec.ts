@@ -143,3 +143,34 @@ test.describe('PaginaEstatica — regresión XSS', () => {
     expect(imgsEnProse).toBe(0);
   });
 });
+
+test.describe('PaginaEstatica — /nosotros con texto de arranque (markdownDefault)', () => {
+  // A diferencia de las 4 páginas legales del footer, /nosotros se enlaza
+  // desde el navbar y pasa `markdownDefault` en App.tsx: hasta que el admin
+  // cargue el contenido real NO debe mostrar el placeholder genérico
+  // "todavía no fue cargado", sino ese texto de arranque.
+  test('sin contenido en el admin, muestra el texto de arranque y NO el placeholder genérico', async ({ page }) => {
+    await mockConfiguracion(page, {}); // config vacía: nada de pagina_nosotros_*
+
+    await page.goto('/nosotros');
+
+    await expect(page.getByRole('heading', { name: 'Nosotros', level: 1 })).toBeVisible();
+    await expect(page.locator('.prose')).toContainText('taller de grabado láser en Buenos Aires');
+    await expect(page.getByText('Este contenido todavía no fue cargado.')).toHaveCount(0);
+  });
+
+  test('con pagina_nosotros_markdown cargado, ese contenido pisa al texto de arranque', async ({ page }) => {
+    await mockConfiguracion(page, {
+      pagina_nosotros_titulo: 'El Taller',
+      pagina_nosotros_markdown: '## Nuestra historia\n\nArrancamos en 2019 en Villa Crespo.',
+    });
+
+    await page.goto('/nosotros');
+
+    await expect(page.getByRole('heading', { name: 'El Taller', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nuestra historia', level: 2 })).toBeVisible();
+    await expect(page.locator('.prose')).toContainText('Arrancamos en 2019 en Villa Crespo.');
+    // El texto de arranque ya no aparece.
+    await expect(page.locator('.prose')).not.toContainText('taller de grabado láser en Buenos Aires');
+  });
+});

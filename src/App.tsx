@@ -42,6 +42,15 @@ import AdminConfiguradorV2 from './pages/admin/ConfiguradorV2';
 import AdminPromocionesBancarias from './pages/admin/PromocionesBancarias';
 import AdminUsuarios from './pages/admin/Usuarios';
 
+// Texto de arranque de /nosotros hasta que se cargue el definitivo desde el
+// admin (Configuración → Páginas). Corto y verdadero a propósito — la
+// versión real, con la historia y las fotos del taller, la escribe el
+// negocio. Sin esto, "Nosotros" en el navbar caería en el placeholder
+// genérico "todavía no fue cargado".
+const NOSOTROS_MD_DEFAULT = `Somos un taller de grabado láser en Buenos Aires. Hacemos cada mate de a uno: elegís el diseño, te mostramos cómo queda y recién ahí lo grabamos.
+
+Trabajamos sobre acero, madera y acrílico, con envíos a todo el país. También podés retirar por el taller.`;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -172,6 +181,7 @@ export default function App() {
             <Route path="privacidad" element={<PaginaEstatica claveBase="pagina_privacidad" tituloDefault="Política de privacidad" />} />
             <Route path="faq" element={<PaginaEstatica claveBase="pagina_faq" tituloDefault="Preguntas frecuentes" />} />
             <Route path="envios-y-devoluciones" element={<PaginaEstatica claveBase="pagina_envios" tituloDefault="Envíos y devoluciones" />} />
+            <Route path="nosotros" element={<PaginaEstatica claveBase="pagina_nosotros" tituloDefault="Nosotros" markdownDefault={NOSOTROS_MD_DEFAULT} />} />
           </Route>
 
           {/* Rutas de admin */}

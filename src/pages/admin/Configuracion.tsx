@@ -27,7 +27,7 @@ type SeccionTipo = TipoSeccion | 'navbar' | 'footer';
 const NAV_LINKS_DEFAULT = [
   { label: 'Productos', href: '/productos' },
   { label: 'Personalizado', href: '/productos?personalizado=true' },
-  { label: 'Nosotros', href: '/#nosotros' },
+  { label: 'Nosotros', href: '/nosotros' },
 ];
 
 // Defaults del footer — calcados de lo que hoy está hardcodeado en
@@ -2848,9 +2848,10 @@ export default function AdminConfiguracion() {
       {tab === 'paginas' && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-[var(--ink-soft)]">
-            Título y contenido (Markdown) de las páginas legales/de ayuda enlazadas desde el footer. El contenido final se carga acá cuando esté listo — mientras tanto la ruta ya existe y no queda rota.
+            Título y contenido (Markdown) de las páginas de contenido del sitio (Nosotros, más las legales/de ayuda enlazadas desde el footer). El contenido final se carga acá cuando esté listo — mientras tanto la ruta ya existe y no queda rota. <strong>Nosotros</strong> se enlaza desde el navbar y hasta que cargues algo muestra un texto de arranque genérico.
           </p>
           {[
+            { clave: 'pagina_nosotros', label: 'Nosotros' },
             { clave: 'pagina_terminos', label: 'Términos y condiciones' },
             { clave: 'pagina_privacidad', label: 'Política de privacidad' },
             { clave: 'pagina_faq', label: 'Preguntas frecuentes' },
