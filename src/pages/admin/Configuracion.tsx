@@ -9,7 +9,7 @@ import type { Categoria } from '../../types/index';
 import { useTemaGlobalData, type TemaGlobal } from '../../hooks/useThemeGlobal';
 import { HomeSecciones } from '../../components/home/HomeSecciones';
 import ScaledPreview from '../../components/admin/ScaledPreview';
-import { STAT_ICONS, STAT_ICON_NAMES, STAT_ICON_FALLBACK } from '../../components/ui/StatIcons';
+import { STAT_ICONS, STAT_ICON_NAMES, STAT_ICON_FALLBACK, PASO_ICON_FALLBACK } from '../../components/ui/StatIcons';
 import { PAYMENT_LOGOS, PAYMENT_LABELS } from '../../components/ui/PaymentLogos';
 
 // ── tipos ────────────────────────────────────────────────────────────────────
@@ -135,13 +135,13 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
     bg_color: '#1D9E75', texto_color: '#ffffff',
   },
   como_funciona: {
-    titulo: '¿Cómo funciona?',
-    subtitulo: 'En 4 simples pasos tenés tu mate personalizado',
+    variante: 'ficha',
+    titulo: 'De tu idea al mate, en 3 pasos',
+    subtitulo: '',
     pasos: [
-      { icono: 'Palette', titulo: 'Elegís el diseño', desc: 'Subís tu logo, texto o imagen desde el sitio o por WhatsApp.' },
-      { icono: 'CheckCircle2', titulo: 'Aprobás el arte', desc: 'Te enviamos una previsualización del grabado para tu visto bueno.' },
-      { icono: 'Zap', titulo: 'Grabamos tu pieza', desc: 'Láser de precisión sobre acero inoxidable, madera o acrílico.' },
-      { icono: 'Package', titulo: 'Lo recibís en casa', desc: 'Enviamos a todo el país con seguimiento en tiempo real.' },
+      { icono: 'Palette', titulo: 'Elegí y personalizá', desc: 'Sumá tu texto, logo o imagen desde el sitio o mandánoslo por WhatsApp.' },
+      { icono: 'CheckCircle2', titulo: 'Aprobás el diseño', desc: 'Te mostramos cómo queda el grabado y lo confirmás antes de grabar.' },
+      { icono: 'Truck', titulo: 'Lo grabamos y te llega', desc: 'Grabado láser sobre acero, madera o acrílico, con envío a todo el país y seguimiento.' },
     ],
     bg_color: '#0a2218', texto_color: '#ffffff',
   },
@@ -237,6 +237,12 @@ const ALINEACIONES = [
 const ALINEACIONES_CON_HEREDAR = [
   { value: '', label: 'Igual que la alineación del texto' },
   ...ALINEACIONES,
+];
+
+// Estilo visual del bloque "Cómo funciona".
+const VARIANTES_COMO_FUNCIONA = [
+  { value: 'ficha', label: 'Ficha técnica — lista con número grande, hairlines, tipo planilla de grabado' },
+  { value: 'tarjetas', label: 'Tarjetas — cada paso en una card con burbuja de ícono y hover' },
 ];
 
 // Fase 2 (hero): anclaje vertical del bloque de texto — antes fijo en
@@ -1140,11 +1146,25 @@ function EditorContenido({ tipo, datos, set }: {
 
   if (tipo === 'como_funciona') {
     const pasos: { icono?: string; titulo: string; desc: string }[] = datos.pasos ?? [];
+    const setPasos = (next: typeof pasos) => set('pasos', next);
     const actualizarPaso = (i: number, patch: Partial<{ icono: string; titulo: string; desc: string }>) => {
-      const np = [...pasos]; np[i] = { ...np[i], ...patch }; set('pasos', np);
+      const np = [...pasos]; np[i] = { ...np[i], ...patch }; setPasos(np);
+    };
+    const agregarPaso = () => setPasos([...pasos, {
+      icono: PASO_ICON_FALLBACK[pasos.length % PASO_ICON_FALLBACK.length], titulo: '', desc: '',
+    }]);
+    const eliminarPaso = (i: number) => setPasos(pasos.filter((_, idx) => idx !== i));
+    const moverPaso = (i: number, dir: -1 | 1) => {
+      const np = [...pasos]; [np[i], np[i + dir]] = [np[i + dir], np[i]]; setPasos(np);
     };
     return (
       <div className="flex flex-col gap-4">
+        <div>
+          <SelectField label="Estilo visual" value={datos.variante || 'tarjetas'} onChange={v => set('variante', v)} options={VARIANTES_COMO_FUNCIONA} />
+          <p className="text-[10px] text-[var(--ink-soft)] mt-1">
+            En "Ficha técnica" el número (01, 02…) se numera solo y va grande a la izquierda — escribí solo el texto del título (ej: "Elegí y personalizá"). Los pasos 1 a 3 usan íconos propios de MLS; del 4º en adelante, el ícono que elijas acá. El color de acento y la línea conectora son de la variante "Tarjetas".
+          </p>
+        </div>
         <div>
           <label className={labelCls}>Eyebrow (texto pequeño arriba del título, opcional)</label>
           <input className={inputCls} value={datos.eyebrow || ''} onChange={e => set('eyebrow', e.target.value)} placeholder="Ej: Proceso" />
@@ -1157,9 +1177,31 @@ function EditorContenido({ tipo, datos, set }: {
           <label className={labelCls}>Subtítulo</label>
           <input className={inputCls} value={datos.subtitulo || ''} onChange={e => set('subtitulo', e.target.value)} />
         </div>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-[var(--ink-soft)]">Pasos ({pasos.length})</p>
+          <button onClick={agregarPaso} className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
+            <Plus size={12} /> Agregar paso
+          </button>
+        </div>
         {pasos.map((p, i) => (
           <div key={i} className="border border-[var(--line)] rounded-lg p-3 flex flex-col gap-2">
-            <div className="text-xs font-semibold text-[var(--ink-soft)]">Paso {i + 1}</div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-[var(--ink-soft)]">Paso {i + 1}</div>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button onClick={() => moverPaso(i, -1)} disabled={i === 0}
+                  className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                  <ChevronUp size={13} />
+                </button>
+                <button onClick={() => moverPaso(i, 1)} disabled={i === pasos.length - 1}
+                  className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                  <ChevronDown size={13} />
+                </button>
+                <button onClick={() => eliminarPaso(i)}
+                  className="w-7 h-7 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 rounded transition-colors">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <IconPickerButton value={p.icono} onChange={nombre => actualizarPaso(i, { icono: nombre })} />
               <input className={inputCls} value={p.titulo} placeholder="Título del paso"
@@ -1171,6 +1213,11 @@ function EditorContenido({ tipo, datos, set }: {
             </div>
           </div>
         ))}
+        {pasos.length === 0 && (
+          <p className="text-xs text-[var(--ink-soft)] bg-[var(--n-50)] border border-[var(--line)] rounded-lg px-4 py-3">
+            Sin pasos — se muestran los 3 por defecto hasta que agregues al menos uno.
+          </p>
+        )}
       </div>
     );
   }
@@ -1272,7 +1319,7 @@ function EditorEstilo({ tipo, datos, set }: {
             <ColorField label="Color del ícono (default: hereda el texto)" value={datos.icon_color || ''} onChange={v => set('icon_color', v)} />
           )}
           {tipo === 'como_funciona' && (
-            <ColorField label="Color de acento (burbuja del ícono, línea conectora)" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />
+            <ColorField label="Color de acento (burbuja del ícono, línea conectora — solo variante Tarjetas)" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />
           )}
           {tipo === 'galeria_combos' && (
             <ColorField label="Color de acento (link 'Armá el tuyo')" value={datos.accent_color || ''} onChange={v => set('accent_color', v)} />

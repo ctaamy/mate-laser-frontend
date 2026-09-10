@@ -11,6 +11,7 @@ import ProductGrid from '../ui/ProductGrid';
 import { SIZE_REM, fontSizeClampItem, ImagenConOverlay, LinkAcentoConSubrayado, ComboImagenConOverlay, type Anclaje } from '../ui/CardOverlay';
 import TransicionInferior from '../ui/TransicionInferior';
 import { STAT_ICONS, STAT_ICON_FALLBACK, PASO_ICON_FALLBACK } from '../ui/StatIcons';
+import { PASOS_ICONOS_MLS } from './PasosIconosMls';
 import type { TemaGlobal } from '../../hooks/useThemeGlobal';
 
 // Todo el motor de renderizado de las secciones del homepage (hero, banners,
@@ -1070,11 +1071,15 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. CÓMO FUNCIONA
 // ─────────────────────────────────────────────────────────────────────────────
+// Tres pasos del proceso real de MLS. Se fusionó el viejo "Aprobás el arte"
+// con el ida y vuelta por WhatsApp en un solo paso ("Aprobás el diseño"), y
+// "grabamos" + "enviamos" en otro — antes eran 4. El foco del paso 2 es el
+// resultado ("lo confirmás antes de grabar"), no el canal: WhatsApp se
+// menciona en la descripción, no como titular.
 const PASOS_DEFAULT = [
-  { icono: 'Palette', titulo: 'Elegís el diseño', desc: 'Subís tu logo, texto o imagen desde el sitio o por WhatsApp.' },
-  { icono: 'CheckCircle2', titulo: 'Aprobás el arte', desc: 'Te enviamos una previsualización del grabado para tu visto bueno.' },
-  { icono: 'Zap', titulo: 'Grabamos tu pieza', desc: 'Láser de precisión sobre acero inoxidable, madera o acrílico.' },
-  { icono: 'Package', titulo: 'Lo recibís en casa', desc: 'Enviamos a todo el país con seguimiento en tiempo real.' },
+  { icono: 'Palette', titulo: 'Elegí y personalizá', desc: 'Sumá tu texto, logo o imagen desde el sitio o mandánoslo por WhatsApp.' },
+  { icono: 'CheckCircle2', titulo: 'Aprobás el diseño', desc: 'Te mostramos cómo queda el grabado y lo confirmás antes de grabar.' },
+  { icono: 'Truck', titulo: 'Lo grabamos y te llega', desc: 'Grabado láser sobre acero, madera o acrílico, con envío a todo el país y seguimiento.' },
 ];
 
 function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema: TemaGlobal }) {
@@ -1099,13 +1104,25 @@ function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema
   // espaciados verticales del sitio (paddingVertical/gapVertical), default
   // reproduce ese 0.5rem histórico.
   const gapTituloSubtitulo = gapVertical(datos.titulo_subtitulo_gap, 0.5, 'sm');
+  // Variante visual. 'tarjetas' = layout histórico (cards con burbuja de
+  // ícono + badge "01" + hover + línea conectora). 'ficha' = "ficha
+  // técnica": lista vertical, número grande y fino en columna izquierda con
+  // el ícono a medida como sello, reglas hairline de 1px entre filas
+  // (arriba y abajo también), alineado a la izquierda. Lenguaje de planilla
+  // de grabado — evita el "kit de tarjetas SaaS" que marca la skill
+  // mls-frontend-design. Default 'tarjetas' para no alterar bloques ya
+  // configurados; 'ficha' se activa desde el admin (tab Contenido).
+  const variante = datos.variante === 'ficha' ? 'ficha' : 'tarjetas';
 
   return (
-    <section className="w-full px-8 py-20 md:py-28 flex items-center" style={{ backgroundColor: bg, color: tc, fontFamily, minHeight, ...padding }}>
+    <section
+      className={`w-full px-8 flex items-center ${variante === 'ficha' ? 'py-16 md:py-24' : 'py-20 md:py-28'}`}
+      style={{ backgroundColor: bg, color: tc, fontFamily, minHeight, ...padding }}
+    >
       <div className="max-w-6xl mx-auto w-full">
         <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER} style={{ textAlign: datos.alineacion || undefined }}>
           {eyebrow && <SectionLabel light>{eyebrow}</SectionLabel>}
-          <div className="mb-16">
+          <div className={variante === 'ficha' ? 'mb-10 md:mb-12' : 'mb-16'}>
             <motion.h2 variants={FADE_UP} transition={T}
               className="text-2xl md:text-3xl font-bold tracking-tight"
               style={{ marginBottom: datos.subtitulo ? gapTituloSubtitulo : undefined }}>
@@ -1120,34 +1137,75 @@ function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema
             )}
           </div>
 
-          {/* Bugfix: el ícono de cada paso se guardaba (emoji, editable en
-              el admin) pero nunca se renderizaba. Ahora usa la misma
-              librería lucide-react que stats_barra (STAT_ICONS), con
-              fallback por posición si el paso no tiene ícono propio. */}
-          <div className="relative">
-            {/* Línea conectora sutil en acento — solo desktop, detrás de las burbujas de ícono */}
-            <div className="hidden md:block absolute left-0 right-0 h-px" style={{ top: '1.375rem', backgroundColor: `${accentColor}30` }} />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+          {variante === 'ficha' ? (
+            /* "Ficha técnica": lista vertical contenida (ancho de documento),
+               cada fila = número grande y fino + ícono a medida como sello
+               en la columna izquierda, título + descripción a la derecha.
+               Reglas hairline de 1px arriba, entre filas y abajo (el
+               contenedor pone border-y; cada fila salvo la primera agrega
+               su border-t). Alineado a la izquierda, asimétrico. Sin cards,
+               sin hover; accent_color no interviene (es de 'tarjetas'). */
+            <div className="max-w-3xl border-y" style={{ borderColor: `${tc}1f` }}>
               {pasos.map((paso, i) => {
-                const Icon = STAT_ICONS[paso.icono || ''] ?? STAT_ICONS[PASO_ICON_FALLBACK[i % PASO_ICON_FALLBACK.length]];
+                // Pasos 1-3: ícono a medida de MLS (mismo mate a un trazo en
+                // los tres). 4º+ o si no hay: cae en la librería lucide, como
+                // la variante tarjetas. paso.icono solo aplica al fallback.
+                const IconoMls = PASOS_ICONOS_MLS[i];
+                const IconLucide = STAT_ICONS[paso.icono || ''] ?? STAT_ICONS[PASO_ICON_FALLBACK[i % PASO_ICON_FALLBACK.length]];
+                const iconoCls = 'w-6 h-6 md:w-7 md:h-7';
                 return (
-                  <motion.div key={i} variants={FADE_UP} transition={{ ...T, delay: i * 0.1 }}
-                    className="group relative rounded-xl p-6 border transition-transform duration-300 ease-out hover:-translate-y-1"
-                    style={{ backgroundColor: `${tc}08`, borderColor: `${tc}12` }}>
-                    <span className="absolute top-4 right-4 text-[11px] font-bold tracking-wide" style={{ color: `${tc}35` }}>
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <div className="relative z-10 w-11 h-11 rounded-full flex items-center justify-center mb-4"
-                      style={{ backgroundColor: accentColor }}>
-                      <Icon size={20} color="#fff" className="transition-transform duration-300 ease-out group-hover:scale-110" />
+                  <motion.div key={i} variants={FADE_UP} transition={{ ...T, delay: i * 0.08 }}
+                    className="grid grid-cols-[3.25rem_1fr] md:grid-cols-[5rem_1fr] gap-x-5 md:gap-x-9 py-7 md:py-9 border-t first:border-t-0"
+                    style={{ borderColor: `${tc}1f` }}>
+                    <div className="flex flex-col items-start gap-3">
+                      {IconoMls
+                        ? <IconoMls className={iconoCls} style={{ color: tc, opacity: 0.8 }} />
+                        : <IconLucide aria-hidden="true" strokeWidth={1.25} className={iconoCls} style={{ color: tc, opacity: 0.8 }} />}
+                      <span className="text-[2.75rem] md:text-[3.5rem] font-light leading-[0.9] tabular-nums" style={{ color: tc }}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
                     </div>
-                    <div className="text-sm font-bold mb-2" style={{ color: tc }}>{paso.titulo}</div>
-                    <div className="text-xs leading-relaxed" style={{ color: `${tc}70` }}>{paso.desc}</div>
+                    <div className="min-w-0 pt-1">
+                      <div className="text-base md:text-lg font-semibold leading-snug" style={{ color: tc }}>{paso.titulo}</div>
+                      {/* Alfa 0xb3 (~70%) — más contraste que el 0x70 de la
+                          variante 'tarjetas' para pasar 4.5:1 sobre fondos
+                          oscuros (ver review de ux-reviewer). */}
+                      <p className="text-sm mt-2 leading-relaxed max-w-md" style={{ color: `${tc}b3` }}>{paso.desc}</p>
+                    </div>
                   </motion.div>
                 );
               })}
             </div>
-          </div>
+          ) : (
+            /* Bugfix: el ícono de cada paso se guardaba (emoji, editable en
+               el admin) pero nunca se renderizaba. Ahora usa la misma
+               librería lucide-react que stats_barra (STAT_ICONS), con
+               fallback por posición si el paso no tiene ícono propio. */
+            <div className="relative">
+              {/* Línea conectora sutil en acento — solo desktop, detrás de las burbujas de ícono */}
+              <div className="hidden md:block absolute left-0 right-0 h-px" style={{ top: '1.375rem', backgroundColor: `${accentColor}30` }} />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+                {pasos.map((paso, i) => {
+                  const Icon = STAT_ICONS[paso.icono || ''] ?? STAT_ICONS[PASO_ICON_FALLBACK[i % PASO_ICON_FALLBACK.length]];
+                  return (
+                    <motion.div key={i} variants={FADE_UP} transition={{ ...T, delay: i * 0.1 }}
+                      className="group relative rounded-xl p-6 border transition-transform duration-300 ease-out hover:-translate-y-1"
+                      style={{ backgroundColor: `${tc}08`, borderColor: `${tc}12` }}>
+                      <span className="absolute top-4 right-4 text-[11px] font-bold tracking-wide" style={{ color: `${tc}35` }}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <div className="relative z-10 w-11 h-11 rounded-full flex items-center justify-center mb-4"
+                        style={{ backgroundColor: accentColor }}>
+                        <Icon size={20} color="#fff" className="transition-transform duration-300 ease-out group-hover:scale-110" />
+                      </div>
+                      <div className="text-sm font-bold mb-2" style={{ color: tc }}>{paso.titulo}</div>
+                      <div className="text-xs leading-relaxed" style={{ color: `${tc}70` }}>{paso.desc}</div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     </section>

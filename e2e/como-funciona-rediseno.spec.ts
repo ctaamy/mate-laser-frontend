@@ -4,6 +4,9 @@ import { test, expect } from '@playwright/test';
 // número gigante semi-transparente) + número chico + línea conectora sutil
 // en acento. Bugfix: el ícono se guardaba (antes emoji) pero nunca se
 // renderizaba — ahora se muestra siempre, con fallback por posición.
+//
+// Esta spec cubre la variante 'tarjetas' (default, sin datos.variante).
+// La variante 'ficha' tiene su propia spec: como-funciona-ficha.spec.ts.
 
 async function mockHome(page: import('@playwright/test').Page, secciones: any[], config: Record<string, any> = {}) {
   await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (route) => route.fulfill({ json: secciones }));
@@ -44,13 +47,12 @@ test.describe('como_funciona rediseñado — íconos', () => {
     await expect(burbuja).toHaveCSS('background-color', 'rgb(0, 170, 255)');
   });
 
-  test('sin datos.pasos, usa los 4 pasos default con sus íconos (no queda vacío)', async ({ page }) => {
+  test('sin datos.pasos, usa los 3 pasos default con sus íconos (no queda vacío)', async ({ page }) => {
     await mockHome(page, [{ ...BASE, datos: {} }]);
     await page.goto('/');
     await expect(page.locator('svg.lucide-palette')).toBeVisible();
     await expect(page.locator('svg.lucide-circle-check')).toBeVisible();
-    await expect(page.locator('svg.lucide-zap')).toBeVisible();
-    await expect(page.locator('svg.lucide-package')).toBeVisible();
+    await expect(page.locator('svg.lucide-truck')).toBeVisible();
   });
 });
 
