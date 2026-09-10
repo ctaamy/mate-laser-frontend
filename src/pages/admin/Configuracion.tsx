@@ -13,7 +13,7 @@ import { STAT_ICONS, STAT_ICON_NAMES, STAT_ICON_FALLBACK, PASO_ICON_FALLBACK } f
 import { PAYMENT_LOGOS, PAYMENT_LABELS } from '../../components/ui/PaymentLogos';
 
 // ── tipos ────────────────────────────────────────────────────────────────────
-type TipoSeccion = 'hero' | 'banner_texto' | 'productos_destacados' | 'categorias_grid' | 'texto_libre' | 'banner_imagen' | 'stats_barra' | 'como_funciona' | 'cta_banner' | 'filtros_rapidos' | 'galeria_combos' | 'newsletter';
+type TipoSeccion = 'hero' | 'banner_texto' | 'productos_destacados' | 'categorias_grid' | 'texto_libre' | 'banner_imagen' | 'stats_barra' | 'como_funciona' | 'cta_banner' | 'filtros_rapidos' | 'galeria_combos' | 'newsletter' | 'media_texto';
 
 // El navbar y el footer se guardan como una sección más cada uno (tipo
 // 'navbar' / 'footer'), aunque no son seleccionables desde "Agregar sección"
@@ -84,6 +84,7 @@ const TIPO_LABELS: Record<TipoSeccion, string> = {
   filtros_rapidos: 'Barra de filtros rápidos',
   galeria_combos: 'Galería de combos (configurador)',
   newsletter: 'Newsletter (suscripción por email)',
+  media_texto: 'Imagen + texto (carrusel + Markdown)',
 };
 
 // Defaults de contenido + estilo por tipo
@@ -171,6 +172,18 @@ const TIPO_DEFAULTS: Record<TipoSeccion, Record<string, any>> = {
     btn_texto: 'Suscribirme',
     bg_color: '#1D9E75', texto_color: '#ffffff',
     padding: 'md', alineacion: 'center',
+  },
+  media_texto: {
+    media_side: 'left',
+    slides: [{ imagen_url: '' }],
+    eyebrow: '',
+    titulo: 'Nuestro taller',
+    subtitulo: '',
+    cuerpo_md: '',
+    botones: [{ texto: 'Conocé el taller', link: '/nosotros' }],
+    bg_color: '#ffffff', texto_color: '#111111',
+    padding: 'md', alineacion: 'left',
+    autoplay: false, intervalo: 5,
   },
 };
 
@@ -999,11 +1012,112 @@ function HeroSlidesEditor({ datos, set }: { datos: Record<string, any>; set: (k:
   );
 }
 
+// ── Editor de CONTENIDO del bloque media_texto ──────────────────────────────
+// Filas de imagen livianas (cada "slide" es solo una foto), NO el acordeón
+// pesado de HeroSlideEditor. Todo lo de layout/color va al tab Estilo, igual
+// que el resto de los bloques.
+function MediaTextoEditor({ datos, set }: { datos: Record<string, any>; set: (k: string, v: any) => void }) {
+  const slides: any[] = datos.slides?.length ? datos.slides : [{ imagen_url: '' }];
+  const updateSlides = (next: any[]) => set('slides', next);
+  const setSlide = (i: number, patch: Record<string, any>) =>
+    updateSlides(slides.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const addSlide = () => updateSlides([...slides, { imagen_url: '' }]);
+  const removeSlide = (i: number) => updateSlides(slides.filter((_, idx) => idx !== i));
+  const moveSlide = (i: number, dir: -1 | 1) => {
+    const next = [...slides];
+    [next[i], next[i + dir]] = [next[i + dir], next[i]];
+    updateSlides(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <label className={labelCls}>Eyebrow (texto pequeño arriba del título, opcional)</label>
+        <input className={inputCls} value={datos.eyebrow || ''} onChange={e => set('eyebrow', e.target.value)} placeholder="Ej: El taller" />
+      </div>
+      <div>
+        <label className={labelCls}>Título</label>
+        <input className={inputCls} value={datos.titulo || ''} onChange={e => set('titulo', e.target.value)} />
+      </div>
+      <div>
+        <label className={labelCls}>Subtítulo</label>
+        <input className={inputCls} value={datos.subtitulo || ''} onChange={e => set('subtitulo', e.target.value)} />
+      </div>
+      <div>
+        <label className={labelCls}>Cuerpo (Markdown)</label>
+        <textarea className={inputCls + ' h-48 resize-y font-mono text-xs'} value={datos.cuerpo_md || ''}
+          onChange={e => set('cuerpo_md', e.target.value)}
+          placeholder={'Somos un taller de grabado láser en Buenos Aires...\n\nSegundo párrafo.'} />
+        <p className="text-[10px] text-[var(--ink-soft)] mt-1">
+          Negrita con **texto**, links con [texto](/ruta), listas con - item, subtítulos con ## Texto. Dejá una línea en blanco entre párrafos — un solo Enter no separa.
+        </p>
+      </div>
+
+      <BotonesEditor botones={resolverBotonesLegacy(datos)} onChange={b => set('botones', b)}
+        placeholderTexto="Conocé el taller" placeholderLink="/nosotros" />
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <label className={labelCls}>Imágenes del carrusel ({slides.length})</label>
+          <button onClick={addSlide} className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
+            <Plus size={12} /> Agregar imagen
+          </button>
+        </div>
+        {slides.map((s, i) => (
+          <div key={i} className="border border-[var(--line)] rounded-lg p-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-[var(--ink-soft)]">Imagen {i + 1}</div>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button onClick={() => moveSlide(i, -1)} disabled={i === 0}
+                  className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                  <ChevronUp size={13} />
+                </button>
+                <button onClick={() => moveSlide(i, 1)} disabled={i === slides.length - 1}
+                  className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                  <ChevronDown size={13} />
+                </button>
+                <button onClick={() => removeSlide(i)} disabled={slides.length <= 1}
+                  className="w-7 h-7 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 disabled:opacity-20 rounded transition-colors">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+            <SeccionImageUploader label="Imagen" value={s.imagen_url || ''} onChange={v => setSlide(i, { imagen_url: v })} />
+            <SeccionImageUploader label="Imagen mobile (opcional)" value={s.imagen_url_mobile || ''} onChange={v => setSlide(i, { imagen_url_mobile: v })} />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Punto focal (recorte en celular)</label>
+                <select className={selectCls} value={s.imagen_foco || 'centro'} onChange={e => setSlide(i, { imagen_foco: e.target.value })}>
+                  <option value="centro">Centro</option>
+                  <option value="arriba">Arriba</option>
+                  <option value="abajo">Abajo</option>
+                  <option value="izquierda">Izquierda</option>
+                  <option value="derecha">Derecha</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Texto alternativo (accesibilidad)</label>
+                <input className={inputCls} value={s.alt || ''} onChange={e => setSlide(i, { alt: e.target.value })}
+                  placeholder="Ej: Grabado láser sobre un mate de algarrobo" />
+              </div>
+            </div>
+          </div>
+        ))}
+        <p className="text-[10px] text-[var(--ink-soft)]">
+          Con una sola imagen no aparecen flechas ni puntos. El carrusel automático y el lado de la imagen se configuran en el tab Estilo.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Editor de CONTENIDO por tipo ─────────────────────────────────────────────
 function EditorContenido({ tipo, datos, set }: {
   tipo: TipoSeccion; datos: Record<string, any>; set: (k: string, v: any) => void;
 }) {
   if (tipo === 'hero') return <HeroSlidesEditor datos={datos} set={set} />;
+
+  if (tipo === 'media_texto') return <MediaTextoEditor datos={datos} set={set} />;
 
   if (tipo === 'filtros_rapidos') return <FiltrosRapidosEditor datos={datos} set={set} />;
 
@@ -1274,8 +1388,8 @@ function EditorEstilo({ tipo, datos, set }: {
   // mirar los slides (formato actual), no solo el campo legacy datos.imagen_url
   // (única imagen, formato previo a los slides múltiples).
   const heroTieneImagen = tipo === 'hero' && (!!datos.imagen_url || !!datos.slides?.some((s: any) => s.imagen_url));
-  const tieneSubtitulo = ['hero', 'cta_banner', 'productos_destacados', 'categorias_grid', 'como_funciona', 'galeria_combos', 'newsletter'].includes(tipo);
-  const tieneBotonesConColorPropio = tipo === 'hero' || tipo === 'cta_banner' || tipo === 'newsletter';
+  const tieneSubtitulo = ['hero', 'cta_banner', 'productos_destacados', 'categorias_grid', 'como_funciona', 'galeria_combos', 'newsletter', 'media_texto'].includes(tipo);
+  const tieneBotonesConColorPropio = tipo === 'hero' || tipo === 'cta_banner' || tipo === 'newsletter' || tipo === 'media_texto';
 
   return (
     <div className="flex flex-col gap-4">
@@ -1294,13 +1408,13 @@ function EditorEstilo({ tipo, datos, set }: {
           {tipo !== 'banner_imagen' && tipo !== 'texto_libre' && (
             <ColorField label="Texto del bloque (base)" value={datos.texto_color || ''} onChange={v => set('texto_color', v)} />
           )}
-          {tipo === 'hero' && (
+          {(tipo === 'hero' || tipo === 'media_texto') && (
             <ColorField label="Color título" value={datos.titulo_color || ''} onChange={v => set('titulo_color', v)} />
           )}
           {tieneSubtitulo && (
             <ColorField label="Color subtítulo" value={datos.subtitulo_color || ''} onChange={v => set('subtitulo_color', v)} />
           )}
-          {tipo === 'hero' && (
+          {(tipo === 'hero' || tipo === 'media_texto') && (
             <ColorField label="Color eyebrow" value={datos.eyebrow_color || ''} onChange={v => set('eyebrow_color', v)} />
           )}
           {tieneBotonesConColorPropio && (
@@ -1450,6 +1564,29 @@ function EditorEstilo({ tipo, datos, set }: {
           <SelectField label="Transición al bloque siguiente" value={datos.transicion_inferior || 'ninguna'} onChange={v => set('transicion_inferior', v)} options={TRANSICIONES} />
           {tipo !== 'banner_imagen' && tipo !== 'texto_libre' && (
             <SelectField label="Alineación" value={datos.alineacion || 'left'} onChange={v => set('alineacion', v)} options={ALINEACIONES} />
+          )}
+          {tipo === 'media_texto' && (
+            <SelectField label="Lado de la imagen (en desktop)" value={datos.media_side || 'left'} onChange={v => set('media_side', v)}
+              options={[{ value: 'left', label: 'Izquierda' }, { value: 'right', label: 'Derecha' }]} />
+          )}
+          {tipo === 'media_texto' && (
+            <div className="col-span-2 flex items-center justify-between bg-[var(--n-50)] border border-[var(--line)] rounded-lg px-4 py-3">
+              <div className="pr-3">
+                <div className="text-sm font-medium">Carrusel automático</div>
+                <div className="text-xs text-[var(--ink-soft)]">Avanza solo entre imágenes. Mejor dejarlo apagado: compite con la lectura del texto.</div>
+              </div>
+              <button onClick={() => set('autoplay', !datos.autoplay)}
+                className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${datos.autoplay ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${datos.autoplay ? 'left-4' : 'left-0.5'}`} />
+              </button>
+            </div>
+          )}
+          {tipo === 'media_texto' && datos.autoplay && (
+            <div>
+              <label className={labelCls}>Intervalo entre imágenes (segundos)</label>
+              <input className={inputCls} type="number" min={2} max={30} value={datos.intervalo ?? 5}
+                onChange={e => set('intervalo', parseInt(e.target.value) || 5)} />
+            </div>
           )}
           {tipo === 'hero' && (
             <SelectField label="Posición de los botones" value={datos.boton_posicion || ''} onChange={v => set('boton_posicion', v)} options={ALINEACIONES_CON_HEREDAR} />

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, useCallback, lazy, Suspense, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion, useInView, AnimatePresence } from 'motion/react';
@@ -14,6 +14,12 @@ import { STAT_ICONS, STAT_ICON_FALLBACK, PASO_ICON_FALLBACK } from '../ui/StatIc
 import { PASOS_ICONOS_MLS } from './PasosIconosMls';
 import type { TemaGlobal } from '../../hooks/useThemeGlobal';
 
+// Carga diferida: SeccionMediaTexto arrastra react-markdown y este archivo es
+// carga eager del home. El chunk sólo baja cuando hay realmente un bloque
+// media_texto renderizado (y aísla el home de react-markdown a futuro, si
+// PaginaEstatica dejara de importarlo eager).
+const SeccionMediaTexto = lazy(() => import('./SeccionMediaTexto'));
+
 // Todo el motor de renderizado de las secciones del homepage (hero, banners,
 // stats, etc.) vive acá — lo comparten la página pública (Home.tsx, que
 // siempre pinta el PUBLICADO) y el preview en vivo del editor admin
@@ -22,7 +28,7 @@ import type { TemaGlobal } from '../../hooks/useThemeGlobal';
 // Resuelve el estilo efectivo de un bloque: si no define su propio
 // bg_color/texto_color/font_family, hereda del tema global. min_height es
 // el resize del bloque (Fase 2) — 'auto' o vacío = altura natural.
-function estiloHeredado(datos: Record<string, any>, tema: TemaGlobal) {
+export function estiloHeredado(datos: Record<string, any>, tema: TemaGlobal) {
   return {
     bg: datos.bg_color || tema.bg_color,
     tc: datos.texto_color || tema.texto_color,
@@ -70,12 +76,12 @@ const PESO_NUM: Record<string, number> = { normal: 400, medium: 500, semibold: 6
 // Punto focal de la imagen del hero — a qué zona "agarrarse" cuando
 // object-cover recorta (sobre todo en mobile: contenedor alto y angosto).
 // Sin configurar → 'center' = comportamiento histórico.
-const FOCO_POS: Record<string, string> = {
+export const FOCO_POS: Record<string, string> = {
   centro: 'center', arriba: 'top', abajo: 'bottom', izquierda: 'left', derecha: 'right',
 };
 
 const ESCALA_PADDING: Record<string, number> = { xs: 0.4, sm: 0.7, md: 1, lg: 1.35, xl: 1.7 };
-function paddingVertical(padding: string | undefined, remBase: [number, number], opcionBase = 'md'): { paddingTop?: string; paddingBottom?: string } {
+export function paddingVertical(padding: string | undefined, remBase: [number, number], opcionBase = 'md'): { paddingTop?: string; paddingBottom?: string } {
   if (!padding) return {};
   const factor = (ESCALA_PADDING[padding] ?? 1) / (ESCALA_PADDING[opcionBase] ?? 1);
   return { paddingTop: `${remBase[0] * factor}rem`, paddingBottom: `${remBase[1] * factor}rem` };
@@ -144,9 +150,9 @@ function justifyVerticalDeAnclaje(anclaje: string | undefined, soloDesdeMd: bool
 // bg_color/texto_color/font_family, hereda del bloque (que a su vez ya
 // resolvió su propia herencia del tema en estiloHeredado). Nada de defaults
 // alfa-blend por tipo de bloque — siempre el mismo cálculo.
-interface EstiloBloque { bg: string; tc: string; fontFamily?: string }
-interface EstiloPropio { bg_color?: string; texto_color?: string; font_family?: string }
-function heredaDeBloque(propio: EstiloPropio | undefined, bloque: EstiloBloque) {
+export interface EstiloBloque { bg: string; tc: string; fontFamily?: string }
+export interface EstiloPropio { bg_color?: string; texto_color?: string; font_family?: string }
+export function heredaDeBloque(propio: EstiloPropio | undefined, bloque: EstiloBloque) {
   return {
     bg: propio?.bg_color || bloque.bg,
     tc: propio?.texto_color || bloque.tc,
@@ -158,9 +164,9 @@ function heredaDeBloque(propio: EstiloPropio | undefined, bloque: EstiloBloque) 
 // datos.botones: {texto, link}[] con cualquier cantidad de botones. Si no
 // lo define, se sintetizan desde los campos legacy btn_texto/btn_link +
 // btn2_texto/btn2_link (compat con secciones creadas antes de esta fase).
-interface Boton extends EstiloPropio { texto: string; link: string }
+export interface Boton extends EstiloPropio { texto: string; link: string }
 
-function resolverBotones(datos: Record<string, any>): Boton[] {
+export function resolverBotones(datos: Record<string, any>): Boton[] {
   if (Array.isArray(datos.botones) && datos.botones.length > 0) return datos.botones;
   const legacy: Boton[] = [];
   if (datos.btn_texto && datos.btn_link) legacy.push({ texto: datos.btn_texto, link: datos.btn_link });
@@ -174,17 +180,17 @@ export interface Seccion {
 }
 
 // ── animaciones — solo opacity + y, limpio ────────────────────────────────────
-const FADE_UP = {
+export const FADE_UP = {
   hidden: { opacity: 0, y: 20 } as const,
   visible: { opacity: 1, y: 0 } as const,
 };
-const FADE = {
+export const FADE = {
   hidden: { opacity: 0 } as const,
   visible: { opacity: 1 } as const,
 };
-const STAGGER = { visible: { transition: { staggerChildren: 0.1, delayChildren: 0.04 } } };
-const T = { duration: 0.6, ease: 'easeOut' as const };
-const VIEWPORT = { once: true, margin: '-60px' };
+export const STAGGER = { visible: { transition: { staggerChildren: 0.1, delayChildren: 0.04 } } };
+export const T = { duration: 0.6, ease: 'easeOut' as const };
+export const VIEWPORT = { once: true, margin: '-60px' };
 
 // ── Google Fonts ──────────────────────────────────────────────────────────────
 const GOOGLE_FONTS = ['Poppins','Montserrat','Lato','Raleway','Oswald','Playfair Display','Merriweather','Nunito'];
@@ -234,7 +240,7 @@ function useCountUp(target: string, inView: boolean, delayMs = 0) {
 }
 
 // ── Label de sección ──────────────────────────────────────────────────────────
-function SectionLabel({ children, light = false }: { children: string; light?: boolean }) {
+export function SectionLabel({ children, light = false }: { children: string; light?: boolean }) {
   return (
     <motion.p
       variants={FADE_UP} transition={T}
@@ -264,8 +270,10 @@ interface HeroSlide {
 // Imagen del hero con soporte de versión mobile + punto focal. Sin imagen
 // mobile propia renderiza UNA sola <img> con las clases históricas exactas
 // — varios tests dependen de que el selector `img[src=...]` sea único.
-function HeroImg({ desktop, mobile, objectPosition }: {
-  desktop?: string; mobile?: string; objectPosition: string;
+// Reusada también por SeccionMediaTexto (carrusel) — el `alt` opcional es
+// para ese caso (en el hero la imagen es decorativa y va con alt="").
+export function HeroImg({ desktop, mobile, objectPosition, alt = '' }: {
+  desktop?: string; mobile?: string; objectPosition: string; alt?: string;
 }) {
   const cls = 'absolute inset-0 w-full h-full object-cover';
   const common = {
@@ -274,12 +282,12 @@ function HeroImg({ desktop, mobile, objectPosition }: {
     style: { objectPosition },
   };
   if (!mobile || mobile === desktop) {
-    return <motion.img key={desktop} src={desktop} alt="" className={cls} {...common} />;
+    return <motion.img key={desktop} src={desktop} alt={alt} className={cls} {...common} />;
   }
   return (
     <>
-      <motion.img key={`m-${mobile}`} src={mobile} alt="" className={`${cls} sm:hidden`} {...common} />
-      <motion.img key={`d-${desktop}`} src={desktop} alt="" className={`${cls} hidden sm:block`} {...common} />
+      <motion.img key={`m-${mobile}`} src={mobile} alt={alt} className={`${cls} sm:hidden`} {...common} />
+      <motion.img key={`d-${desktop}`} src={desktop} alt={alt} className={`${cls} hidden sm:block`} {...common} />
     </>
   );
 }
@@ -1645,6 +1653,7 @@ function renderSeccion(sec: Seccion, tema: TemaGlobal) {
     case 'texto_libre':          return <SeccionTextoLibre key={sec.id} datos={sec.datos} tema={tema} />;
     case 'filtros_rapidos':      return <SeccionFiltrosRapidos key={sec.id} datos={sec.datos} tema={tema} />;
     case 'galeria_combos':       return <SeccionGaleriaCombos key={sec.id} datos={sec.datos} tema={tema} />;
+    case 'media_texto':          return <Suspense key={sec.id} fallback={null}><SeccionMediaTexto datos={sec.datos} tema={tema} /></Suspense>;
     default:                     return null;
   }
 }
