@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Estilos de tipografía para contenido Markdown (páginas legales vía
+   PaginaEstatica, bloque texto_libre, y el cuerpo del bloque media_texto).
+   Sin este plugin, las clases `prose`/`prose-sm` eran no-op: el Preflight
+   de Tailwind v4 dejaba headings, listas y párrafos sin formato. El color
+   del texto lo pisa cada contenedor con las CSS vars --tw-prose-* cuando
+   necesita respetar un tema propio (ver SeccionMediaTexto). */
+@plugin "@tailwindcss/typography";
+
 :root {
   --color-bg: #ffffff;
   --color-texto: #111111;
