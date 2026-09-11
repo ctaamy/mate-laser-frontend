@@ -8,6 +8,7 @@ import SeccionImageUploader from '../../components/ui/SeccionImageUploader';
 import type { Categoria } from '../../types/index';
 import { useTemaGlobalData, type TemaGlobal } from '../../hooks/useThemeGlobal';
 import { HomeSecciones } from '../../components/home/HomeSecciones';
+import ContenidoBloques, { type BloqueContenido } from '../../components/ui/ContenidoBloques';
 import ScaledPreview from '../../components/admin/ScaledPreview';
 import { STAT_ICONS, STAT_ICON_NAMES, STAT_ICON_FALLBACK, PASO_ICON_FALLBACK } from '../../components/ui/StatIcons';
 import { PAYMENT_LOGOS, PAYMENT_LABELS } from '../../components/ui/PaymentLogos';
@@ -2528,6 +2529,175 @@ function FooterCard({ datos, set, tema }: {
   );
 }
 
+// ── Editor de la página /nosotros por bloques (tab Páginas) ──────────────────
+// Lista plana de bloques párrafo|foto: agregar / reordenar (↑↓) / borrar.
+// Guarda por su propio endpoint (PUT /configuracion/pagina/nosotros), no por
+// el "Guardar páginas" genérico. Preview en vivo en la misma card.
+const LAYOUTS_FOTO_NOSOTROS = [
+  { value: 'ancho_lectura', label: 'Ancho de lectura (igual que el texto)' },
+  { value: 'destacada', label: 'Destacada — más ancha (en escritorio)' },
+];
+
+function nuevoBloqueNosotros(tipo: 'parrafo' | 'imagen'): BloqueContenido {
+  return tipo === 'parrafo'
+    ? { id: crypto.randomUUID(), tipo, md: '' }
+    : { id: crypto.randomUUID(), tipo, url: '', alt: '', layout: 'ancho_lectura', epigrafe: '', foco: 'centro' };
+}
+
+function NosotrosBloquesEditor({
+  titulo, onTitulo, bloques, onBloques, tema, onGuardar, guardando, guardadoOk, hayCambios,
+}: {
+  titulo: string;
+  onTitulo: (v: string) => void;
+  bloques: BloqueContenido[];
+  onBloques: (b: BloqueContenido[]) => void;
+  tema: TemaGlobal;
+  onGuardar: () => void;
+  guardando: boolean;
+  guardadoOk: boolean;
+  hayCambios: boolean;
+}) {
+  const lista = bloques.length ? bloques : [nuevoBloqueNosotros('parrafo')];
+  const set = (i: number, patch: Partial<BloqueContenido>) =>
+    onBloques(lista.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
+  const agregar = (tipo: 'parrafo' | 'imagen') => onBloques([...lista, nuevoBloqueNosotros(tipo)]);
+  const borrar = (i: number) => onBloques(lista.filter((_, idx) => idx !== i));
+  const mover = (i: number, dir: -1 | 1) => {
+    const next = [...lista];
+    [next[i], next[i + dir]] = [next[i + dir], next[i]];
+    onBloques(next);
+  };
+
+  return (
+    <div className="bg-white border border-[var(--line)] rounded-xl p-5 flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Nosotros / El Taller</div>
+        <span className="text-[10px] text-[var(--ink-soft)]">Enlazada desde el navbar</span>
+      </div>
+
+      <div>
+        <label className={labelCls}>Título de la página</label>
+        <input className={inputCls} value={titulo} placeholder="Nosotros" onChange={e => onTitulo(e.target.value)} />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <label className={labelCls}>Bloques ({lista.length})</label>
+        <div className="flex items-center gap-3">
+          <button onClick={() => agregar('parrafo')} className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
+            <Plus size={12} /> Párrafo
+          </button>
+          <button onClick={() => agregar('imagen')} className="flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline">
+            <Plus size={12} /> Foto
+          </button>
+        </div>
+      </div>
+      <p className="text-[10px] text-[var(--ink-soft)] -mt-2">
+        Se muestran en este orden. Usá "destacada" para una o dos fotos clave, no para todas. En celular todo se apila en una columna.
+      </p>
+
+      {lista.map((b, i) => (
+        <div key={b.id} className="border border-[var(--line)] rounded-lg p-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-[var(--ink-soft)]">
+              {b.tipo === 'parrafo' ? `Párrafo ${i + 1}` : `Foto ${i + 1}`}
+            </div>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button onClick={() => mover(i, -1)} disabled={i === 0} aria-label="Mover arriba"
+                className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                <ChevronUp size={13} />
+              </button>
+              <button onClick={() => mover(i, 1)} disabled={i === lista.length - 1} aria-label="Mover abajo"
+                className="w-7 h-7 flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-20 rounded transition-colors">
+                <ChevronDown size={13} />
+              </button>
+              <button onClick={() => borrar(i)} disabled={lista.length <= 1} aria-label="Borrar bloque"
+                className="w-7 h-7 flex items-center justify-center text-[var(--n-300)] hover:text-red-500 disabled:opacity-20 rounded transition-colors">
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+
+          {b.tipo === 'parrafo' ? (
+            <div>
+              <textarea className={inputCls + ' h-28 resize-y font-mono text-xs'} value={b.md || ''}
+                onChange={e => set(i, { md: e.target.value })}
+                placeholder={'Un párrafo. Podés usar **negrita**, [un link](/productos) y listas con "- ".'} />
+              <p className="text-[10px] text-[var(--ink-soft)] mt-1">
+                Negrita con **texto**, links con [texto](/ruta). Para un subtítulo de sección, poné "## Texto".
+              </p>
+            </div>
+          ) : (
+            <>
+              <SeccionImageUploader label="Foto" value={b.url || ''} onChange={v => set(i, { url: v })} />
+              <div className="grid grid-cols-2 gap-2">
+                <SelectField label="Ancho" value={b.layout || 'ancho_lectura'}
+                  onChange={v => set(i, { layout: v as BloqueContenido['layout'] })} options={LAYOUTS_FOTO_NOSOTROS} />
+                <div>
+                  <label className={labelCls}>Punto focal</label>
+                  <select className={selectCls} value={b.foco || 'centro'}
+                    onChange={e => set(i, { foco: e.target.value })}>
+                    <option value="centro">Centro</option>
+                    <option value="arriba">Arriba</option>
+                    <option value="abajo">Abajo</option>
+                    <option value="izquierda">Izquierda</option>
+                    <option value="derecha">Derecha</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Epígrafe (texto bajo la foto, opcional)</label>
+                <input className={inputCls} value={b.epigrafe || ''} onChange={e => set(i, { epigrafe: e.target.value })}
+                  placeholder="Algo que la foto no dice sola" />
+              </div>
+              <div>
+                <label className={labelCls}>Texto alternativo (accesibilidad)</label>
+                <input className={inputCls} value={b.alt || ''} onChange={e => set(i, { alt: e.target.value })}
+                  placeholder="Descripción de la foto para lectores de pantalla" />
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+
+      <div className="border border-[var(--line)] rounded-lg overflow-hidden">
+        <div className="text-[10px] text-[var(--ink-soft)] uppercase tracking-wider px-3 py-2 bg-[var(--n-50)] border-b border-[var(--line)] font-semibold flex items-center justify-between">
+          <span>Vista previa — borrador</span>
+          <span className="normal-case font-normal text-[var(--n-300)]">así lo ven vos, no los clientes</span>
+        </div>
+        <div className="max-h-[520px] overflow-y-auto bg-white">
+          <ScaledPreview>
+            <div className="max-w-6xl mx-auto py-10" style={{ color: tema.texto_color, fontFamily: tema.font_family || undefined }}>
+              <h1 className="max-w-3xl mx-auto w-full px-6 text-3xl font-bold tracking-tight mb-10">{titulo || 'Nosotros'}</h1>
+              <ContenidoBloques
+                bloques={lista}
+                textoColor={tema.texto_color}
+                textoSecundarioColor={tema.texto_secundario_color}
+                fontFamily={tema.font_family || undefined}
+                accentColor={tema.accent_color}
+                sinAnimacion
+              />
+            </div>
+          </ScaledPreview>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-3">
+        {hayCambios && !guardadoOk && (
+          <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+            Cambios sin guardar
+          </span>
+        )}
+        <FeedbackToast show={guardadoOk} className="text-xs text-[var(--accent)]">¡Guardado!</FeedbackToast>
+        <motion.button onClick={onGuardar} whileTap={{ scale: 0.97 }} disabled={guardando}
+          className="bg-[var(--accent)] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 flex items-center gap-2">
+          <Save size={14} />
+          {guardando ? 'Guardando...' : 'Guardar Nosotros'}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────────────────
 // El nav del admin linkea acá con ?tab=inicio|tema|tienda|paginas — "inicio"
 // es el label visible del tab interno "homepage" (el resto coincide 1 a 1).
@@ -2555,6 +2725,15 @@ export default function AdminConfiguracion() {
   // a otra sección del sidebar y los pierda en silencio.
   const [configFormGuardado, setConfigFormGuardado] = useState<Record<string, string>>({});
   const [configOk, setConfigOk] = useState(false);
+
+  // Página /nosotros por bloques — estado propio (no entra al configForm
+  // plano de strings: es un array, se guarda por PUT /configuracion/pagina/
+  // nosotros). Mismo criterio que homepage_sections.
+  const [tituloNosotros, setTituloNosotros] = useState('');
+  const [bloquesNosotros, setBloquesNosotros] = useState<BloqueContenido[]>([]);
+  const [nosotrosGuardadoSnap, setNosotrosGuardadoSnap] = useState('');
+  const [nosotrosCargado, setNosotrosCargado] = useState(false);
+  const [nosotrosOk, setNosotrosOk] = useState(false);
 
   // El editor siempre lee/escribe el BORRADOR — nunca lo publicado
   // directamente. Lo que ve el admin acá es su propia vista previa real:
@@ -2650,7 +2829,13 @@ export default function AdminConfiguracion() {
       // 'publicado'). Si este loop las hidrata igual, cualquier "Guardar"
       // acá las reescribe en 'borrador' y resucita el bug que se está
       // arreglando.
-      const CLAVES_EXCLUIDAS = new Set(['homepage_sections', 'envio_gratis_activo', 'envio_gratis_monto']);
+      // pagina_nosotros_* también fuera: la página /nosotros se edita por
+      // bloques con su propio estado y su propio endpoint, no por este
+      // formulario plano ni por "Guardar páginas".
+      const CLAVES_EXCLUIDAS = new Set([
+        'homepage_sections', 'envio_gratis_activo', 'envio_gratis_monto',
+        'pagina_nosotros_contenido', 'pagina_nosotros_titulo', 'pagina_nosotros_markdown',
+      ]);
       for (const [k, v] of Object.entries(config)) {
         if (!CLAVES_EXCLUIDAS.has(k)) form[k] = typeof v === 'string' ? v : JSON.stringify(v);
       }
@@ -2658,6 +2843,18 @@ export default function AdminConfiguracion() {
       setConfigFormGuardado(form);
     }
   }, [config]);
+
+  // Hidrata el editor de /nosotros una sola vez desde el borrador.
+  useEffect(() => {
+    if (!config || nosotrosCargado) return;
+    const raw = config.pagina_nosotros_contenido;
+    const arr: BloqueContenido[] = Array.isArray(raw) ? raw : [];
+    const tit = typeof config.pagina_nosotros_titulo === 'string' ? config.pagina_nosotros_titulo : '';
+    setBloquesNosotros(arr);
+    setTituloNosotros(tit);
+    setNosotrosGuardadoSnap(JSON.stringify({ titulo: tit, bloques: arr }));
+    setNosotrosCargado(true);
+  }, [config, nosotrosCargado]);
 
   const guardarHomepageMutation = useMutation({
     mutationFn: (secs: Seccion[]) => api.put('/configuracion/homepage', { secciones: secs }),
@@ -2677,6 +2874,18 @@ export default function AdminConfiguracion() {
       setConfigFormGuardado(data);
       setConfigOk(true);
       setTimeout(() => setConfigOk(false), 3000);
+    },
+  });
+
+  const guardarNosotrosMutation = useMutation({
+    mutationFn: (payload: { titulo: string; bloques: BloqueContenido[] }) =>
+      api.put('/configuracion/pagina/nosotros', payload),
+    onSuccess: (_res, payload) => {
+      queryClient.invalidateQueries({ queryKey: ['configuracion', 'borrador'] });
+      queryClient.invalidateQueries({ queryKey: ['configuracion', 'estado-publicacion'] });
+      setNosotrosGuardadoSnap(JSON.stringify({ titulo: payload.titulo, bloques: payload.bloques }));
+      setNosotrosOk(true);
+      setTimeout(() => setNosotrosOk(false), 3000);
     },
   });
 
@@ -2781,6 +2990,11 @@ export default function AdminConfiguracion() {
   // sidebar sin guardar, lo pierde en silencio. Este flag alimenta el aviso
   // visual en ambas tabs (ver JSX de "tema" y "tienda" más abajo).
   const hayCambiosConfigSinGuardar = JSON.stringify(configForm) !== JSON.stringify(configFormGuardado);
+
+  const hayCambiosNosotros =
+    JSON.stringify({ titulo: tituloNosotros, bloques: bloquesNosotros }) !== nosotrosGuardadoSnap;
+  const guardarNosotros = () =>
+    guardarNosotrosMutation.mutate({ titulo: tituloNosotros, bloques: bloquesNosotros });
 
   // Aviso del navegador al cerrar/recargar la pestaña con cambios sin
   // guardar en Tema/Tienda. No cubre la navegación interna del sidebar
@@ -2985,10 +3199,22 @@ export default function AdminConfiguracion() {
       {tab === 'paginas' && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-[var(--ink-soft)]">
-            Título y contenido (Markdown) de las páginas de contenido del sitio (Nosotros, más las legales/de ayuda enlazadas desde el footer). El contenido final se carga acá cuando esté listo — mientras tanto la ruta ya existe y no queda rota. <strong>Nosotros</strong> se enlaza desde el navbar y hasta que cargues algo muestra un texto de arranque genérico.
+            Contenido de las páginas del sitio. <strong>Nosotros</strong> (enlazada desde el navbar) se arma por bloques de texto y foto, con su propio "Guardar". Las páginas legales / de ayuda del footer son Markdown. Todo se guarda como borrador — usá <strong>Publicar cambios</strong> (arriba) para hacerlo visible.
           </p>
+
+          <NosotrosBloquesEditor
+            titulo={tituloNosotros}
+            onTitulo={setTituloNosotros}
+            bloques={bloquesNosotros}
+            onBloques={setBloquesNosotros}
+            tema={tema}
+            onGuardar={guardarNosotros}
+            guardando={guardarNosotrosMutation.isPending}
+            guardadoOk={nosotrosOk}
+            hayCambios={hayCambiosNosotros}
+          />
+
           {[
-            { clave: 'pagina_nosotros', label: 'Nosotros' },
             { clave: 'pagina_terminos', label: 'Términos y condiciones' },
             { clave: 'pagina_privacidad', label: 'Política de privacidad' },
             { clave: 'pagina_faq', label: 'Preguntas frecuentes' },

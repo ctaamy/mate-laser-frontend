@@ -48,15 +48,20 @@ const FADE_UP = {
 const T = { duration: 0.6, ease: 'easeOut' as const };
 const VIEWPORT = { once: true, margin: '-60px' };
 
-export default function ContenidoBloques({ bloques, textoColor, textoSecundarioColor, fontFamily, accentColor }: {
+export default function ContenidoBloques({ bloques, textoColor, textoSecundarioColor, fontFamily, accentColor, sinAnimacion = false }: {
   bloques: BloqueContenido[];
   textoColor: string;
   textoSecundarioColor: string;
   fontFamily?: string;
   accentColor: string;
+  // El preview del admin lo pasa: dentro de un contenedor con `transform:
+  // scale()` la detección de whileInView es poco fiable, y no aporta nada
+  // ver la animación de entrada mientras se edita.
+  sinAnimacion?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
-  const entrada = reduceMotion
+  const estatico = sinAnimacion || reduceMotion;
+  const entrada = estatico
     ? { initial: false as const, animate: 'visible' as const }
     : { initial: 'hidden' as const, whileInView: 'visible' as const, viewport: VIEWPORT };
 
