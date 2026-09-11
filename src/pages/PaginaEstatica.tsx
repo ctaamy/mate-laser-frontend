@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import api from '../lib/api';
 import { useTemaGlobalData } from '../hooks/useThemeGlobal';
+import ContenidoBloques, { type BloqueContenido } from '../components/ui/ContenidoBloques';
 
 // Página estática de contenido editable (título + Markdown) desde el
 // admin — reusa el mismo mecanismo genérico de configuración clave/valor que
@@ -42,6 +43,32 @@ export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefau
   }
 
   const titulo: string = config?.[`${claveBase}_titulo`] || tituloDefault;
+
+  // Contenido editorial por bloques (párrafo + foto interpolados) — solo si la
+  // página tiene `pagina_<slug>_contenido` cargado (hoy solo /nosotros). Si
+  // no, cae al Markdown plano de siempre (las 4 páginas legales nunca tienen
+  // esta clave). El wrapper se ensancha a max-w-6xl para que una foto
+  // "destacada" pueda ser más ancha que la columna de lectura; los párrafos
+  // y el h1 quedan igual contenidos a max-w-3xl dentro de ContenidoBloques.
+  const bloques: BloqueContenido[] | undefined = Array.isArray(config?.[`${claveBase}_contenido`])
+    ? config![`${claveBase}_contenido`]
+    : undefined;
+
+  if (bloques && bloques.length > 0) {
+    return (
+      <div className="max-w-6xl mx-auto py-16" style={{ color: tema.texto_color, fontFamily: tema.font_family || undefined }}>
+        <h1 className="max-w-3xl mx-auto w-full px-6 text-3xl font-bold tracking-tight mb-10">{titulo}</h1>
+        <ContenidoBloques
+          bloques={bloques}
+          textoColor={tema.texto_color}
+          textoSecundarioColor={tema.texto_secundario_color}
+          fontFamily={tema.font_family || undefined}
+          accentColor={tema.accent_color}
+        />
+      </div>
+    );
+  }
+
   const markdown: string = config?.[`${claveBase}_markdown`] || markdownDefault || 'Este contenido todavía no fue cargado.';
 
   return (
