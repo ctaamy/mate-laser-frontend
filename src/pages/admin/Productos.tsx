@@ -483,7 +483,7 @@ export default function AdminProductos() {
               {tabModal === 'imagenes' && productoEditando && (
                 <div>
                   <p className="text-xs text-[var(--ink-soft)] mb-3">
-                    La imagen marcada como <strong>Principal</strong> es la que aparece en el listado y la card. Podés subir hasta 4 imágenes.
+                    La <strong>primera imagen</strong> es la que ven tus clientes en el listado y la ficha. Arrastrá desde el ícono de agarre para reordenar. Podés subir hasta 4 imágenes.
                   </p>
                   <ImageUploader
                     productoId={productoEditando.id}
@@ -556,7 +556,10 @@ export default function AdminProductos() {
                 </div>
                 <div>
                   <label className="text-xs text-[var(--ink-soft)] mb-1 block">Descripción</label>
-                  <textarea className={inputClass + ' resize-none h-16'} value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+                  <textarea className={inputClass + ' h-28 resize-y font-mono text-xs'} value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+                  <p className="text-[10px] text-[var(--ink-soft)] mt-1">
+                    Negrita con **texto**, cursiva con *texto*, listas con - item. Dejá una línea en blanco entre párrafos — un solo Enter no separa.
+                  </p>
                 </div>
               </div>
 

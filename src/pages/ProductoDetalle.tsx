@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, Shield, MessageCircle, ChevronRight, Minus, Plus, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
 import api from '../lib/api';
 import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
@@ -335,7 +336,9 @@ export default function ProductoDetalle() {
                 {producto.nombre}
               </h1>
               {producto.descripcion && (
-                <p className="text-sm text-black/50 leading-relaxed">{producto.descripcion}</p>
+                <div className="prose prose-sm max-w-none text-sm leading-relaxed prose-p:text-black/50 prose-p:my-1 prose-strong:text-black/70 prose-em:text-black/50 prose-ul:text-black/50 prose-ol:text-black/50 prose-li:my-0">
+                  <ReactMarkdown>{producto.descripcion}</ReactMarkdown>
+                </div>
               )}
             </div>
 
