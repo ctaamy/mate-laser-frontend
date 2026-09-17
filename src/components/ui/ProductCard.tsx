@@ -21,6 +21,9 @@ interface ProductCardProps {
   // prop (el catálogo público) el render es exactamente el de siempre.
   variant?: 'catalogo' | 'overlay' | 'grid';
   accentColor?: string;
+  // Color de texto del bloque — solo lo usa variant="grid" (ver ProductGrid).
+  // Default gray-900 (el look histórico) si algún caller no lo pasa.
+  textColor?: string;
   tituloFontSize?: string;
   linkFontSize?: string;
 }
@@ -30,7 +33,7 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } } as const,
 };
 
-export default function ProductCard({ producto, onAgregar, index = 0, variant = 'catalogo', accentColor, tituloFontSize, linkFontSize }: ProductCardProps) {
+export default function ProductCard({ producto, onAgregar, index = 0, variant = 'catalogo', accentColor, textColor = '#111827', tituloFontSize, linkFontSize }: ProductCardProps) {
   const [hovered, setHovered] = useState(false);
   const img1 = producto.imagenes_producto?.[0];
   const img2 = producto.imagenes_producto?.[1];
@@ -114,24 +117,29 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
           )}
         </Link>
 
+        {/* Bugfix: nombre/precio venían en gray-900/gray-400 fijos, pensados
+            para el bg blanco de la referencia — invisibles cuando el admin
+            le pone un bg_color oscuro al bloque (bg_color es configurable
+            por sección, no solo blanco). Usan textColor (tc del bloque),
+            mismo mecanismo de herencia que el título/subtítulo. */}
         <div className="pt-2.5 pb-1">
           <Link to={`/productos/${producto.slug}`}>
-            <p className="font-medium text-gray-900 leading-snug hover:text-gray-500 transition-colors line-clamp-2" style={{ fontSize: tituloFontSize }}>
+            <p className="font-medium leading-snug line-clamp-2" style={{ fontSize: tituloFontSize, color: textColor }}>
               {producto.nombre}
             </p>
           </Link>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-semibold text-gray-900" style={{ fontSize: linkFontSize }}>
+            <span className="font-semibold" style={{ fontSize: linkFontSize, color: textColor }}>
               ${Number(producto.precio_base).toLocaleString('es-AR')}
             </span>
             {tieneDescuento && (
-              <span className="text-xs text-gray-400 line-through">
+              <span className="text-xs line-through" style={{ color: `${textColor}99` }}>
                 ${Number(producto.precio_tachado).toLocaleString('es-AR')}
               </span>
             )}
           </div>
           {sinStock ? (
-            <p className="mt-1 text-[11px] font-medium text-black/40">Sin stock por ahora</p>
+            <p className="mt-1 text-[11px] font-medium" style={{ color: `${textColor}99` }}>Sin stock por ahora</p>
           ) : (
             <div className="mt-0.5"><CuotasBanner productoId={producto.id} /></div>
           )}

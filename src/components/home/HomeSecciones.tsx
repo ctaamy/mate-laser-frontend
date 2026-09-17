@@ -240,12 +240,20 @@ function useCountUp(target: string, inView: boolean, delayMs = 0) {
 }
 
 // ── Label de sección ──────────────────────────────────────────────────────────
-export function SectionLabel({ children, light = false }: { children: string; light?: boolean }) {
+// Bugfix: antes elegía entre negro o blanco fijo via el flag `light`, sin
+// mirar el color real del bloque — invisible en bloques con bg_color oscuro
+// pero texto_color claro configurado a mano (el flag no sabía de eso). Ahora
+// recibe `tc` (ya resuelto por estiloHeredado). El alpha va DENTRO del color
+// (hex + sufijo, mismo mecanismo que `${tc}b3` etc. en el resto del archivo)
+// y no como `opacity` aparte: este componente es un motion.p con variants
+// que ya animan su propio `opacity` 0→1 en la entrada — una `opacity` fija
+// en el style compite con esa animación y termina siempre en 1 (sin atenuar).
+export function SectionLabel({ children, tc }: { children: string; tc: string }) {
   return (
     <motion.p
       variants={FADE_UP} transition={T}
       className="text-[10px] font-semibold uppercase tracking-[0.18em] mb-4"
-      style={{ color: light ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)' }}
+      style={{ color: `${tc}59` }}
     >
       {children}
     </motion.p>
@@ -931,7 +939,7 @@ function SeccionCategoriasGrid({ datos, tema }: { datos: Record<string, any>; te
         <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER}>
           {datos.titulo && (
             <div style={{ textAlign }} className="mb-10">
-              <SectionLabel>Categorías</SectionLabel>
+              <SectionLabel tc={tc}>Categorías</SectionLabel>
               <motion.h2 variants={FADE_UP} transition={T}
                 className={`font-bold tracking-tight ${datos.subtitulo ? 'mb-2' : ''}`}
                 style={{ fontSize: tituloFontSize, color: tc }}>
@@ -1039,7 +1047,7 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
         <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER}
           className="flex items-end justify-between mb-10">
           <div style={{ textAlign: datos.alineacion || undefined }}>
-            <SectionLabel>Colección</SectionLabel>
+            <SectionLabel tc={tc}>Colección</SectionLabel>
             <motion.h2 variants={FADE_UP} transition={T}
               className="font-bold tracking-tight"
               style={{ fontSize: tituloFontSize, color: tc }}>
@@ -1054,8 +1062,16 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
             )}
           </div>
           <motion.div variants={FADE_UP} transition={T}>
+            {/* Bugfix: "text-black/40" era invisible en bloques con bg_color
+                oscuro. Alpha dentro del color (no `opacity` aparte: ver el
+                comentario en SectionLabel) — el brillo al hover se resuelve
+                en JS por lo mismo, un style inline no puede convivir con una
+                clase hover: para la misma propiedad. */}
             <Link to="/productos"
-              className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-black/40 hover:text-black transition-colors">
+              className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest transition-colors"
+              style={{ color: `${tc}66` }}
+              onMouseEnter={e => (e.currentTarget.style.color = tc)}
+              onMouseLeave={e => (e.currentTarget.style.color = `${tc}66`)}>
               Ver todos <ArrowRight size={12} />
             </Link>
           </motion.div>
@@ -1068,6 +1084,7 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
           variant={esCarrusel ? 'overlay' : 'grid'}
           scroll={esCarrusel}
           accentColor={accentColor}
+          textColor={tc}
           tituloFontSize={itemTituloFontSize}
           linkFontSize={itemLinkFontSize}
         />
@@ -1136,7 +1153,7 @@ function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema
           {variante === 'banda' ? (
             mostrarHeaderBanda && (
               <div className="mb-8 md:mb-10">
-                {eyebrow && <SectionLabel light>{eyebrow}</SectionLabel>}
+                {eyebrow && <SectionLabel tc={tc}>{eyebrow}</SectionLabel>}
                 {tituloBanda && (
                   <motion.h2 variants={FADE_UP} transition={T}
                     className="text-xl md:text-2xl font-bold tracking-tight"
@@ -1155,7 +1172,7 @@ function SeccionComoFunciona({ datos, tema }: { datos: Record<string, any>; tema
             )
           ) : (
             <>
-              {eyebrow && <SectionLabel light>{eyebrow}</SectionLabel>}
+              {eyebrow && <SectionLabel tc={tc}>{eyebrow}</SectionLabel>}
               <div className="mb-16">
                 <motion.h2 variants={FADE_UP} transition={T}
                   className="text-2xl md:text-3xl font-bold tracking-tight"
@@ -1285,7 +1302,7 @@ function SeccionGaleriaCombos({ datos, tema }: { datos: Record<string, any>; tem
         <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER}>
           {datos.titulo && (
             <div style={{ textAlign: datos.alineacion || undefined }} className="mb-10">
-              <SectionLabel>Inspiración</SectionLabel>
+              <SectionLabel tc={tc}>Inspiración</SectionLabel>
               <motion.h2 variants={FADE_UP} transition={T}
                 className={`font-bold tracking-tight ${datos.subtitulo ? 'mb-2' : ''}`}
                 style={{ fontSize: tituloFontSize, color: tc }}>

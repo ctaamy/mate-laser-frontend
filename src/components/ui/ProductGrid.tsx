@@ -13,6 +13,11 @@ interface ProductGridProps {
   // props y sigue viendo el layout de siempre (texto debajo de la imagen).
   variant?: 'catalogo' | 'overlay' | 'grid';
   accentColor?: string;
+  // Color de texto del bloque (tc, ya resuelto por estiloHeredado) — solo lo
+  // usa variant="grid": esa card asume texto sobre el bg propio de la
+  // sección (configurable), a diferencia de "overlay" que siempre pone texto
+  // claro fijo sobre la imagen (con degradé, no sobre el bg de la sección).
+  textColor?: string;
   tituloFontSize?: string;
   linkFontSize?: string;
   // scroll=true — carrusel horizontal con scroll-snap en mobile (mismo
@@ -66,7 +71,7 @@ const mdColClass: Record<number, string> = {
   4: 'md:grid-cols-4',
 };
 
-export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, tituloFontSize, linkFontSize, scroll = false, colClassName, bleedClassName = '-mx-8 px-8 sm:mx-0 sm:px-0', regionLabel }: ProductGridProps) {
+export default function ProductGrid({ productos, onAgregar, cols = 3, variant, accentColor, textColor, tituloFontSize, linkFontSize, scroll = false, colClassName, bleedClassName = '-mx-8 px-8 sm:mx-0 sm:px-0', regionLabel }: ProductGridProps) {
   const containerClass = scroll
     ? `flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory ${bleedClassName} sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none sm:gap-x-4 sm:gap-y-8 ${mdColClass[cols] ?? 'md:grid-cols-3'}`
     : `grid ${colClassName ?? colClass[cols] ?? 'grid-cols-2 md:grid-cols-3'} gap-x-4 gap-y-8`;
@@ -98,6 +103,7 @@ export default function ProductGrid({ productos, onAgregar, cols = 3, variant, a
             index={i}
             variant={variant}
             accentColor={accentColor}
+            textColor={textColor}
             tituloFontSize={tituloFontSize}
             linkFontSize={linkFontSize}
           />
@@ -117,6 +123,7 @@ export default function ProductGrid({ productos, onAgregar, cols = 3, variant, a
             index={i}
             variant={variant}
             accentColor={accentColor}
+            textColor={textColor}
             tituloFontSize={tituloFontSize}
             linkFontSize={linkFontSize}
           />
