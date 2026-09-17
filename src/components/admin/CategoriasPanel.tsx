@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, FolderOpen, Folder, X,
 import api from '../../lib/api';
 import type { Categoria } from '../../types/index';
 import AdminButton from './ui/AdminButton';
+import ActivoBadge from '../ui/ActivoBadge';
 
 // Antes vivía en pages/admin/Categorias.tsx como ruta de primer nivel
 // (/admin/categorias). Ahora es un panel reusado dentro del tab "Categorías"
@@ -19,7 +20,7 @@ function toSlug(s: string) {
 }
 
 // ── Modal crear/editar categoría ──────────────────────────────────────────────
-interface FormData { nombre: string; slug: string; descripcion: string; padre_id: string; orden: string; imagen_configurador_url: string }
+interface FormData { nombre: string; slug: string; descripcion: string; padre_id: string; orden: string; imagen_configurador_url: string; activo: boolean }
 
 function CategoriaModal({
   categoria, categoriasPadre, onClose,
@@ -38,10 +39,11 @@ function CategoriaModal({
     padre_id: categoria?.padre_id?.toString() ?? '',
     orden: categoria?.orden?.toString() ?? '0',
     imagen_configurador_url: categoria?.imagen_configurador_url ?? '',
+    activo: categoria?.activo ?? true,
   });
   const [slugManual, setSlugManual] = useState(editando);
 
-  const set = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: keyof FormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
   const handleNombre = (v: string) => {
     set('nombre', v);
@@ -70,6 +72,7 @@ function CategoriaModal({
       imagen_configurador_url: form.imagen_configurador_url.trim() || undefined,
     };
     if (form.padre_id) payload.padre_id = parseInt(form.padre_id);
+    if (editando) payload.activo = form.activo;
     mutation.mutate(payload);
   };
 
@@ -142,6 +145,22 @@ function CategoriaModal({
             )}
           </div>
 
+          {/* Activa/inactiva — solo tiene sentido al editar una ya existente
+              (una nueva siempre arranca activa). Permite reactivar una
+              categoría borrada sin pasar por "crear de nuevo". */}
+          {editando && (
+            <div className="flex items-center justify-between bg-[var(--n-50)] rounded-lg px-4 py-3 border border-[var(--line)]">
+              <div>
+                <div className="text-sm font-medium text-[var(--ink)]">Categoría activa</div>
+                <div className="text-xs text-[var(--ink-soft)]">Visible en la tienda</div>
+              </div>
+              <button type="button" onClick={() => set('activo', !form.activo)}
+                className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${form.activo ? 'bg-[var(--accent)]' : 'bg-[var(--n-300)]'}`}>
+                <div className={`w-4 h-4 bg-[var(--panel)] rounded-full absolute top-0.5 transition-all ${form.activo ? 'left-4' : 'left-0.5'}`} />
+              </button>
+            </div>
+          )}
+
           {mutation.isError && (
             <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">
               Error al guardar. Verificá que el slug no esté repetido.
@@ -173,9 +192,10 @@ function SubcategoriaRow({
       className="flex items-center gap-3 ml-6 pl-4 py-2.5 border-l border-[var(--line)] group"
     >
       <ChevronRight size={12} className="text-[var(--n-300)] flex-shrink-0" />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-sm text-[var(--ink)]">{cat.nombre}</span>
-        <span className="ml-2 text-[10px] text-[var(--ink-soft)] font-mono">{cat.slug}</span>
+        <span className="text-[10px] text-[var(--ink-soft)] font-mono">{cat.slug}</span>
+        {!cat.activo && <ActivoBadge activo={false} />}
       </div>
       {/* Antes solo visibles con hover (opacity-0 group-hover:opacity-100) —
           en tablet/touch no hay hover real, así que las acciones quedaban
@@ -215,12 +235,13 @@ function CategoriaRow({
         </button>
         {abierta ? <FolderOpen size={16} className="text-[var(--ink-soft)] flex-shrink-0" /> : <Folder size={16} className="text-[var(--ink-soft)] flex-shrink-0" />}
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex items-center gap-2">
           <span className="text-sm font-semibold text-[var(--ink)]">{cat.nombre}</span>
-          <span className="ml-2 text-[10px] text-[var(--ink-soft)] font-mono">{cat.slug}</span>
+          <span className="text-[10px] text-[var(--ink-soft)] font-mono">{cat.slug}</span>
           {hijos.length > 0 && (
-            <span className="ml-2 text-[10px] text-[var(--ink-soft)]">{hijos.length} subcategoría{hijos.length > 1 ? 's' : ''}</span>
+            <span className="text-[10px] text-[var(--ink-soft)]">{hijos.length} subcategoría{hijos.length > 1 ? 's' : ''}</span>
           )}
+          {!cat.activo && <ActivoBadge activo={false} />}
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -263,10 +284,12 @@ export default function CategoriasPanel() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<Categoria | null>(null);
 
-  // Traemos TODAS las categorías (incluyendo inactivas para el admin)
+  // Traemos TODAS las categorías (incluyendo inactivas para el admin) —
+  // antes esto pegaba a /categorias (el endpoint público, que solo devuelve
+  // activas) y las borradas quedaban invisibles y sin forma de reactivarlas.
   const { data: todasRaw = [], isLoading } = useQuery<Categoria[]>({
     queryKey: ['categorias-admin'],
-    queryFn: () => api.get('/categorias').then(r => r.data),
+    queryFn: () => api.get('/categorias/admin/todos').then(r => r.data),
   });
 
   // Separamos padres (sin padre_id) e hijos
