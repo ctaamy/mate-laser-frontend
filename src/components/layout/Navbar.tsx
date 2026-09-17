@@ -24,8 +24,8 @@ interface NavLink { label: string; href: string }
 
 const DEFAULT_LINKS: NavLink[] = [
   { label: 'Productos', href: '/productos' },
-  { label: 'Personalizado', href: '/productos?personalizado=true' },
-  { label: 'Nosotros', href: '/nosotros' },
+  { label: 'Diseños', href: '/productos?personalizado=true' },
+  { label: 'Taller', href: '/nosotros' },
 ];
 
 // ── Ícono de acción con animación ─────────────────────────────────────────────
