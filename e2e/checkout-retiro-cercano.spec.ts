@@ -1,8 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockBackendYMercadoPago, PRODUCTO_MOCK } from './fixtures';
 
-// F3 — el checkout muestra la dirección de cada punto de retiro y recomienda
-// (badge + primero en la lista) el más cercano al comprador.
+// F3 — el checkout muestra el barrio de cada punto de retiro (NO la dirección
+// exacta — llega por mail al confirmarse el pago) y recomienda (badge +
+// primero en la lista) el más cercano al comprador.
 
 const RETIRO_CERCANO = {
   id: 20, nombre: 'Retiro en Once', proveedor: 'retiro', descripcion: 'Coordinamos por WhatsApp',
@@ -40,11 +41,11 @@ async function irAEnvio(page: Page, metodos: unknown[]) {
 
 test.describe('Checkout — punto de retiro más cercano (F3)', () => {
   // El backend devuelve las filas ordenadas por `orden`; el front reordena.
-  test('el retiro recomendado va primero, con badge "Más cerca tuyo" y su dirección', async ({ page }) => {
+  test('el retiro recomendado va primero, con badge "Más cerca tuyo" y su barrio', async ({ page }) => {
     await irAEnvio(page, [CORREO, RETIRO_LEJOS, RETIRO_CERCANO]);
 
     await expect(page.getByText('Más cerca tuyo')).toBeVisible();
-    await expect(page.getByText('Larrea 324, Once')).toBeVisible();
+    await expect(page.getByText('📍 Once')).toBeVisible();
     await expect(page.getByText('Lun a Vie de 10 a 18 h')).toBeVisible();
 
     // Orden en la lista: recomendado → otro retiro → Correo
@@ -53,18 +54,22 @@ test.describe('Checkout — punto de retiro más cercano (F3)', () => {
     expect(txt.indexOf('Retiro en Villa Crespo')).toBeLessThan(txt.indexOf('Correo Argentino'));
   });
 
-  test('al elegir el retiro, el aviso muestra la dirección y el horario', async ({ page }) => {
+  test('al elegir el retiro, el aviso muestra el barrio, el horario y que la dirección llega por mail', async ({ page }) => {
     await irAEnvio(page, [RETIRO_CERCANO, CORREO]);
 
     await page.getByText('Retiro en Once').click();
-    // El aviso (no la card) combina dirección + horario en una sola línea.
-    await expect(page.getByText(/Retirás en\s*Larrea 324, Once.*Lun a Vie de 10 a 18 h/s)).toBeVisible();
+    // El aviso (no la card) combina barrio + horario + el aviso de que la
+    // dirección exacta llega por mail — nunca la calle en el checkout.
+    await expect(
+      page.getByText(/Retirás en\s*Once.*Lun a Vie de 10 a 18 h.*dirección exacta por mail.*listo para retirar/s),
+    ).toBeVisible();
+    await expect(page.getByText('Larrea 324')).toHaveCount(0);
   });
 
   test('sin recomendado, no aparece el badge y no se reordena', async ({ page }) => {
     await irAEnvio(page, [CORREO, { ...RETIRO_LEJOS, id: 30, nombre: 'Retiro único' }]);
 
     await expect(page.getByText('Más cerca tuyo')).toHaveCount(0);
-    await expect(page.getByText('Corrientes 5400, Villa Crespo')).toBeVisible();
+    await expect(page.getByText('📍 Villa Crespo')).toBeVisible();
   });
 });

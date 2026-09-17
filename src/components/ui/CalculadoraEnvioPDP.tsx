@@ -230,7 +230,7 @@ export default function CalculadoraEnvioPDP({ subtotal, categoriaSlug, envioGrat
                   titulo={r.nombre}
                   detalle={
                     r.ubicacion
-                      ? [r.ubicacion.direccion, r.ubicacion.localidad].filter(Boolean).join(', ')
+                      ? `📍 ${r.ubicacion.localidad}`
                       : r.descripcion
                   }
                   gratis

@@ -204,14 +204,14 @@ export interface Pago {
   pagado_en?: string;
 }
 
+// Shape recortada tal como la manda el endpoint público (POST
+// /envios/calcular): solo barrio y horario. La dirección exacta, el partido
+// y las coordenadas se usan del lado del servidor para el matching de "más
+// cercano" pero nunca se exponen — la dirección completa llega por mail al
+// confirmarse el pago (ver pagoConfirmadoTemplate en el backend).
 export interface UbicacionRetiro {
-  direccion: string;
   localidad: string;
-  partido: string;
   horarios?: string;
-  google_maps_url?: string;
-  lat?: number;
-  lng?: number;
 }
 
 export interface MetodoEnvio {

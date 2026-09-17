@@ -66,7 +66,7 @@ test.describe('PDP — calculadora de envío', () => {
     expect(calcularLlamado).toBe(false);
   });
 
-  test('al elegir provincia y ciudad calcula y muestra Express + retiro (con badge y dirección)', async ({ page }) => {
+  test('al elegir provincia y ciudad calcula y muestra Express + retiro (con badge y barrio)', async ({ page }) => {
     let body: any = null;
     await setup(page, { metodos: [CORREO, RETIRO, EXPRESS], onCalcular: (b) => { body = b; } });
 
@@ -78,7 +78,9 @@ test.describe('PDP — calculadora de envío', () => {
     await expect(page.getByText('$6.000')).toBeVisible();
     await expect(page.getByText('Retiro en Once')).toBeVisible();
     await expect(page.getByText('Más cerca tuyo')).toBeVisible();
-    await expect(page.getByText('Larrea 324, Once')).toBeVisible();
+    await expect(page.getByText('📍 Once')).toBeVisible();
+    // La dirección exacta nunca se expone acá — llega por mail al confirmar el pago.
+    await expect(page.getByText('Larrea 324')).toHaveCount(0);
     // Correo/Andreani NO se muestran en la PDP
     await expect(page.getByText('Correo Argentino')).toHaveCount(0);
 

@@ -474,7 +474,7 @@ export default function Checkout() {
                               {!disponible
                                 ? 'No disponible para la localidad elegida'
                                 : envio.proveedor === 'retiro' && envio.ubicacion
-                                  ? [envio.ubicacion.direccion, envio.ubicacion.localidad].filter(Boolean).join(', ')
+                                  ? `📍 ${envio.ubicacion.localidad}`
                                   : envio.descripcion}
                             </div>
                             {disponible && envio.proveedor === 'retiro' && envio.ubicacion?.horarios && (
@@ -507,10 +507,11 @@ export default function Checkout() {
                       <>
                         📍 Retirás en{' '}
                         <span className="font-medium text-black/80">
-                          {[envioSeleccionado.ubicacion.direccion, envioSeleccionado.ubicacion.localidad].filter(Boolean).join(', ')}
+                          {envioSeleccionado.ubicacion.localidad}
                         </span>
                         {envioSeleccionado.ubicacion.horarios ? ` · ${envioSeleccionado.ubicacion.horarios}` : ''}. Te
-                        contactamos por WhatsApp para coordinar.
+                        contactamos por WhatsApp para coordinar. Te mandamos la dirección exacta por mail
+                        cuando tu pedido esté listo para retirar.
                       </>
                     ) : (
                       <>📍 Te contactaremos por WhatsApp para coordinar el retiro.</>
