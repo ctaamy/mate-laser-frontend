@@ -24,7 +24,7 @@ interface NavLink { label: string; href: string }
 
 const DEFAULT_LINKS: NavLink[] = [
   { label: 'Productos', href: '/productos' },
-  { label: 'Diseños', href: '/productos?personalizado=true' },
+  { label: 'Diseños', href: '/productos?categoria_id=20' },
   { label: 'Taller', href: '/nosotros' },
 ];
 

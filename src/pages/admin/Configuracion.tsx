@@ -27,7 +27,7 @@ type SeccionTipo = TipoSeccion | 'navbar' | 'footer';
 // (DEFAULT_LINKS en Navbar.tsx) para que la migración no cambie nada.
 const NAV_LINKS_DEFAULT = [
   { label: 'Productos', href: '/productos' },
-  { label: 'Diseños', href: '/productos?personalizado=true' },
+  { label: 'Diseños', href: '/productos?categoria_id=20' },
   { label: 'Taller', href: '/nosotros' },
 ];
 
