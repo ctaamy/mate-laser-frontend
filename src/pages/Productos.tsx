@@ -9,6 +9,8 @@ import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
 import type { Producto, Categoria } from '../types';
 import ProductGrid from '../components/ui/ProductGrid';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { metaBusqueda, metaCatalogo, metaCategoria, type PageMeta } from '../lib/seo';
 
 export default function Productos() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,6 +88,19 @@ export default function Productos() {
 
   const productos = paginas?.pages.flatMap((p) => p.data);
   const totalProductos = paginas?.pages[0]?.total ?? 0;
+
+  // SEO: cada categoría es una URL propia (?categoria_id=N) con su title/
+  // description/canonical; ?orden= y ?apto_grabado= comparten el canonical de
+  // la categoría, y la búsqueda interna (?q=) no se indexa.
+  const categoriaActual = categorias?.find((c) => String(c.id) === categoria_id);
+  const metaListado = (): PageMeta | null => {
+    if (qUrl) return metaBusqueda();
+    if (!categoria_id) return metaCatalogo();
+    if (categorias && !categoriaActual) return metaCatalogo(); // categoria_id inexistente
+    if (!categoriaActual || !productos) return null; // todavía cargando
+    return metaCategoria(categoriaActual.nombre, categoriaActual.id, productos.some((p) => p.apto_grabado));
+  };
+  usePageMeta(metaListado());
 
   const handleAgregar = (producto: Producto) => {
     // Defensa extra: la card ya no muestra el botón para productos sin stock,

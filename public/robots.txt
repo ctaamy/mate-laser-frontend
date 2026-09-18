@@ -1,0 +1,20 @@
+# Rutas privadas o transaccionales: no tienen nada para indexar.
+# Todo lo demás (home, catálogo, categorías, productos, páginas de contenido) queda abierto.
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /carrito
+Disallow: /checkout
+Disallow: /pago/
+Disallow: /confirmacion/
+Disallow: /mi-cuenta
+Disallow: /login
+Disallow: /register
+Disallow: /olvide-password
+Disallow: /resetear-password
+Disallow: /verificar-email
+Disallow: /confirmar-newsletter
+Disallow: /baja-newsletter
+Disallow: /auth/
+
+Sitemap: https://matelaserstudio.com.ar/sitemap.xml

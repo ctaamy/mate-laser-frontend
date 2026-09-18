@@ -29,6 +29,7 @@ import BajaNewsletter from './pages/BajaNewsletter';
 import GoogleCallback from './pages/auth/GoogleCallback';
 import DisenaTuMateV2 from './pages/DisenaTuMateV2';
 import PaginaEstatica from './pages/PaginaEstatica';
+import NoEncontrada from './pages/NoEncontrada';
 import MiCuenta from './pages/MiCuenta';
 
 // Páginas admin
@@ -177,11 +178,15 @@ export default function App() {
             <Route path="disena-tu-mate-v2" element={<DisenaTuMateV2 />} />
             <Route path="mi-cuenta" element={<PrivateRoute><MiCuenta /></PrivateRoute>} />
             <Route path="mi-cuenta/pedidos/:id" element={<PrivateRoute><MiCuenta /></PrivateRoute>} />
-            <Route path="terminos" element={<PaginaEstatica claveBase="pagina_terminos" tituloDefault="Términos y condiciones" />} />
-            <Route path="privacidad" element={<PaginaEstatica claveBase="pagina_privacidad" tituloDefault="Política de privacidad" />} />
-            <Route path="faq" element={<PaginaEstatica claveBase="pagina_faq" tituloDefault="Preguntas frecuentes" />} />
-            <Route path="envios-y-devoluciones" element={<PaginaEstatica claveBase="pagina_envios" tituloDefault="Envíos y devoluciones" />} />
-            <Route path="nosotros" element={<PaginaEstatica claveBase="pagina_nosotros" tituloDefault="Nosotros" markdownDefault={NOSOTROS_MD_DEFAULT} />} />
+            <Route path="terminos" element={<PaginaEstatica claveBase="pagina_terminos" tituloDefault="Términos y condiciones" descripcion="Términos y condiciones de compra de Mate Laser Studio." />} />
+            <Route path="privacidad" element={<PaginaEstatica claveBase="pagina_privacidad" tituloDefault="Política de privacidad" descripcion="Política de privacidad de Mate Laser Studio: cómo cuidamos tus datos personales." />} />
+            <Route path="faq" element={<PaginaEstatica claveBase="pagina_faq" tituloDefault="Preguntas frecuentes" descripcion="Preguntas frecuentes sobre pedidos, personalización, pagos y envíos de Mate Laser Studio." />} />
+            <Route path="envios-y-devoluciones" element={<PaginaEstatica claveBase="pagina_envios" tituloDefault="Envíos y devoluciones" descripcion="Envíos a todo el país, retiro en el taller y política de cambios y devoluciones de Mate Laser Studio." />} />
+            <Route path="nosotros" element={<PaginaEstatica claveBase="pagina_nosotros" tituloDefault="Nosotros" markdownDefault={NOSOTROS_MD_DEFAULT} descripcion="El taller de Mate Laser Studio en Buenos Aires: cómo trabajamos cada mate grabado a láser, de a uno." />} />
+            {/* Cualquier otra URL pública: pantalla "no encontrada" con noindex
+                (antes renderizaba en blanco). Va al final: React Router prioriza
+                las rutas específicas sobre el splat. */}
+            <Route path="*" element={<NoEncontrada />} />
           </Route>
 
           {/* Rutas de admin */}
