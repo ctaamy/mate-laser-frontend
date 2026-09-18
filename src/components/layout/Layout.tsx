@@ -3,8 +3,10 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import WhatsAppButton from './WhatsAppButton';
 import ToastCarrito from '../ui/ToastCarrito';
+import { useOrganizacionSeo } from '../../hooks/useOrganizacionSeo';
 
 export default function Layout() {
+  useOrganizacionSeo();
   return (
     <div className="tema-publico min-h-screen flex flex-col">
       <Navbar />

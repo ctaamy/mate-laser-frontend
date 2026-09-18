@@ -14,9 +14,10 @@ import { DESCRIPCION_HOME, TITULO_HOME } from '../src/lib/seo';
 //   - solo un 404 real marca noindex; un error transitorio de la API no.
 
 const APEX = 'https://matelaserstudio.com.ar';
+const OG_DEFAULT = `${APEX}/og-default.png`;
 
-async function mockBase(page: Page, config: Record<string, unknown> = {}) {
-  await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (r) => r.fulfill({ json: [] }));
+async function mockBase(page: Page, config: Record<string, unknown> = {}, secciones: unknown[] = []) {
+  await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (r) => r.fulfill({ json: secciones }));
   await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (r) =>
     r.request().method() === 'GET' ? r.fulfill({ json: config }) : r.continue(),
   );
@@ -80,6 +81,9 @@ const snapshot = (page: Page) =>
       jsonLdPagina: [...document.head.querySelectorAll('script[type="application/ld+json"][data-seo="pagina"]')].map(
         (el) => JSON.parse(el.textContent ?? 'null'),
       ),
+      jsonLdOrganizacion: [
+        ...document.head.querySelectorAll('script[type="application/ld+json"][data-seo="organizacion"]'),
+      ].map((el) => JSON.parse(el.textContent ?? 'null')),
       jsonLdTotal: document.head.querySelectorAll('script[type="application/ld+json"]').length,
     };
   });
@@ -95,9 +99,11 @@ test.describe('SEO — <head> por ruta', () => {
     expect(s.descriptions).toEqual([DESCRIPCION_HOME]);
     expect(s.canonicals).toEqual([`${APEX}/`]);
     expect(s.ogUrl).toEqual([`${APEX}/`]);
+    expect(s.ogImage).toEqual([OG_DEFAULT]); // imagen de marca por defecto
+    expect(s.twitterCard).toEqual(['summary_large_image']);
     expect(s.robots).toEqual([]);
     expect(s.jsonLdPagina).toEqual([]);
-    expect(s.jsonLdTotal).toBe(1); // solo el Organization de index.html
+    expect(s.jsonLdTotal).toBe(1); // solo el Organization de index.html (actualizado en el lugar)
   });
 
   test('PDP: title, description, canonical, og:image y JSON-LD Product; una sola copia de cada tag', async ({ page }) => {
@@ -153,9 +159,9 @@ test.describe('SEO — <head> por ruta', () => {
 
     const s = await snapshot(page);
     expect(s.canonicals).toEqual([`${APEX}/`]);
-    expect(s.ogImage).toEqual([]); // el og:image de la PDP se fue
+    expect(s.ogImage).toEqual([OG_DEFAULT]); // la foto de la PDP se fue: vuelve la imagen de marca de index.html
     expect(s.ogType).toEqual(['website']);
-    expect(s.twitterCard).toEqual(['summary']); // vuelve al valor estático de index.html
+    expect(s.twitterCard).toEqual(['summary_large_image']);
     expect(s.jsonLdPagina).toEqual([]); // el Product de la PDP se fue
     expect(s.jsonLdTotal).toBe(1);
     expect(s.descriptions).toEqual([DESCRIPCION_HOME]);
@@ -264,6 +270,64 @@ test.describe('SEO — <head> por ruta', () => {
     expect(s.canonicals).toEqual([`${APEX}/nosotros`]);
     expect(s.descriptions[0]).toContain('El taller de Mate Laser Studio');
     expect(s.robots).toEqual([]);
+  });
+
+  test('Organization: usa los datos del admin (config + footer) y actualiza el bloque en el lugar, sin duplicarlo', async ({ page }) => {
+    await mockBase(
+      page,
+      { tienda_nombre: 'Mate Laser Studio', telefono_contacto: '+541127444565' },
+      [
+        {
+          id: 'f1',
+          tipo: 'footer',
+          activo: true,
+          orden: 99,
+          datos: {
+            redes: [{ href: 'https://instagram.com/otra_cuenta', label: '@otra_cuenta' }],
+            contacto: { email: 'ventas@ejemplo.com.ar' },
+          },
+        },
+      ],
+    );
+    await page.goto('/');
+    await expect
+      .poll(async () => (await snapshot(page)).jsonLdOrganizacion[0]?.contactPoint?.telephone)
+      .toBe('+541127444565');
+
+    const s = await snapshot(page);
+    expect(s.jsonLdOrganizacion).toHaveLength(1);
+    expect(s.jsonLdOrganizacion[0]).toMatchObject({
+      '@type': 'Organization',
+      sameAs: ['https://instagram.com/otra_cuenta'],
+      contactPoint: { telephone: '+541127444565', email: 'ventas@ejemplo.com.ar' },
+    });
+    expect(s.jsonLdTotal).toBe(1); // se actualizó el de index.html, no se agregó otro
+  });
+
+  test('Organization: si el admin cambia el teléfono, el JSON-LD lo sigue (sin tocar código)', async ({ page }) => {
+    await mockBase(page, { telefono_contacto: '+541127444565' });
+    await page.goto('/');
+    await expect
+      .poll(async () => (await snapshot(page)).jsonLdOrganizacion[0]?.contactPoint?.telephone)
+      .toBe('+541127444565');
+
+    // El negocio cambia el número en el admin: la API ahora devuelve otro.
+    await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (r) =>
+      r.request().method() === 'GET' ? r.fulfill({ json: { telefono_contacto: '+54 9 11 6666-7777' } }) : r.continue(),
+    );
+    await page.reload();
+    await expect
+      .poll(async () => (await snapshot(page)).jsonLdOrganizacion[0]?.contactPoint?.telephone)
+      .toBe('+5491166667777');
+  });
+
+  test('Organization: un teléfono placeholder del admin no se publica', async ({ page }) => {
+    await mockBase(page, { telefono_contacto: '+54 11 0000-0000', tienda_nombre: 'Marca Con Placeholder' });
+    await page.goto('/');
+    // Nombre distinto del base: obliga a esperar a que se aplique la config real antes de comprobar.
+    await expect.poll(async () => (await snapshot(page)).jsonLdOrganizacion[0]?.name).toBe('Marca Con Placeholder');
+    const s = await snapshot(page);
+    expect(s.jsonLdOrganizacion[0]).not.toHaveProperty('contactPoint');
   });
 
   test('rutas privadas (carrito): no declaran canonical ni noindex propios', async ({ page }) => {

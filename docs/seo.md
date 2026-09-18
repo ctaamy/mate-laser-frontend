@@ -21,19 +21,39 @@ Estado y decisiones para que Google indexe el sitio y los links compartidos
 | `robots.txt` (bloquea admin/carrito/checkout/pago/mi-cuenta/login…, apunta al sitemap) | `public/robots.txt` |
 | Sitemap de respaldo (rutas fijas) | `public/sitemap.xml` |
 | Sitemap real con productos + categorías, generado en el build de Docker | `scripts/sitemap.mjs` + `RUN` en `Dockerfile` |
-| description/OG/Twitter genéricos + JSON-LD `Organization` | `index.html` |
+| description/OG/Twitter genéricos + imagen de marca para compartir (1200×630) | `index.html` + `public/og-default.png` |
+| JSON-LD `Organization` alimentado desde el admin | valor base en `index.html`; `jsonLdOrganizacion` en `src/lib/seo.ts`; `src/hooks/useOrganizacionSeo.ts` (montado en `Layout`) |
 | Plantillas de title/description/JSON-LD Product (puras, testeadas) | `src/lib/seo.ts` |
 | Aplica el meta al `<head>` y lo restaura al salir de la página | `src/hooks/usePageMeta.ts` |
 | Pantalla "no encontrada" con noindex (catch-all) | `src/pages/NoEncontrada.tsx` |
 | Cableado | `Home`, `Productos`, `ProductoDetalle`, `PaginaEstatica`, `App` |
 | Tests | `e2e/seo-utils.spec.ts`, `e2e/sitemap-script.spec.ts`, `e2e/seo-meta.spec.ts` |
 
+### Qué se actualiza solo y qué no
+
+| Dato | ¿Solo? |
+|---|---|
+| Nombre, descripción, fotos, precio y stock de productos; nombre de categorías (title, description, JSON-LD Product) | **Sí** — salen de la API en cada render; Google lo toma en su próximo rastreo |
+| Título de las páginas estáticas (Nosotros, FAQ…) | **Sí** (admin). Su *description* está fija en `App.tsx` |
+| Organization: nombre (`tienda_nombre`), descripción (`tienda_descripcion`), teléfono (`telefono_contacto`, el del botón de WhatsApp), y redes / mail / teléfono del bloque Footer | **Sí**, desde el admin (cache de la API 2 min + 5 min del cliente) |
+| Sitemap: productos y categorías nuevos | **Solo en cada deploy**, hasta la Fase 2 |
+| Title/description de la home, plantillas de title/description, imagen de marca, logo | **No**: están en código (`src/lib/seo.ts`, `index.html`, `public/`); cambian con un deploy |
+| Dirección | **Nunca** se publica sola: los `origen_*` de la config son el origen de los envíos, no un dato público |
+
+Regla del JSON-LD de Organization: se publica solo lo que el sitio ya muestra
+públicamente. El teléfono del footer tiene prioridad sobre el de WhatsApp; el
+**mail solo sale del footer** (la config tiene dos mails distintos y ninguno se
+muestra hoy). Un teléfono placeholder (`+54 11 0000-0000`) o sin código de país se
+descarta. Para publicar un mail: admin → Configuración → bloque Footer →
+"Contacto directo" → Email (también lo muestra en el footer del sitio).
+
 ### Trampas que ya se pisaron (no repetir)
 
-- **Nada de `canonical`, `og:url` ni `og:image` estáticos en `index.html`.** Ese
-  archivo se sirve para *todas* las URLs: un canonical fijo declararía cada página
-  como duplicado de una sola. Los pone cada página con `usePageMeta`. Lo protege un
-  test en `seo-utils.spec.ts`.
+- **Nada de `canonical` ni `og:url` estáticos en `index.html`.** Ese archivo se sirve
+  para *todas* las URLs: un canonical fijo declararía cada página como duplicado de
+  una sola. Los pone cada página con `usePageMeta`. Lo protege un test en
+  `seo-utils.spec.ts`. El `og:image` estático sí está: es la imagen de marca por
+  defecto (la ficha de producto la pisa con su foto y el hook la restaura al salir).
 - **No usar el hoisting de React 19** (`<title>`/`<meta>` en el JSX): agregaría un
   segundo tag al lado de los de `index.html`, y con dos canonical Google ignora ambos.
   `usePageMeta` hace upsert imperativo → siempre queda una sola copia.
@@ -42,8 +62,9 @@ Estado y decisiones para que Google indexe el sitio y los links compartidos
   por directorio** con `-s`. Probado en local. Por eso el SEO por URL del lado
   servidor exige reemplazar `serve` (Fase 2).
 - Un **error de red/5xx de la API no marca noindex** en la PDP; solo un 404 real.
-- `String.fromCharCode` / doble barra para U+2028/2029: escribirlos como ` `
-  en un archivo terminó como el carácter literal y rompió el `tsc`.
+- Escribir los escapes unicode de los separadores de línea (U+2028 y U+2029) en un
+  archivo con la tool Write los convierte en el carácter literal y rompe el `tsc`:
+  usar `String.fromCharCode(0x2028)` (ver `serializarJsonLd`).
 - `npm run build` local antes de deployar: el CI no corre `tsc -b` del frontend, el
   primer que lo ve es el deploy a Fly.
 
@@ -51,25 +72,33 @@ Estado y decisiones para que Google indexe el sitio y los links compartidos
 
 Por impacto/esfuerzo (criterio de cm-marketing):
 
-1. **Confirmar teléfono, un solo mail y dirección.** En la config del admin hoy hay
-   placeholders (`tienda_telefono` = `+54 11 0000-0000`, dos mails distintos, sin
-   calle/ciudad). Hasta entonces **no** se publican en datos estructurados.
+1. ~~Confirmar datos de contacto~~ — confirmados por Tami (2026-09-18). Hoy se
+   publica el teléfono de WhatsApp (`telefono_contacto`). Mail y dirección **no**:
+   la config tiene dos mails distintos (`tienda_email` = hola@matelaserstudio.com,
+   que parece el ejemplo del admin, y `email_contacto` = matelaserstudio@outlook.com.ar)
+   y el footer no tiene "Contacto directo" cargado. Falta decidir cuál es el mail real.
 2. **Google Search Console**: verificar el dominio, enviar `sitemap.xml` y pedir
    indexación de la home — **recién con la Fase 1 deployada**.
 3. Link al sitio en la bio de Instagram (mismo nombre exacto).
 4. Perfil de **Google Business Profile** (taller en CABA): la señal más fuerte para
    diferenciarse del aparato de terapia "MateLaser". Verificar tarda: empezar ya.
-5. **Foto para compartir (`og:image`)**: un mate y una bombilla grabados, láser
-   nítido, fondo cálido neutro, logo chico en una esquina, contenido centrado
-   (WhatsApp recorta), 1200×630, < 300 KB. Va en `public/` y se referencia en
-   `index.html`. Hoy no hay og:image genérico (la PDP sí usa la 1ª foto del producto).
+5. ~~Imagen para compartir~~ — hecha con el logo que mandó Tami (`public/og-default.png`,
+   1200×630, 130 KB). Mejora opcional (cm-marketing): una foto real de un mate y una
+   bombilla grabados, con el logo chico en una esquina, convierte más que un logo solo.
 6. Descripciones propias para los ~10 productos principales (34 de 44 hoy están
    vacías; la meta description sale de una plantilla).
-7. **www → raíz**: Regla de redirect 301 en Cloudflare (preservando path y query;
-   probar con 302 y pasar a 301). Antes confirmar `FRONTEND_URL` de prod (back_urls
-   de Mercado Pago), el dominio registrado del Brick y que el smoke test
-   (`.github/workflows/deploy.yml`, apunta a `www`) se cambie en el mismo PR. Los
-   usuarios que entraban por www pierden la sesión una vez (localStorage por origen).
+7. **Redirect www → raíz** (Cloudflare → Rules → Redirect Rules). Hoy los dos hosts
+   responden 200. Verificado el 2026-09-18: la CORS de la API permite ambos y el smoke
+   test del Brick de Mercado Pago (`npm run test:smoke`) **pasa contra los dos hosts**,
+   así que redirigir a la raíz no rompe el checkout **en modo TEST**. Al pasar a
+   credenciales de producción de MP, repetir `SMOKE_BASE_URL=<host final> npm run test:smoke`
+   y revisar el dominio registrado en el panel de MP.
+   - Regla: Hostname *equals* `www.matelaserstudio.com.ar` → redirect dinámico
+     `concat("https://matelaserstudio.com.ar", http.request.uri.path)`, **preservar query
+     string**, primero 302 y pasar a 301 tras probar (el 301 se cachea).
+   - Cambiar `SMOKE_BASE_URL` de `.github/workflows/deploy.yml` (hoy `www`) a la raíz:
+     verificado que pasa en ambos, se puede hacer antes o después del redirect.
+   - Los usuarios que entraban por www pierden la sesión una vez (localStorage por origen).
 8. Si el repo de GitHub es público sin necesidad, pasarlo a privado (aparece en
    `site:` y compite con el sitio).
 

@@ -7,17 +7,23 @@
     <title>Mate Laser Studio | Mates grabados a láser en Buenos Aires</title>
     <meta name="description" content="Taller de grabado láser en Buenos Aires: mates, bombillas y accesorios personalizados. Elegí un diseño o personalizalo. Envíos a todo el país." />
     <!-- SEO base: este HTML se sirve para TODAS las URLs (SPA), así que acá solo
-         van valores genéricos. Sin canonical, og:url ni og:image estáticos a
-         propósito — cada página los setea con usePageMeta (ver docs/seo.md). -->
+         van valores genéricos (los ve quien no ejecuta JS: WhatsApp, Facebook…).
+         Sin canonical ni og:url estáticos a propósito — cada página los setea con
+         usePageMeta (ver docs/seo.md). El og:image es la imagen de marca por
+         defecto; la ficha de producto la pisa con la foto del producto. -->
     <meta property="og:site_name" content="Mate Laser Studio" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_AR" />
     <meta property="og:title" content="Mate Laser Studio | Mates grabados a láser en Buenos Aires" />
     <meta property="og:description" content="Taller de grabado láser en Buenos Aires: mates, bombillas y accesorios personalizados. Elegí un diseño o personalizalo. Envíos a todo el país." />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="https://matelaserstudio.com.ar/og-default.png" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Mate Laser Studio | Mates grabados a láser en Buenos Aires" />
     <meta name="twitter:description" content="Taller de grabado láser en Buenos Aires: mates, bombillas y accesorios personalizados. Elegí un diseño o personalizalo. Envíos a todo el país." />
-    <script type="application/ld+json">
+    <meta name="twitter:image" content="https://matelaserstudio.com.ar/og-default.png" />
+    <!-- data-seo="organizacion": useOrganizacionJsonLd lo actualiza con los datos
+         del admin (config de la tienda); este es el valor base. -->
+    <script type="application/ld+json" data-seo="organizacion">
       {
         "@context": "https://schema.org",
         "@type": "Organization",
@@ -26,7 +32,8 @@
         "url": "https://matelaserstudio.com.ar/",
         "logo": "https://matelaserstudio.com.ar/logo-mls.png",
         "description": "Taller de grabado láser en Buenos Aires: mates, bombillas y accesorios personalizados.",
-        "sameAs": ["https://www.instagram.com/matelaserstudio"]
+        "areaServed": { "@type": "Country", "name": "Argentina" },
+        "sameAs": ["https://instagram.com/matelaserstudio"]
       }
     </script>
   </head>

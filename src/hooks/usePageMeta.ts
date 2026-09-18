@@ -17,7 +17,7 @@ import { serializarJsonLd, type PageMeta } from '../lib/seo';
 // vez de duplicarlos — por eso el JSON-LD lleva data-seo="pagina" (el server
 // debe usar el mismo marcador).
 
-type Restaurar = () => void;
+export type Restaurar = () => void;
 
 function upsertMeta(atributo: 'name' | 'property', clave: string, contenido: string): Restaurar {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[${atributo}="${clave}"]`);
@@ -53,16 +53,19 @@ function upsertCanonical(href: string): Restaurar {
   };
 }
 
-const SELECTOR_JSONLD = 'script[type="application/ld+json"][data-seo="pagina"]';
-
-function upsertJsonLd(datos: Record<string, unknown>[]): Restaurar {
-  let el = document.head.querySelector<HTMLScriptElement>(SELECTOR_JSONLD);
+// Cada bloque de JSON-LD lleva un marcador data-seo: "pagina" (lo que declara
+// la página actual: Product…) y "organizacion" (el de index.html, que
+// useOrganizacionSeo actualiza con los datos del admin).
+export function upsertJsonLd(marca: 'pagina' | 'organizacion', datos: Record<string, unknown>[]): Restaurar {
+  let el = document.head.querySelector<HTMLScriptElement>(
+    `script[type="application/ld+json"][data-seo="${marca}"]`,
+  );
   const creado = el === null;
   const previo = el?.textContent ?? null;
   if (el === null) {
     el = document.createElement('script');
     el.type = 'application/ld+json';
-    el.setAttribute('data-seo', 'pagina');
+    el.setAttribute('data-seo', marca);
     document.head.appendChild(el);
   }
   el.textContent = serializarJsonLd(datos.length === 1 ? datos[0] : datos);
@@ -111,7 +114,7 @@ export function usePageMeta(meta: PageMeta | null) {
       restaurar.push(upsertMeta('name', 'twitter:card', 'summary_large_image'));
     }
     if (m.noindex) restaurar.push(upsertMeta('name', 'robots', 'noindex, follow'));
-    if (m.jsonLd?.length) restaurar.push(upsertJsonLd(m.jsonLd));
+    if (m.jsonLd?.length) restaurar.push(upsertJsonLd('pagina', m.jsonLd));
 
     return () => {
       for (const r of restaurar.reverse()) r();

@@ -246,3 +246,110 @@ export function metaProducto(p: Producto): PageMeta {
     jsonLd: [jsonLd],
   };
 }
+
+// ── Organización (JSON-LD, alimentado desde el admin) ────────────────────
+
+export interface DatosOrganizacion {
+  /** GET /configuracion (público = publicado). */
+  config?: Record<string, unknown> | null;
+  /** `datos` de la sección 'footer' del page builder (publicado). */
+  footer?: Record<string, unknown> | null;
+}
+
+const DESCRIPCION_ORGANIZACION =
+  'Taller de grabado láser en Buenos Aires: mates, bombillas y accesorios personalizados.';
+
+// Mismo default que Footer.tsx cuando el footer no define `redes`.
+const REDES_DEFAULT = ['https://instagram.com/matelaserstudio'];
+
+const REDES_CONOCIDAS = [
+  'instagram.com',
+  'facebook.com',
+  'tiktok.com',
+  'youtube.com',
+  'x.com',
+  'twitter.com',
+  'linkedin.com',
+  'pinterest.com',
+];
+
+const texto = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+/**
+ * "+54 11 2744-4565" → "+541127444565". Devuelve null si no parece un teléfono
+ * real: el admin trae placeholders tipo "+54 11 0000-0000", y un número local
+ * sin código de país es ambiguo — mejor no publicar nada que uno equivocado.
+ */
+export function normalizarTelefono(raw: unknown): string | null {
+  const s = texto(raw);
+  const digitos = s.replace(/\D/g, '');
+  if (digitos.length < 10 || digitos.length > 15) return null;
+  if (!s.startsWith('+') && !(digitos.startsWith('54') && digitos.length >= 12)) return null;
+  if (/^0+$/.test(digitos.slice(4))) return null; // placeholder
+  return `+${digitos}`;
+}
+
+function normalizarEmail(raw: unknown): string | null {
+  const s = texto(raw);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null;
+}
+
+/** Solo https y solo redes sociales conocidas (el href lo carga el admin). */
+function normalizarRed(raw: unknown): string | null {
+  try {
+    const u = new URL(texto(raw));
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    return u.protocol === 'https:' && REDES_CONOCIDAS.includes(host) ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Organization para Google. Regla: se publica SOLO lo que el sitio ya muestra
+ * públicamente, tomado de las mismas fuentes que edita el negocio:
+ *  - nombre/descripción: config de la tienda;
+ *  - teléfono: el del footer si lo cargó, si no `telefono_contacto` (el del
+ *    botón de WhatsApp);
+ *  - mail: SOLO el del footer (la config tiene dos mails distintos y ninguno
+ *    se muestra hoy);
+ *  - redes: las del footer.
+ * Nunca la dirección: los `origen_*` de la config son el origen de los envíos,
+ * no un dato público.
+ */
+export function jsonLdOrganizacion({ config, footer }: DatosOrganizacion = {}): Record<string, unknown> {
+  const cfg = config ?? {};
+  const contacto = (footer?.contacto ?? {}) as Record<string, unknown>;
+
+  const descripcionCfg = texto(cfg.tienda_descripcion);
+  const org: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': `${SITE_URL}/#organizacion`,
+    name: texto(cfg.tienda_nombre) || SITE_NAME,
+    url: `${SITE_URL}/`,
+    logo: `${SITE_URL}/logo-mls.png`,
+    description: descripcionCfg.length >= 20 ? descripcionCfg : DESCRIPCION_ORGANIZACION,
+    areaServed: { '@type': 'Country', name: 'Argentina' },
+  };
+
+  const redes = Array.isArray(footer?.redes)
+    ? (footer.redes as Record<string, unknown>[]).map((r) => normalizarRed(r?.href))
+    : REDES_DEFAULT.map(normalizarRed);
+  const sameAs = redes.filter((r): r is string => r !== null);
+  if (sameAs.length) org.sameAs = sameAs;
+
+  const telefono = normalizarTelefono(contacto.telefono) ?? normalizarTelefono(cfg.telefono_contacto);
+  const email = normalizarEmail(contacto.email);
+  if (telefono || email) {
+    org.contactPoint = {
+      '@type': 'ContactPoint',
+      contactType: 'customer service',
+      areaServed: 'AR',
+      availableLanguage: 'es',
+      ...(telefono && { telephone: telefono }),
+      ...(email && { email }),
+    };
+  }
+  return org;
+}

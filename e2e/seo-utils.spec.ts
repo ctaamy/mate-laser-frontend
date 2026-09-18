@@ -8,11 +8,13 @@ import {
   TITULO_HOME,
   aTextoPlano,
   armarTitulo,
+  jsonLdOrganizacion,
   limpiarTituloSeo,
   metaCategoria,
   metaHome,
   metaPaginaEstatica,
   metaProducto,
+  normalizarTelefono,
   recortar,
   serializarJsonLd,
 } from '../src/lib/seo';
@@ -253,6 +255,102 @@ test.describe('SEO — metaProducto', () => {
   });
 });
 
+test.describe('SEO — Organization desde el admin', () => {
+  test('sin datos: valores base, sin contacto ni dirección', () => {
+    const org = jsonLdOrganizacion();
+    expect(org).toMatchObject({
+      '@type': 'Organization',
+      '@id': 'https://matelaserstudio.com.ar/#organizacion',
+      name: 'Mate Laser Studio',
+      url: 'https://matelaserstudio.com.ar/',
+      logo: 'https://matelaserstudio.com.ar/logo-mls.png',
+      sameAs: ['https://instagram.com/matelaserstudio'],
+    });
+    expect(org).not.toHaveProperty('contactPoint');
+    expect(org).not.toHaveProperty('address');
+  });
+
+  test('nombre y descripción salen de la config del admin (la descripción solo si es real)', () => {
+    const conDatos = jsonLdOrganizacion({
+      config: { tienda_nombre: '  Otra Marca ', tienda_descripcion: 'Una descripción propia bastante larga.' },
+    });
+    expect(conDatos).toMatchObject({ name: 'Otra Marca', description: 'Una descripción propia bastante larga.' });
+
+    const corta = jsonLdOrganizacion({ config: { tienda_nombre: '', tienda_descripcion: 'corta' } });
+    expect(corta.name).toBe('Mate Laser Studio');
+    expect(corta.description).toMatch(/^Taller de grabado láser/);
+  });
+
+  test('teléfono: normaliza el de la config y rechaza placeholders y números ambiguos', () => {
+    expect(normalizarTelefono('+54 11 2744-4565')).toBe('+541127444565');
+    expect(normalizarTelefono('+541127444565')).toBe('+541127444565');
+    expect(normalizarTelefono('541127444565')).toBe('+541127444565');
+    expect(normalizarTelefono('+54 11 0000-0000')).toBeNull(); // placeholder del admin
+    expect(normalizarTelefono('11 2744-4565')).toBeNull(); // sin código de país: ambiguo
+    expect(normalizarTelefono('123')).toBeNull();
+    expect(normalizarTelefono(undefined)).toBeNull();
+    expect(normalizarTelefono(541127444565)).toBeNull(); // no es string
+
+    const org = jsonLdOrganizacion({ config: { telefono_contacto: '+541127444565' } });
+    expect(org.contactPoint).toEqual({
+      '@type': 'ContactPoint',
+      contactType: 'customer service',
+      areaServed: 'AR',
+      availableLanguage: 'es',
+      telephone: '+541127444565',
+    });
+    // El placeholder no genera contactPoint.
+    expect(jsonLdOrganizacion({ config: { telefono_contacto: '+54 11 0000-0000' } })).not.toHaveProperty('contactPoint');
+  });
+
+  test('el teléfono/mail del footer (lo que ve el cliente) tiene prioridad sobre la config', () => {
+    const org = jsonLdOrganizacion({
+      config: { telefono_contacto: '+541127444565' },
+      footer: { contacto: { telefono: '+54 9 11 5555-1234', email: 'ventas@ejemplo.com.ar' } },
+    });
+    expect(org.contactPoint).toMatchObject({ telephone: '+5491155551234', email: 'ventas@ejemplo.com.ar' });
+  });
+
+  test('el mail SOLO sale del footer: los mails de la config (ambiguos) nunca se publican', () => {
+    const org = jsonLdOrganizacion({
+      config: { tienda_email: 'hola@matelaserstudio.com', email_contacto: 'matelaserstudio@outlook.com.ar' },
+      footer: { contacto: { email: 'no-es-un-mail' } },
+    });
+    // Ningún patrón de mail (ojo: "@context"/"@type" del JSON-LD llevan @ pero sin texto antes).
+    expect(JSON.stringify(org)).not.toMatch(/[\w.+-]+@[\w-]+\./);
+    expect(org).not.toHaveProperty('contactPoint');
+  });
+
+  test('nunca publica la dirección: los origen_* son el origen de los envíos, no un dato público', () => {
+    const org = jsonLdOrganizacion({
+      config: { origen_calle: 'Calle Falsa 123', origen_ciudad: 'CABA', origen_cp: '1000', origen_provincia: 'CABA' },
+      footer: { contacto: { direccion: 'Calle Falsa 123' } },
+    });
+    expect(org).not.toHaveProperty('address');
+    expect(JSON.stringify(org)).not.toContain('Calle Falsa');
+  });
+
+  test('redes: solo https y solo redes conocidas; sin array usa el default; array vacío = sin sameAs', () => {
+    const org = jsonLdOrganizacion({
+      footer: {
+        redes: [
+          { href: 'https://www.instagram.com/otra_cuenta', label: '@otra_cuenta' },
+          { href: 'https://facebook.com/otra', label: 'fb' },
+          { href: 'http://instagram.com/insegura', label: 'http' },
+          { href: 'javascript:alert(1)', label: 'xss' },
+          { href: 'https://sitio-desconocido.com/x', label: 'otro' },
+          { href: 'no-es-una-url', label: 'basura' },
+          null,
+        ],
+      },
+    });
+    expect(org.sameAs).toEqual(['https://www.instagram.com/otra_cuenta', 'https://facebook.com/otra']);
+
+    expect(jsonLdOrganizacion({ footer: {} }).sameAs).toEqual(['https://instagram.com/matelaserstudio']);
+    expect(jsonLdOrganizacion({ footer: { redes: [] } })).not.toHaveProperty('sameAs');
+  });
+});
+
 test.describe('SEO — archivos estáticos', () => {
   const raiz = process.cwd();
   const indexHtml = readFileSync(join(raiz, 'index.html'), 'utf8');
@@ -264,23 +362,32 @@ test.describe('SEO — archivos estáticos', () => {
     expect(indexHtml).toContain(`<meta property="og:description" content="${DESCRIPCION_HOME}" />`);
   });
 
-  test('index.html NO trae canonical, og:url ni og:image estáticos (se sirve para todas las URLs)', () => {
+  test('index.html NO trae canonical ni og:url estáticos (se sirve para todas las URLs)', () => {
     // Un canonical fijo acá declararía TODAS las páginas como duplicado de una sola.
     expect(indexHtml).not.toMatch(/rel=["']canonical["']/);
     expect(indexHtml).not.toMatch(/property=["']og:url["']/);
-    expect(indexHtml).not.toMatch(/property=["']og:image["']/);
   });
 
-  test('index.html: el JSON-LD de Organization es JSON válido y no publica datos de contacto sin confirmar', () => {
-    const m = indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  test('index.html: og:image de marca (absoluta, https) apunta a un PNG real de 1200×630 y < 300 KB', () => {
+    const og = indexHtml.match(/<meta property="og:image" content="([^"]+)" \/>/);
+    const tw = indexHtml.match(/<meta name="twitter:image" content="([^"]+)" \/>/);
+    expect(og).not.toBeNull();
+    expect(tw![1]).toBe(og![1]);
+    expect(og![1]).toBe('https://matelaserstudio.com.ar/og-default.png');
+    expect(indexHtml).toContain('<meta name="twitter:card" content="summary_large_image" />');
+
+    const png = readFileSync(join(raiz, 'public', 'og-default.png'));
+    expect(png.subarray(1, 4).toString('latin1')).toBe('PNG');
+    expect(png.readUInt32BE(16)).toBe(1200); // ancho (chunk IHDR)
+    expect(png.readUInt32BE(20)).toBe(630); // alto
+    expect(png.length).toBeLessThan(300 * 1024);
+  });
+
+  test('index.html: el JSON-LD de Organization es el mismo que genera jsonLdOrganizacion() sin datos', () => {
+    const m = indexHtml.match(/<script type="application\/ld\+json" data-seo="organizacion">([\s\S]*?)<\/script>/);
     expect(m).not.toBeNull();
-    const org = JSON.parse(m![1]);
-    expect(org['@type']).toBe('Organization');
-    expect(org.url).toBe('https://matelaserstudio.com.ar/');
-    expect(org.sameAs).toEqual(['https://www.instagram.com/matelaserstudio']);
-    expect(org).not.toHaveProperty('telephone');
-    expect(org).not.toHaveProperty('email');
-    expect(org).not.toHaveProperty('address');
+    // Lo que ve un crawler sin JS = lo que ve Google tras renderizar con la config vacía.
+    expect(JSON.parse(m![1])).toEqual(jsonLdOrganizacion());
   });
 
   test('robots.txt: bloquea lo privado, deja abierto el catálogo y apunta al sitemap', () => {
