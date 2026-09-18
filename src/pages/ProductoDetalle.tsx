@@ -608,13 +608,17 @@ export default function ProductoDetalle() {
                 {/* Sin stock: contraste real (era bg-black/20 + text-black/25,
                     ilegible en un celular al sol). Neutro, no rojo — el rojo
                     del carrito es "tenés que actuar"; acá el usuario todavía
-                    no se comprometió. "por ahora" = señal de que vuelve. */}
+                    no se comprometió. "por ahora" = señal de que vuelve.
+                    Sin plazo de entrega: depende del método de envío que elija
+                    el cliente, no del producto. Cada método muestra su propia
+                    descripción en el checkout y en la calculadora de "Envío y
+                    retiro". */}
                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${disponible ? (pocasUnidades ? 'bg-amber-500' : 'bg-black') : 'bg-black/40'}`} />
                 <span className={disponible ? (pocasUnidades ? 'text-amber-600' : 'text-black/60') : 'text-black/55'}>
                   {disponible
                     ? pocasUnidades
-                      ? '¡Últimas unidades! · Entrega en 3–5 días hábiles'
-                      : 'Stock disponible · Entrega en 3–5 días hábiles'
+                      ? '¡Últimas unidades!'
+                      : 'Stock disponible'
                     : 'Sin stock por ahora'}
                 </span>
               </div>

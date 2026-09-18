@@ -77,6 +77,10 @@ test.describe('Selector de variantes en producto', () => {
     await expect(page.getByRole('heading', { name: PRODUCTO_MOCK.nombre })).toBeVisible();
     await expect(page.getByText('Color', { exact: true })).not.toBeVisible();
     await expect(page.getByText('Stock disponible')).toBeVisible();
+    // El plazo de entrega depende del método de envío que elige el cliente
+    // (lo muestra cada método en el checkout y en la calculadora), no del
+    // producto: la línea de stock no promete "Entrega en X días".
+    await expect(page.getByText(/Entrega en \d/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Agregar al carrito/i })).toBeEnabled();
   });
 
