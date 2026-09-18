@@ -2,10 +2,16 @@ import { motion } from 'motion/react';
 import { useTemaGlobalData } from '../hooks/useThemeGlobal';
 import { useHomepageSecciones } from '../hooks/useHomepageSecciones';
 import { HomeSecciones } from '../components/home/HomeSecciones';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { metaHome } from '../lib/seo';
+
+// Constante de módulo: el meta de la home no depende de datos.
+const META_HOME = metaHome();
 
 export default function Home() {
   const { data: secciones, isLoading } = useHomepageSecciones();
   const tema = useTemaGlobalData();
+  usePageMeta(META_HOME);
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center">

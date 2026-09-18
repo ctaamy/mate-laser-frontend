@@ -42,6 +42,11 @@ ENV VITE_UMAMI_WEBSITE_ID=$VITE_UMAMI_WEBSITE_ID
 # Build application
 RUN npm run build
 
+# Sitemap con productos y categorías reales (consulta la API en build). Va acá y
+# no dentro de "npm run build" a propósito: si la API no responde, el script
+# deja el public/sitemap.xml estático y sale con 0 — nunca rompe el deploy.
+RUN node scripts/sitemap.mjs || true
+
 # Remove development dependencies
 RUN npm prune --omit=dev
 

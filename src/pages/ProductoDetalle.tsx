@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, Shield, MessageCircle, ChevronRight, Minus, Plus, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import { isAxiosError } from 'axios';
 import api from '../lib/api';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { metaNoEncontrado, metaProducto } from '../lib/seo';
 import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
 import type { Producto } from '../types';
@@ -27,11 +30,22 @@ export default function ProductoDetalle() {
   const agregar = useCarritoStore((s) => s.agregar);
   const mostrarToast = useToastStore((s) => s.agregar);
 
-  const { data: producto, isLoading } = useQuery<Producto>({
+  const { data: producto, isLoading, error } = useQuery<Producto>({
     queryKey: ['producto', slug],
     queryFn: () => api.get(`/productos/${slug}`).then((r) => r.data),
     enabled: !!slug,
   });
+
+  // SEO: title/description/canonical/OG/JSON-LD del producto. Solo un 404 real
+  // de la API marca noindex — un error transitorio (red, 5xx) no debe sacar la
+  // PDP del índice si justo lo ve Googlebot.
+  usePageMeta(
+    producto
+      ? metaProducto(producto)
+      : isAxiosError(error) && error.response?.status === 404
+        ? metaNoEncontrado('producto')
+        : null,
+  );
 
   // Config real de envío gratis (GET /configuracion, público, lee 'publicado').
   // El cartel "Envío gratis en compras mayores a $X" solo se muestra si esto

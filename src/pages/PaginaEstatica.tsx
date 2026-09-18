@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import api from '../lib/api';
 import { useTemaGlobalData } from '../hooks/useThemeGlobal';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { metaPaginaEstatica } from '../lib/seo';
 import ContenidoBloques, { type BloqueContenido } from '../components/ui/ContenidoBloques';
 
 // Página estática de contenido editable (título + Markdown) desde el
@@ -17,12 +20,20 @@ import ContenidoBloques, { type BloqueContenido } from '../components/ui/Conteni
 // /nosotros desde el navbar) y no deberían mostrarle a un cliente el
 // placeholder genérico "todavía no fue cargado". Las páginas legales del
 // footer no lo pasan y siguen con ese placeholder.
-export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefault }: { claveBase: string; tituloDefault: string; markdownDefault?: string }) {
+// descripcion: meta description de la página (SEO) — texto fijo, no se edita
+// desde el admin (el contenido visible sí).
+export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefault, descripcion }: { claveBase: string; tituloDefault: string; markdownDefault?: string; descripcion?: string }) {
   const tema = useTemaGlobalData();
+  const { pathname } = useLocation();
   const { data: config, isLoading } = useQuery<Record<string, any>>({
     queryKey: ['configuracion'],
     queryFn: () => api.get('/configuracion').then(r => r.data),
   });
+
+  const titulo: string = config?.[`${claveBase}_titulo`] || tituloDefault;
+  // Los hooks van antes del early return de isLoading. Mientras carga no se
+  // toca el <head>: el título del admin puede diferir del default.
+  usePageMeta(isLoading ? null : metaPaginaEstatica(titulo, descripcion, pathname));
 
   // Mientras la respuesta de /configuracion no llegó, `config` es undefined y
   // el `||` de abajo caía en el placeholder como si fuera el estado real —
@@ -41,8 +52,6 @@ export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefau
       </div>
     );
   }
-
-  const titulo: string = config?.[`${claveBase}_titulo`] || tituloDefault;
 
   // Contenido editorial por bloques (párrafo + foto interpolados) — solo si la
   // página tiene `pagina_<slug>_contenido` cargado (hoy solo /nosotros). Si

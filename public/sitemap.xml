@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Respaldo estático: solo rutas fijas. En el build de Docker,
+     scripts/sitemap.mjs lo reemplaza por uno con productos y categorías
+     reales; si la API no responde, queda este. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://matelaserstudio.com.ar/</loc></url>
+  <url><loc>https://matelaserstudio.com.ar/productos</loc></url>
+  <url><loc>https://matelaserstudio.com.ar/nosotros</loc></url>
+  <url><loc>https://matelaserstudio.com.ar/envios-y-devoluciones</loc></url>
+  <url><loc>https://matelaserstudio.com.ar/faq</loc></url>
+</urlset>
