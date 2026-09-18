@@ -1047,7 +1047,6 @@ function SeccionProductosDestacados({ datos, tema }: { datos: Record<string, any
         <motion.div initial="hidden" whileInView="visible" viewport={VIEWPORT} variants={STAGGER}
           className="flex items-end justify-between mb-10">
           <div style={{ textAlign: datos.alineacion || undefined }}>
-            <SectionLabel tc={tc}>Colección</SectionLabel>
             <motion.h2 variants={FADE_UP} transition={T}
               className="font-bold tracking-tight"
               style={{ fontSize: tituloFontSize, color: tc }}>
