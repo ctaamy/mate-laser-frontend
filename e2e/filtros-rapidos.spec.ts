@@ -66,7 +66,9 @@ test.describe('Bloque Barra de filtros rápidos', () => {
       datos: { items: [] },
     });
     await page.goto('/');
-    await expect(page.locator('a[href^="/productos?categoria_id"], a[href^="/productos?apto_grabado"]')).toHaveCount(0);
+    // Acotado a <main>: el navbar (fuera de <main>) puede tener su propio
+    // link a /productos?categoria_id=... y no debe afectar esta aserción.
+    await expect(page.locator('main a[href^="/productos?categoria_id"], main a[href^="/productos?apto_grabado"]')).toHaveCount(0);
   });
 
   test('los links generados navegan a /productos y aplican el filtro (integración con la página de catálogo)', async ({ page }) => {
