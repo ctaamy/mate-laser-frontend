@@ -35,17 +35,19 @@ Estado y decisiones para que Google indexe el sitio y los links compartidos
 |---|---|
 | Nombre, descripción, fotos, precio y stock de productos; nombre de categorías (title, description, JSON-LD Product) | **Sí** — salen de la API en cada render; Google lo toma en su próximo rastreo |
 | Título de las páginas estáticas (Nosotros, FAQ…) | **Sí** (admin). Su *description* está fija en `App.tsx` |
-| Organization: nombre (`tienda_nombre`), descripción (`tienda_descripcion`), teléfono (`telefono_contacto`, el del botón de WhatsApp), y redes / mail / teléfono del bloque Footer | **Sí**, desde el admin (cache de la API 2 min + 5 min del cliente) |
+| Organization: nombre (`tienda_nombre`), descripción (`tienda_descripcion`), teléfono (`telefono_contacto`, el del botón de WhatsApp), mail (`email_contacto`, "Email de contacto"), y redes / mail / teléfono del bloque Footer (este último tiene prioridad) | **Sí**, desde el admin (cache de la API 2 min + 5 min del cliente) |
 | Sitemap: productos y categorías nuevos | **Solo en cada deploy**, hasta la Fase 2 |
 | Title/description de la home, plantillas de title/description, imagen de marca, logo | **No**: están en código (`src/lib/seo.ts`, `index.html`, `public/`); cambian con un deploy |
 | Dirección | **Nunca** se publica sola: los `origen_*` de la config son el origen de los envíos, no un dato público |
 
-Regla del JSON-LD de Organization: se publica solo lo que el sitio ya muestra
-públicamente. El teléfono del footer tiene prioridad sobre el de WhatsApp; el
-**mail solo sale del footer** (la config tiene dos mails distintos y ninguno se
-muestra hoy). Un teléfono placeholder (`+54 11 0000-0000`) o sin código de país se
-descarta. Para publicar un mail: admin → Configuración → bloque Footer →
-"Contacto directo" → Email (también lo muestra en el footer del sitio).
+Regla del JSON-LD de Organization: se publica solo lo que el negocio cargó a
+propósito en el admin. Teléfono: el del footer si lo completó, si no
+`telefono_contacto`. Mail: el del footer si lo completó, si no `email_contacto`
+(Configuración → pestaña Tienda → "Email de contacto"; **no** se muestra en el
+sitio). `tienda_email` **nunca** se usa: es un valor de ejemplo de la config de
+fábrica. Un teléfono placeholder (`+54 11 0000-0000`) o sin código de país se
+descarta. Si el negocio completa "Contacto directo" en el footer, además se muestra
+en el sitio. Los cambios de config quedan en borrador hasta "Publicar".
 
 ### Trampas que ya se pisaron (no repetir)
 
@@ -72,11 +74,12 @@ descarta. Para publicar un mail: admin → Configuración → bloque Footer →
 
 Por impacto/esfuerzo (criterio de cm-marketing):
 
-1. ~~Confirmar datos de contacto~~ — confirmados por Tami (2026-09-18). Hoy se
-   publica el teléfono de WhatsApp (`telefono_contacto`). Mail y dirección **no**:
-   la config tiene dos mails distintos (`tienda_email` = hola@matelaserstudio.com,
-   que parece el ejemplo del admin, y `email_contacto` = matelaserstudio@outlook.com.ar)
-   y el footer no tiene "Contacto directo" cargado. Falta decidir cuál es el mail real.
+1. ~~Confirmar datos de contacto~~ — confirmados por Tami (2026-09-18): teléfono
+   `telefono_contacto` y mail **matelaserstudio@gmail.com**. Falta cargar el mail en
+   Configuración → Tienda → "Email de contacto" y **Publicar**: hoy ese campo tiene
+   matelaserstudio@outlook.com.ar, que se publicaría en Google si se deploya antes.
+   Verificar con `curl https://api.matelaserstudio.com.ar/api/v1/configuracion`
+   (campo `email_contacto`).
 2. **Google Search Console**: verificar el dominio, enviar `sitemap.xml` y pedir
    indexación de la home — **recién con la Fase 1 deployada**.
 3. Link al sitio en la bio de Instagram (mismo nombre exacto).

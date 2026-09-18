@@ -321,6 +321,15 @@ test.describe('SEO — <head> por ruta', () => {
       .toBe('+5491166667777');
   });
 
+  test('Organization: el "Email de contacto" de la config llega a Google (sin cargarlo en el footer)', async ({ page }) => {
+    await mockBase(page, { tienda_nombre: 'Marca Con Mail', email_contacto: 'matelaserstudio@gmail.com' });
+    await page.goto('/');
+    await expect
+      .poll(async () => (await snapshot(page)).jsonLdOrganizacion[0]?.contactPoint?.email)
+      .toBe('matelaserstudio@gmail.com');
+    expect((await snapshot(page)).jsonLdTotal).toBe(1);
+  });
+
   test('Organization: un teléfono placeholder del admin no se publica', async ({ page }) => {
     await mockBase(page, { telefono_contacto: '+54 11 0000-0000', tienda_nombre: 'Marca Con Placeholder' });
     await page.goto('/');

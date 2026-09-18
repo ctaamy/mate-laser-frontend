@@ -311,14 +311,28 @@ test.describe('SEO — Organization desde el admin', () => {
     expect(org.contactPoint).toMatchObject({ telephone: '+5491155551234', email: 'ventas@ejemplo.com.ar' });
   });
 
-  test('el mail SOLO sale del footer: los mails de la config (ambiguos) nunca se publican', () => {
-    const org = jsonLdOrganizacion({
-      config: { tienda_email: 'hola@matelaserstudio.com', email_contacto: 'matelaserstudio@outlook.com.ar' },
-      footer: { contacto: { email: 'no-es-un-mail' } },
+  test('mail: el del footer manda; si no, "Email de contacto" de la config; tienda_email (ejemplo de fábrica) nunca', () => {
+    // Solo la config (Configuración → Tienda → Email de contacto).
+    expect(jsonLdOrganizacion({ config: { email_contacto: 'matelaserstudio@gmail.com' } }).contactPoint).toMatchObject({
+      email: 'matelaserstudio@gmail.com',
+    });
+    // El footer tiene prioridad sobre la config.
+    expect(
+      jsonLdOrganizacion({ config: { email_contacto: 'a@config.com' }, footer: { contacto: { email: 'b@footer.com' } } })
+        .contactPoint,
+    ).toMatchObject({ email: 'b@footer.com' });
+    // Mail inválido en el footer: cae al de la config.
+    expect(
+      jsonLdOrganizacion({ config: { email_contacto: 'a@config.com' }, footer: { contacto: { email: 'no-es-un-mail' } } })
+        .contactPoint,
+    ).toMatchObject({ email: 'a@config.com' });
+    // tienda_email (valor de ejemplo del seed) y valores inválidos: nada.
+    const sinMail = jsonLdOrganizacion({
+      config: { tienda_email: 'hola@matelaserstudio.com', email_contacto: 'no-es-un-mail' },
     });
     // Ningún patrón de mail (ojo: "@context"/"@type" del JSON-LD llevan @ pero sin texto antes).
-    expect(JSON.stringify(org)).not.toMatch(/[\w.+-]+@[\w-]+\./);
-    expect(org).not.toHaveProperty('contactPoint');
+    expect(JSON.stringify(sinMail)).not.toMatch(/[\w.+-]+@[\w-]+\./);
+    expect(sinMail).not.toHaveProperty('contactPoint');
   });
 
   test('nunca publica la dirección: los origen_* son el origen de los envíos, no un dato público', () => {

@@ -311,8 +311,9 @@ function normalizarRed(raw: unknown): string | null {
  *  - nombre/descripción: config de la tienda;
  *  - teléfono: el del footer si lo cargó, si no `telefono_contacto` (el del
  *    botón de WhatsApp);
- *  - mail: SOLO el del footer (la config tiene dos mails distintos y ninguno
- *    se muestra hoy);
+ *  - mail: el del footer si lo cargó; si no, `email_contacto` (Configuración →
+ *    Tienda → "Email de contacto", no se muestra en el sitio). NUNCA
+ *    `tienda_email`: es un valor de ejemplo de la config de fábrica;
  *  - redes: las del footer.
  * Nunca la dirección: los `origen_*` de la config son el origen de los envíos,
  * no un dato público.
@@ -340,7 +341,7 @@ export function jsonLdOrganizacion({ config, footer }: DatosOrganizacion = {}): 
   if (sameAs.length) org.sameAs = sameAs;
 
   const telefono = normalizarTelefono(contacto.telefono) ?? normalizarTelefono(cfg.telefono_contacto);
-  const email = normalizarEmail(contacto.email);
+  const email = normalizarEmail(contacto.email) ?? normalizarEmail(cfg.email_contacto);
   if (telefono || email) {
     org.contactPoint = {
       '@type': 'ContactPoint',
