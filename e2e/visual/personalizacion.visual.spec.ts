@@ -50,4 +50,14 @@ test.describe('Visual — personalización de producto', () => {
     // posición de renderizado entre corridas y genera falsos positivos.
     await expect(panelInfo(page)).toHaveScreenshot('activado.png', { mask: [inputTexto] });
   });
+
+  test('nota "¿Cómo funciona el grabado?" abierta (toggle apagado)', async ({ page }) => {
+    await page.goto(`/productos/${PRODUCTO_MOCK.slug}`);
+    await page.getByRole('button', { name: '¿Cómo funciona el grabado?' }).click();
+    // Sin foco ni hover en el link: el screenshot no debe depender de dónde quedó el mouse.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(400); // expansión (220ms) + scroll suave a la nota
+    await expect(panelInfo(page)).toHaveScreenshot('nota-abierta.png');
+  });
 });
