@@ -15,6 +15,7 @@ import BadgeAptoGrabado from '../components/ui/BadgeAptoGrabado';
 import CuotasBanner from '../components/ui/CuotasBanner';
 import ProductosRecomendados from '../components/ui/ProductosRecomendados';
 import CalculadoraEnvioPDP from '../components/ui/CalculadoraEnvioPDP';
+import NotaPersonalizacion from '../components/ui/NotaPersonalizacion';
 
 const T = { duration: 0.4, ease: 'easeOut' as const };
 
@@ -532,7 +533,10 @@ export default function ProductoDetalle() {
               <div className={`border transition-colors ${quierePersonalizar ? 'border-black' : 'border-black/10'}`}>
                 <button
                   onClick={() => setQuierePersonalizar(!quierePersonalizar)}
-                  className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+                  // Con el toggle apagado el aire de abajo lo pone la fila de
+                  // NotaPersonalizacion (44px de alto táctil); encendido, vuelve
+                  // el padding de siempre y la nota ya no está.
+                  className={`w-full flex items-center justify-between px-4 pt-3.5 text-left transition-[padding] duration-200 motion-reduce:transition-none ${quierePersonalizar ? 'pb-3.5' : 'pb-0'}`}
                 >
                   <div>
                     <div className="flex items-center gap-2">
@@ -552,6 +556,16 @@ export default function ProductoDetalle() {
                     />
                   </div>
                 </button>
+
+                {/* Nota "¿Cómo funciona el grabado?": fuera del <button> del toggle
+                    (no se anidan botones) y solo con el toggle apagado — encendido,
+                    el campo "Texto a grabar" ya se explica solo. La key la reinicia
+                    (cerrada) al cambiar de producto. */}
+                <AnimatePresence initial={false}>
+                  {!quierePersonalizar && (
+                    <NotaPersonalizacion key={producto.id} maxChars={producto.personalizado_max_chars} />
+                  )}
+                </AnimatePresence>
 
                 <AnimatePresence>
                   {quierePersonalizar && (
@@ -594,13 +608,17 @@ export default function ProductoDetalle() {
                 {/* Sin stock: contraste real (era bg-black/20 + text-black/25,
                     ilegible en un celular al sol). Neutro, no rojo — el rojo
                     del carrito es "tenés que actuar"; acá el usuario todavía
-                    no se comprometió. "por ahora" = señal de que vuelve. */}
+                    no se comprometió. "por ahora" = señal de que vuelve.
+                    Sin plazo de entrega: depende del método de envío que elija
+                    el cliente, no del producto. Cada método muestra su propia
+                    descripción en el checkout y en la calculadora de "Envío y
+                    retiro". */}
                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${disponible ? (pocasUnidades ? 'bg-amber-500' : 'bg-black') : 'bg-black/40'}`} />
                 <span className={disponible ? (pocasUnidades ? 'text-amber-600' : 'text-black/60') : 'text-black/55'}>
                   {disponible
                     ? pocasUnidades
-                      ? '¡Últimas unidades! · Entrega en 3–5 días hábiles'
-                      : 'Stock disponible · Entrega en 3–5 días hábiles'
+                      ? '¡Últimas unidades!'
+                      : 'Stock disponible'
                     : 'Sin stock por ahora'}
                 </span>
               </div>
