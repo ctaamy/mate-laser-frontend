@@ -7,6 +7,12 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 // libre con tope de caracteres (no hay vista previa, logos ni tipografías, y
 // tampoco se sabe si el grabado suma días de entrega).
 //
+// NO da ejemplos de qué escribir ("un nombre, una frase…"): lo que entra depende
+// del producto (en las bombillas solo iniciales o un logo chico, ~4 caracteres;
+// en un mate, un nombre o una frase). El ejemplo vive en cada producto
+// (`personalizado_placeholder`, lo ve el campo de texto) y el tope en
+// `personalizado_max_chars`, que es lo que interpola esta nota.
+//
 // Decisiones (revisadas con ux-reviewer):
 // - Va FUERA del <button> del toggle: un botón dentro de otro es HTML inválido
 //   y, además, abrir la nota no debe prender ni apagar el grabado.
@@ -75,8 +81,8 @@ export default function NotaPersonalizacion({ maxChars }: { maxChars: number }) 
             className="overflow-hidden scroll-mb-28"
           >
             <p className="mx-4 mb-3 bg-black/[0.04] px-3 py-2.5 text-xs leading-relaxed text-black/70">
-              Grabamos con láser el texto que elijas: un nombre, una frase corta o una fecha. Activá la opción y
-              escribilo en el campo que aparece (hasta {maxChars} caracteres, con espacios).
+              Grabamos con láser el texto que elijas. Activá la opción y escribilo en el campo que aparece (hasta{' '}
+              {maxChars} caracteres, con espacios).
             </p>
           </motion.div>
         )}
