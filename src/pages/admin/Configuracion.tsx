@@ -2161,7 +2161,7 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
         </div>
         {tipoMenu === 'tradicional' && (
           <Toggle label="Desplegable de categorías"
-            desc="Al pasar el mouse por el link a /productos se despliegan las categorías"
+            desc="Al pasar el mouse por el link a /productos (o por el de una categoría con subcategorías, ej. Diseños) se despliega su menú"
             value={bool('menu_categorias')} onChange={v => set('menu_categorias', v)} />
         )}
         {links.length > 6 && tipoMenu === 'tradicional' && (

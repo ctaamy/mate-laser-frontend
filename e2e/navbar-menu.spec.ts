@@ -101,7 +101,7 @@ test.describe('Admin — Desplegable de categorías del navbar', () => {
     await page.goto('/admin/configuracion');
     await page.getByRole('button', { name: 'Editar navbar' }).click();
 
-    const desc = page.getByText('Al pasar el mouse por el link a /productos se despliegan las categorías');
+    const desc = page.getByText(/Al pasar el mouse por el link a \/productos/);
     await expect(desc).toBeVisible();
     await desc.locator('../..').getByRole('button').click(); // activo por defecto → lo apaga
 

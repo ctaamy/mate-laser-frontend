@@ -11,6 +11,8 @@ import BuscadorConSugerencias from '../ui/BuscadorConSugerencias';
 import { useCategoriasArbol } from '../../hooks/useCategoriasArbol';
 import MenuMobileLinks from './MenuMobileLinks';
 import MegaMenuCategorias from './MegaMenuCategorias';
+import SubmenuCategoria from './SubmenuCategoria';
+import type { NodoCategoria } from '../../lib/categoriasArbol';
 
 // Resuelve un valor booleano priorizando el bloque navbar (Fase 1) sobre
 // las claves legacy sueltas de /configuracion (Fase 0 y anteriores).
@@ -86,11 +88,13 @@ export default function Navbar() {
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
-  // Desplegable de categorías de "Productos" (desktop, solo menú Tradicional).
-  const [megaOpen, setMegaOpen] = useState(false);
+  // Desplegables de categorías del navbar (desktop, solo menú Tradicional): a
+  // lo sumo uno abierto, identificado por el href de su link. "/productos" abre
+  // el panel ancho con todas las categorías; un link a /productos?categoria_id=N
+  // de una raíz con subcategorías (ej. "Diseños") abre un desplegable compacto.
+  const [submenu, setSubmenu] = useState<string | null>(null);
   const megaTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const punteroTactil = useRef(false);
-  const megaTrigger = useRef<HTMLButtonElement>(null);
 
   const { data: config } = useConfiguracion();
   const { data: secciones } = useHomepageSecciones();
@@ -173,36 +177,48 @@ export default function Navbar() {
 
   // Depende también de `search`: las categorías navegan a /productos?categoria_id=N,
   // así que estando ya en /productos cambia solo el query y el menú quedaba abierto.
-  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); setMegaOpen(false); }, [location.pathname, location.search]);
+  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); clearTimeout(megaTimer.current); setSubmenu(null); }, [location.pathname, location.search]);
 
   // Hover con intención: abre a los 120ms y cierra a los 200ms, así cruzar
   // en diagonal hacia el panel no lo cierra, ni un roce accidental lo abre.
-  const programarMega = (abrir: boolean, ms: number) => {
+  const programarSubmenu = (key: string | null, ms: number) => {
     clearTimeout(megaTimer.current);
-    megaTimer.current = setTimeout(() => setMegaOpen(abrir), ms);
+    megaTimer.current = setTimeout(() => setSubmenu(key), ms);
   };
   useEffect(() => () => clearTimeout(megaTimer.current), []);
+
+  const porKey = (attr: 'submenuTrigger' | 'submenuPanel', key: string | null) =>
+    [...document.querySelectorAll<HTMLElement>(`[data-submenu-${attr === 'submenuTrigger' ? 'trigger' : 'panel'}]`)]
+      .find((el) => el.dataset[attr] === key);
 
   // Abierto: Esc lo cierra (devolviendo el foco al disparador) y un toque/click
   // afuera también.
   useEffect(() => {
-    if (!megaOpen) return;
+    if (!submenu) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setMegaOpen(false); megaTrigger.current?.focus(); }
+      if (e.key === 'Escape') { setSubmenu(null); porKey('submenuTrigger', submenu)?.focus(); }
     };
     const onPointer = (e: PointerEvent) => {
-      if (!(e.target as HTMLElement).closest('[data-mega]')) setMegaOpen(false);
+      if (!(e.target as HTMLElement).closest('[data-mega]')) setSubmenu(null);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onPointer);
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onPointer); };
-  }, [megaOpen]);
+  }, [submenu]);
 
   // Abre el panel y manda el foco al primer link (teclado / lector de pantalla).
-  const abrirMegaConTeclado = () => {
+  const abrirSubmenuConTeclado = (key: string) => {
     clearTimeout(megaTimer.current);
-    setMegaOpen(true);
-    setTimeout(() => document.querySelector<HTMLElement>('#mega-categorias a')?.focus(), 30);
+    setSubmenu(key);
+    setTimeout(() => porKey('submenuPanel', key)?.querySelector<HTMLElement>('a')?.focus(), 30);
+  };
+
+  // Link del navbar → raíz con subcategorías visibles (null si no aplica).
+  const raizDeLink = (href: string): NodoCategoria | null => {
+    const [ruta, query = ''] = href.split('?');
+    if (ruta !== '/productos') return null;
+    const id = Number(new URLSearchParams(query).get('categoria_id'));
+    return raices.find((r) => r.id === id && r.hijas.length > 0) ?? null;
   };
 
   // Menú abierto: Esc lo cierra y el scroll del fondo queda trabado (el panel
@@ -333,21 +349,24 @@ export default function Navbar() {
           {/* Links — desktop con pill hover (solo en modo Tradicional; en
               Hamburguesa se agrupan en el mismo menú desplegable que mobile) */}
           {tipoMenu === 'tradicional' && (
-          <div className="hidden md:flex items-center gap-1" onMouseLeave={() => setHoveredLink(null)}>
+          <div className="hidden md:flex items-center gap-1 self-stretch" onMouseLeave={() => setHoveredLink(null)}>
             {navLinks.map(link => {
               const active = location.pathname === link.href ||
                 (link.href !== '/' && location.pathname + location.search === link.href);
               const isHovered = hoveredLink === link.href;
 
               const esMega = menuCategorias && link.href === '/productos';
+              const raizSub = menuCategorias && !esMega ? raizDeLink(link.href) : null;
+              const tieneSub = esMega || !!raizSub;
+              const abierto = submenu === link.href;
               const enlace = (
                 <Link
                   to={link.href}
-                  onClick={esMega ? (e) => {
+                  onClick={tieneSub ? (e) => {
                     // Touch/lápiz: el primer toque despliega, el segundo navega
-                    // ("Ver todos los productos" está adentro del panel).
-                    if (punteroTactil.current && !megaOpen) { e.preventDefault(); clearTimeout(megaTimer.current); setMegaOpen(true); }
-                    else setMegaOpen(false);
+                    // (el "ver todo" está adentro del panel).
+                    if (punteroTactil.current && !abierto) { e.preventDefault(); clearTimeout(megaTimer.current); setSubmenu(link.href); }
+                    else { clearTimeout(megaTimer.current); setSubmenu(null); }
                   } : undefined}
                   className="relative px-5 py-2.5 text-base rounded-xl select-none"
                   style={{
@@ -391,30 +410,50 @@ export default function Navbar() {
                   <span className="relative z-10">{link.label}</span>
                 </Link>
               );
-              if (!esMega) return <Fragment key={link.href}>{enlace}</Fragment>;
+              if (!tieneSub) return <Fragment key={link.href}>{enlace}</Fragment>;
+              const panelId = esMega ? 'mega-categorias' : `submenu-categoria-${raizSub!.id}`;
               return (
                 <div
                   key={link.href}
                   data-mega
-                  className="relative flex items-center"
+                  className="relative flex items-center self-stretch"
                   onPointerDown={(e) => { punteroTactil.current = e.pointerType !== 'mouse'; }}
-                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') programarMega(true, 120); }}
-                  onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarMega(false, 200); }}
-                  onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); abrirMegaConTeclado(); } }}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') programarSubmenu(link.href, 120); }}
+                  onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarSubmenu(null, 200); }}
+                  onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); abrirSubmenuConTeclado(link.href); } }}
                 >
                   {enlace}
                   <button
-                    ref={megaTrigger}
+                    data-submenu-trigger={link.href}
                     type="button"
-                    aria-label="Ver categorías"
-                    aria-expanded={megaOpen}
-                    aria-controls="mega-categorias"
-                    onClick={(e) => { if (megaOpen) { clearTimeout(megaTimer.current); setMegaOpen(false); } else if (e.detail === 0) abrirMegaConTeclado(); else { clearTimeout(megaTimer.current); setMegaOpen(true); } }}
+                    aria-label={esMega ? 'Ver categorías' : `Ver subcategorías de ${link.label}`}
+                    aria-expanded={abierto}
+                    aria-controls={panelId}
+                    onClick={(e) => { if (abierto) { clearTimeout(megaTimer.current); setSubmenu(null); } else if (e.detail === 0) abrirSubmenuConTeclado(link.href); else { clearTimeout(megaTimer.current); setSubmenu(link.href); } }}
                     className="-ml-3 mr-1 flex h-9 w-7 items-center justify-center rounded-lg"
                     style={{ color: navColor, opacity: 0.6 }}
                   >
-                    <ChevronDown size={14} className={`transition-transform ${megaOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={14} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
                   </button>
+                  {/* Desplegable compacto de una categoría raíz: dentro del wrapper (que
+                      ocupa todo el alto de la barra), pegado a su base. El ancho lo
+                      maneja el panel de "Productos", que vive aparte en el <nav>. */}
+                  <AnimatePresence>
+                    {raizSub && abierto && (
+                      <motion.div
+                        id={panelId}
+                        data-submenu-panel={link.href}
+                        initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                        transition={{ duration: reduceMotion ? 0 : 0.16, ease: 'easeOut' }}
+                        className="absolute left-0 top-full z-40 min-w-56 rounded-b-xl border border-t-0 shadow-xl"
+                        style={{ backgroundColor: navBg, borderColor: navBorder, color: navColor }}
+                      >
+                        <SubmenuCategoria raiz={raizSub} navBorder={navBorder} onNavigate={() => { clearTimeout(megaTimer.current); setSubmenu(null); }} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}
@@ -529,10 +568,11 @@ export default function Navbar() {
         {/* Desplegable de categorías (desktop). Es un <div> dentro de este <nav>,
             no un <nav> nuevo: los tests y el panel mobile usan `nav` como selector. */}
         <AnimatePresence>
-          {menuCategorias && megaOpen && (
+          {menuCategorias && submenu === '/productos' && (
             <motion.div
               id="mega-categorias"
               data-mega
+              data-submenu-panel="/productos"
               initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
@@ -540,9 +580,9 @@ export default function Navbar() {
               className="absolute left-0 right-0 top-full z-40 hidden md:block border-t shadow-xl"
               style={{ backgroundColor: navBg, borderColor: navBorder, color: navColor }}
               onPointerEnter={(e) => { if (e.pointerType === 'mouse') clearTimeout(megaTimer.current); }}
-              onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarMega(false, 200); }}
+              onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarSubmenu(null, 200); }}
             >
-              <MegaMenuCategorias raices={raices} navBorder={navBorder} onNavigate={() => setMegaOpen(false)} />
+              <MegaMenuCategorias raices={raices} navBorder={navBorder} onNavigate={() => { clearTimeout(megaTimer.current); setSubmenu(null); }} />
             </motion.div>
           )}
         </AnimatePresence>
