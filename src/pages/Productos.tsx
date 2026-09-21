@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigationType, useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import api from '../lib/api';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -17,6 +17,7 @@ import { metaBusqueda, metaCatalogo, metaCategoria, type PageMeta } from '../lib
 
 export default function Productos() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navType = useNavigationType();
   // El término vive en la URL (?q=) para que el buscador del navbar, el link
   // compartido y el botón "atrás" funcionen. El input escribe local y sincroniza
   // con la URL con debounce; la URL escribe de vuelta al input (navegación externa).
@@ -28,10 +29,17 @@ export default function Productos() {
   // URL -> input: si la URL cambió por fuera (buscador del navbar, link
   // compartido, botón "atrás"), reflejarlo en el input. Ajuste de estado en
   // render (patrón recomendado de React) en vez de useEffect.
+  //
+  // El REPLACE se ignora: son las escrituras del efecto de abajo (input -> URL)
+  // volviendo por el router, no navegación externa (navbar = PUSH, atrás/adelante
+  // = POP). Ese eco llega tarde — el router lo commitea con prioridad baja y se
+  // reinicia si entra otra tecla — y si el usuario ya tipeó algo más, tratarlo
+  // como externo le pisaba el input con el valor viejo (comía letras y podía
+  // entrar en ping-pong con la escritura siguiente).
   const [qUrlPrevio, setQUrlPrevio] = useState(qUrl);
   if (qUrl !== qUrlPrevio) {
     setQUrlPrevio(qUrl);
-    if (search.trim() !== qUrl) setSearch(qUrl);
+    if (navType !== 'REPLACE' && search.trim() !== qUrl) setSearch(qUrl);
   }
   // <md: la sidebar de filtros se muestra como drawer lateral en vez de
   // ocupar espacio fijo al lado de la grilla (que en mobile la dejaba en
@@ -44,10 +52,13 @@ export default function Productos() {
   const apto_grabado = searchParams.get('apto_grabado') || '';
 
   // input -> URL (debounced). replace: true para no llenar el historial con
-  // una entrada por tecla.
+  // una entrada por tecla. Se decide contra la URL real y no contra `qUrl`:
+  // como el eco de nuestra propia escritura ya no se refleja en el input, este
+  // render puede ir atrasado respecto de una escritura que todavía no volvió
+  // (history.replaceState es síncrono; el commit del router, no).
   useEffect(() => {
-    if (debouncedSearch === qUrl) return;
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(window.location.search);
+    if (debouncedSearch === (params.get('q') ?? '')) return;
     if (debouncedSearch) params.set('q', debouncedSearch);
     else params.delete('q');
     setSearchParams(params, { replace: true });

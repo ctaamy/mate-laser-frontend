@@ -85,6 +85,80 @@ test.describe('Buscador — URL, filtro y sugerencias', () => {
     await expect(page.getByRole('listbox')).toHaveCount(0);
   });
 
+  // Regresión del "eco" de la URL. Tras una pausa de 300ms, Productos escribe
+  // ?q= con replace; ese cambio vuelve por el router con prioridad baja
+  // (startTransition), así que puede llegar cuando el usuario ya siguió tipeando.
+  // Si se lo trata como navegación externa, pisa el input con el valor viejo
+  // (se "comían" letras). Con la suite completa en 4 workers la ventana se abre
+  // sola, pero con el spec solo casi nunca → el test de arriba pasaba 5/5.
+  // Acá la ventana se fuerza sin depender de tiempos: apenas history.replaceState
+  // escribe ?q=mate (y antes de que el router lo commitee) el "usuario" tipea.
+  test('un tecleo entre la escritura de ?q= y su eco en el router no se pierde', async ({ page }) => {
+    await page.addInitScript(() => {
+      const replaceState = history.replaceState.bind(history);
+      let tipeado = false;
+      history.replaceState = (...args: Parameters<History['replaceState']>) => {
+        replaceState(...args);
+        if (!tipeado && String(args[2]).endsWith('?q=mate')) {
+          tipeado = true;
+          const el = document.querySelector<HTMLInputElement>('input[placeholder="Buscar producto..."]')!;
+          // setter nativo + evento 'input': la forma en que React detecta un cambio en un input controlado.
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, 'mate torp');
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      };
+    });
+
+    await page.goto('/productos');
+    const input = page.getByPlaceholder('Buscar producto...');
+
+    // El <title> pasa a "Búsqueda" en el mismo commit en que el router entrega
+    // ?q=mate: es el eco. Se captura el valor del input en ESE instante, dentro
+    // de la página — desde acá un poll llegaría tarde, cuando un ping-pong ya
+    // pudo devolver el valor y taparía el bug.
+    await page.evaluate(() => {
+      const el = document.querySelector<HTMLInputElement>('input[placeholder="Buscar producto..."]')!;
+      new MutationObserver((_, obs) => {
+        if (!document.title.startsWith('Búsqueda')) return;
+        obs.disconnect();
+        (window as unknown as { __valorAlEco: string }).__valorAlEco = el.value;
+      }).observe(document.querySelector('title')!, { childList: true, characterData: true, subtree: true });
+    });
+
+    await input.fill('mate');
+    // Cuando llega el eco el input debe seguir mostrando lo último que tipeó el usuario.
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __valorAlEco?: string }).__valorAlEco))
+      .toBe('mate torp');
+
+    // Y converge: la URL alcanza lo tipeado, el input lo conserva y el catálogo filtra.
+    await expect(page).toHaveURL(/[?&]q=mate(\+|%20)torp$/);
+    await expect(input).toHaveValue('mate torp');
+    await expect(page.getByText('Mate Imperial de Algarrobo')).toHaveCount(0);
+    await expect(page.getByText('Mate Torpedo de Algarrobo').first()).toBeVisible();
+  });
+
+  // El anti-eco de Productos ignora solo los REPLACE (sus propias escrituras):
+  // la navegación externa — PUSH del navbar, POP del botón "atrás" — tiene que
+  // seguir reflejándose en el input.
+  test('el botón atrás vuelve el input al término anterior', async ({ page }) => {
+    await page.goto('/productos?q=imperial');
+    const input = page.getByPlaceholder('Buscar producto...');
+    await expect(input).toHaveValue('imperial');
+
+    const pill = page.getByPlaceholder('Buscar', { exact: true });
+    await pill.fill('torpedo');
+    await pill.press('Enter');
+    await expect(page).toHaveURL(/\/productos\?q=torpedo/);
+    await expect(input).toHaveValue('torpedo');
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/productos\?q=imperial/);
+    await expect(input).toHaveValue('imperial');
+    await expect(page.getByText('Mate Imperial de Algarrobo')).toBeVisible();
+    await expect(page.getByText('Mate Torpedo de Algarrobo')).toHaveCount(0);
+  });
+
   test('↓ + Enter en una sugerencia navega al producto', async ({ page }) => {
     await page.goto('/productos');
     const input = page.getByPlaceholder('Buscar producto...');
