@@ -56,6 +56,9 @@ test.describe('Nota "¿Cómo funciona el grabado?" en la PDP', () => {
     await expect(nota).toBeVisible();
     await expect(nota).toContainText('Grabamos con láser el texto que elijas');
     await expect(nota).toContainText('hasta 45 caracteres');
+    // Sin ejemplos de qué escribir: lo que entra depende del producto (en las bombillas, solo
+    // iniciales o un logo chico). El ejemplo lo da el campo de texto de cada producto.
+    await expect(nota).not.toContainText(/nombre|frase|fecha/i);
 
     await link(page).click();
     await expect(link(page)).toHaveAttribute('aria-expanded', 'false');
