@@ -31,3 +31,50 @@ test.describe('Admin — Categorías — acciones de fila visibles sin hover', (
     await expect(botones.last()).toHaveCSS('opacity', '1');
   });
 });
+
+// Borrado: una categoría activa se desactiva (soft-delete); una inactiva se
+// elimina de verdad vía /definitivo (el backend solo lo permite si no tiene
+// productos ni subcategorías y, si no, responde 400 con el motivo).
+test.describe('Admin — Categorías — eliminar', () => {
+  const INACTIVA = { id: 5, nombre: 'Vieja', slug: 'vieja', descripcion: null, padre_id: null, orden: 0, activo: false, other_categorias: [] };
+  const ACTIVA = { id: 6, nombre: 'Nueva', slug: 'nueva', descripcion: null, padre_id: null, orden: 1, activo: true, other_categorias: [] };
+
+  async function preparar(page: import('@playwright/test').Page, borrados: string[], respuestaBorrado: { status: number; json: any } = { status: 200, json: { ok: true } }) {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/categorias**', (route) => {
+      if (route.request().method() === 'DELETE') {
+        borrados.push(new URL(route.request().url()).pathname);
+        return route.fulfill(respuestaBorrado);
+      }
+      return route.fulfill({ json: [INACTIVA, ACTIVA] });
+    });
+    await page.goto('/admin/productos');
+    await page.getByRole('button', { name: 'Categorías' }).click();
+  }
+
+  test('una categoría inactiva se elimina definitivamente', async ({ page }) => {
+    const borrados: string[] = [];
+    await preparar(page, borrados);
+    page.once('dialog', (d) => { expect(d.message()).toContain('definitivamente'); d.accept(); });
+    await page.getByRole('button', { name: 'Eliminar definitivamente' }).click();
+    await expect.poll(() => borrados).toEqual(['/api/v1/categorias/5/definitivo']);
+  });
+
+  test('una categoría activa solo se desactiva', async ({ page }) => {
+    const borrados: string[] = [];
+    await preparar(page, borrados);
+    page.once('dialog', (d) => d.accept());
+    await page.getByRole('button', { name: 'Desactivar' }).click();
+    await expect.poll(() => borrados).toEqual(['/api/v1/categorias/6']);
+  });
+
+  test('si el backend rechaza (tiene productos), muestra el motivo', async ({ page }) => {
+    const borrados: string[] = [];
+    await preparar(page, borrados, { status: 400, json: { message: 'No se puede eliminar: tiene 3 productos asignados.' } });
+    const dialogos: string[] = [];
+    page.on('dialog', (d) => { dialogos.push(d.message()); d.accept(); });
+    await page.getByRole('button', { name: 'Eliminar definitivamente' }).click();
+    await expect.poll(() => dialogos.length).toBe(2);
+    expect(dialogos[1]).toContain('tiene 3 productos');
+  });
+});
