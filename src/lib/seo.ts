@@ -7,6 +7,7 @@
 // (2026-09-18): title ≤ 60, description ≤ 155, sin nombres de personas/marcas
 // registradas (Messi, Maradona, Selección) en los titles.
 import type { Producto } from '../types';
+import type { Miga } from './migas';
 
 // Canónico fijo = dominio raíz (www responde 200 pero es duplicado; ver
 // docs/seo.md). No se deriva de window.location a propósito: un preview o el
@@ -200,7 +201,24 @@ function ofertaProducto(p: Producto, url: string): Record<string, unknown> {
     : { '@type': 'AggregateOffer', lowPrice: bajo, highPrice: alto, offerCount: fuente.length, ...comun };
 }
 
-export function metaProducto(p: Producto): PageMeta {
+/**
+ * BreadcrumbList de schema.org. El último nivel (la página actual) no trae
+ * path: se le pone la URL actual, que es lo que espera Google.
+ */
+export function jsonLdMigas(migas: Miga[], urlActual: string): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: migas.map((m, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: m.nombre,
+      item: m.path ? urlAbsoluta(m.path) : urlActual,
+    })),
+  };
+}
+
+export function metaProducto(p: Producto, migas?: Miga[]): PageMeta {
   const nombre = limpiarTituloSeo(p.nombre);
   const plano = aTextoPlano(p.descripcion);
   const tieneDescripcion = plano.length >= 40;
@@ -243,7 +261,8 @@ export function metaProducto(p: Producto): PageMeta {
     canonical: url,
     image: imagenes[0],
     ogType: 'product',
-    jsonLd: [jsonLd],
+    // BreadcrumbList solo si hay al menos 2 niveles (mínimo que pide Google).
+    jsonLd: migas && migas.length >= 2 ? [jsonLd, jsonLdMigas(migas, url)] : [jsonLd],
   };
 }
 

@@ -130,14 +130,21 @@ test.describe('SEO — <head> por ruta', () => {
     expect(s.twitterCard).toEqual(['summary_large_image']);
     expect(s.robots).toEqual([]);
 
+    // Un solo <script data-seo="pagina"> con [Product, BreadcrumbList].
     expect(s.jsonLdPagina).toHaveLength(1);
-    expect(s.jsonLdPagina[0]).toMatchObject({
+    const [producto, migas] = s.jsonLdPagina[0];
+    expect(producto).toMatchObject({
       '@type': 'Product',
       name: PRODUCTO_MOCK.nombre,
       image: ['https://example.com/foto.jpg'],
       offers: { '@type': 'Offer', price: 8000, priceCurrency: 'ARS', availability: 'https://schema.org/InStock' },
     });
-    expect(s.jsonLdTotal).toBe(2); // Organization (estático) + Product
+    expect(migas['@type']).toBe('BreadcrumbList');
+    expect(migas.itemListElement.map((i: { name: string }) => i.name)).toEqual([
+      'Inicio', 'Productos', 'Mates de Algarrobo', PRODUCTO_MOCK.nombre,
+    ]);
+    expect(migas.itemListElement.at(-1).item).toBe(`${APEX}/productos/${PRODUCTO_MOCK.slug}`);
+    expect(s.jsonLdTotal).toBe(2); // Organization (estático) + página (Product + BreadcrumbList)
   });
 
   test('al navegar de la PDP a la home se restaura el <head> base (nada de la PDP queda colgado)', async ({ page }) => {
