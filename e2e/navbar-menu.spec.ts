@@ -467,6 +467,8 @@ test.describe('Sitio público — menú mobile con muchas categorías', () => {
     await page.getByLabel('Abrir menú').click();
 
     const panelInner = page.locator('nav').last();
+    // Las categorías viven en el acordeón de "Productos" (cerrado si no estás en el catálogo).
+    await panelInner.getByRole('button', { name: 'Productos', exact: true }).click();
     await expect(panelInner.getByRole('link', { name: 'Categoría 1', exact: true })).toBeVisible();
     const panel = panelInner.locator('..');
     const box = (await panel.boundingBox())!;

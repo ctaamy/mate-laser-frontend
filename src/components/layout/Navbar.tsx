@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Search, X, Menu, ArrowRight, ChevronRight } from 'lucide-react';
+import { ShoppingCart, User, Search, X, Menu, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth.store';
 import { useCarritoStore } from '../../store/carrito.store';
 import { useConfiguracion } from '../../hooks/useConfiguracion';
 import { useHomepageSecciones } from '../../hooks/useHomepageSecciones';
 import { useTemaGlobalData, cargarGoogleFont } from '../../hooks/useThemeGlobal';
-import api from '../../lib/api';
 import BuscadorConSugerencias from '../ui/BuscadorConSugerencias';
-import type { Categoria } from '../../types';
+import { useCategoriasArbol } from '../../hooks/useCategoriasArbol';
+import MenuMobileLinks from './MenuMobileLinks';
 
 // Resuelve un valor booleano priorizando el bloque navbar (Fase 1) sobre
 // las claves legacy sueltas de /configuracion (Fase 0 y anteriores).
@@ -89,11 +88,7 @@ export default function Navbar() {
   const { data: config } = useConfiguracion();
   const { data: secciones } = useHomepageSecciones();
   const tema = useTemaGlobalData();
-  const { data: categorias } = useQuery<Categoria[]>({
-    queryKey: ['categorias'],
-    queryFn: () => api.get('/categorias').then((r) => r.data),
-  });
-  const raices = categorias?.filter(c => !c.padre_id) ?? [];
+  const { raices } = useCategoriasArbol({ ocultarVacias: true });
 
   // El navbar es un bloque más (tipo 'navbar') dentro de homepage_sections,
   // igual que el resto de las secciones. Mientras conviva con instalaciones
@@ -528,68 +523,13 @@ export default function Navbar() {
                   cubre las navegaciones que sí la cambian. */}
               <nav className="px-4 py-3 flex flex-col gap-1"
                 onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setMenuOpen(false); }}>
-                {navLinks.map((link, i) => {
-                  const active = location.pathname === link.href;
-                  return (
-                    <motion.div
-                      key={link.href}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05, duration: 0.2 }}
-                    >
-                      <Link
-                        to={link.href}
-                        className="flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-colors"
-                        style={{
-                          color: navColor,
-                          backgroundColor: active ? `${navColor}0d` : 'transparent',
-                          fontWeight: active ? 600 : 400,
-                        }}
-                      >
-                        {link.label}
-                        {active && <motion.span layoutId="mobile-dot" className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: navColor }} />}
-                      </Link>
-                    </motion.div>
-                  );
-                })}
-
-                {raices.length > 0 && (
-                  <>
-                    <div className="my-1 mx-4 h-px" style={{ backgroundColor: `${navColor}15` }} />
-                    {raices.map((cat, i) => {
-                      const hijos = categorias?.filter(c => c.padre_id === cat.id) ?? [];
-                      return (
-                        <motion.div
-                          key={cat.id}
-                          initial={{ opacity: 0, x: -12 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: (navLinks.length + i) * 0.05, duration: 0.2 }}
-                        >
-                          <Link
-                            to={`/productos?categoria_id=${cat.id}`}
-                            className="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-colors"
-                            style={{ color: navColor, opacity: 0.8 }}
-                          >
-                            {cat.nombre}
-                            {hijos.length > 0 && (
-                              <ChevronRight size={13} style={{ opacity: 0.35 }} />
-                            )}
-                          </Link>
-                          {hijos.map(hijo => (
-                            <Link
-                              key={hijo.id}
-                              to={`/productos?categoria_id=${hijo.id}`}
-                              className="flex items-center px-4 py-2 rounded-xl text-sm transition-colors"
-                              style={{ color: navColor, opacity: 0.45, paddingLeft: '2rem' }}
-                            >
-                              {hijo.nombre}
-                            </Link>
-                          ))}
-                        </motion.div>
-                      );
-                    })}
-                  </>
-                )}
+                <MenuMobileLinks
+                  navLinks={navLinks}
+                  raices={raices}
+                  navColor={navColor}
+                  pathname={location.pathname}
+                  search={location.search}
+                />
               </nav>
 
               {/* Acciones rápidas mobile */}

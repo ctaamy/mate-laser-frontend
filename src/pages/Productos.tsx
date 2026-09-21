@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X, ChevronRight, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import api from '../lib/api';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import BuscadorConSugerencias from '../components/ui/BuscadorConSugerencias';
@@ -9,6 +9,8 @@ import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
 import type { Producto, Categoria } from '../types';
 import ProductGrid from '../components/ui/ProductGrid';
+import { CategoriasFiltro, CategoriasChips } from '../components/catalogo/CategoriasFiltro';
+import { useCategoriasArbol } from '../hooks/useCategoriasArbol';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { metaBusqueda, metaCatalogo, metaCategoria, type PageMeta } from '../lib/seo';
 
@@ -50,6 +52,10 @@ export default function Productos() {
     setSearchParams(params, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
+
+  const seleccionadaId = categoria_id ? Number(categoria_id) : null;
+  // Árbol para la navegación: sin categorías vacías (salvo la elegida por URL).
+  const { raices } = useCategoriasArbol({ ocultarVacias: true, seleccionadaId });
 
   const { data: categorias } = useQuery<Categoria[]>({
     queryKey: ['categorias'],
@@ -126,6 +132,15 @@ export default function Productos() {
     setSearchParams(params);
   };
 
+  // Elegir categoría: filtra, vuelve al inicio de la grilla (con la sidebar
+  // sticky se puede estar scrolleado) y cierra el drawer mobile — la categoría
+  // es single-select, no tiene sentido dejarlo abierto esperando "Ver N".
+  const seleccionarCategoria = (id: number | null) => {
+    setFiltro('categoria_id', id === null ? '' : String(id));
+    window.scrollTo({ top: 0 });
+    setFiltrosAbiertos(false);
+  };
+
   const hayFiltros = !!(categoria_id || apto_grabado);
   const cantidadFiltros = [categoria_id, apto_grabado].filter(Boolean).length;
   // Total de coincidencias (todas las páginas), no sólo lo ya cargado.
@@ -136,45 +151,13 @@ export default function Productos() {
   const filtrosBody = (
     <>
       <div className="mb-7">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/30 mb-3">Categoría</div>
-        <div className="flex flex-col gap-0.5">
-          <button
-            onClick={() => setFiltro('categoria_id', '')}
-            className={`text-left text-sm px-2.5 py-2 transition-colors ${!categoria_id ? 'bg-black text-white font-medium' : 'text-black/60 hover:text-black hover:bg-black/[0.04]'}`}
-          >
-            Todos
-          </button>
-          {categorias?.filter(c => !c.padre_id).map((cat) => {
-            const hijos = categorias.filter(c => c.padre_id === cat.id);
-            return (
-              <div key={cat.id}>
-                <button
-                  onClick={() => setFiltro('categoria_id', cat.id.toString())}
-                  className={`w-full text-left text-sm px-2.5 py-2 transition-colors flex items-center justify-between ${categoria_id === cat.id.toString() ? 'bg-black text-white font-medium' : 'text-black/60 hover:text-black hover:bg-black/[0.04]'}`}
-                >
-                  {cat.nombre}
-                  {hijos.length > 0 && (
-                    <ChevronRight size={12} className={`flex-shrink-0 transition-transform ${hijos.some(h => h.id.toString() === categoria_id) ? 'rotate-90' : ''}`} />
-                  )}
-                </button>
-                {hijos.map((hijo) => (
-                  <button
-                    key={hijo.id}
-                    onClick={() => setFiltro('categoria_id', hijo.id.toString())}
-                    className={`w-full text-left text-sm pl-6 pr-2.5 py-1.5 transition-colors ${categoria_id === hijo.id.toString() ? 'bg-black text-white font-medium' : 'text-black/45 hover:text-black hover:bg-black/[0.04]'}`}
-                  >
-                    {hijo.nombre}
-                  </button>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+        <div className="text-sm font-medium text-black/70 mb-2">Categorías</div>
+        <CategoriasFiltro raices={raices} seleccionadaId={seleccionadaId} onSelect={seleccionarCategoria} />
       </div>
 
       <div className="mb-6">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/30 mb-3">Grabado láser</div>
-        <label className={`flex items-center gap-2.5 text-sm cursor-pointer group ${apto_grabado === 'true' ? 'text-black' : 'text-black/50'}`}>
+        <div className="text-sm font-medium text-black/70 mb-2">Grabado láser</div>
+        <label className={`flex items-center gap-2.5 text-sm cursor-pointer group ${apto_grabado === 'true' ? 'text-black' : 'text-black/60'}`}>
           <div
             onClick={() => setFiltro('apto_grabado', apto_grabado === 'true' ? '' : 'true')}
             className={`w-4 h-4 border flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer ${apto_grabado === 'true' ? 'bg-black border-black' : 'border-black/25 group-hover:border-black/50'}`}
@@ -199,7 +182,7 @@ export default function Productos() {
             if (orden) p.set('orden', orden);
             setSearchParams(p);
           }}
-          className="flex items-center gap-1.5 text-[11px] text-black/35 hover:text-black transition-colors"
+          className="flex items-center gap-1.5 text-xs text-black/60 hover:text-black transition-colors"
         >
           <X size={11} /> Limpiar filtros
         </button>
@@ -211,10 +194,10 @@ export default function Productos() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex gap-8">
 
       {/* SIDEBAR FILTROS — solo desde md; en mobile va en el drawer */}
-      <aside className="hidden md:block w-48 flex-shrink-0">
-        <div className="flex items-center gap-2 mb-6">
-          <SlidersHorizontal size={14} className="text-black/30" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/40">Filtros</span>
+      <aside className="hidden md:block w-56 flex-shrink-0 sticky top-28 self-start max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain pr-1">
+        <div className="flex items-center gap-2 mb-5">
+          <SlidersHorizontal size={14} className="text-black/50" />
+          <span className="text-sm font-medium text-black/70">Filtros</span>
         </div>
         {filtrosBody}
       </aside>
@@ -264,12 +247,14 @@ export default function Productos() {
           </div>
         </div>
 
-        <p className="mb-5 text-[11px] font-medium text-black/35">{cantidadProductos} productos</p>
+        <CategoriasChips raices={raices} seleccionadaId={seleccionadaId} onSelect={seleccionarCategoria} />
+
+        <p className="mb-5 text-xs font-medium text-black/55">{cantidadProductos} productos</p>
 
         {isLoading ? (
-          <div className="text-center py-20 text-black/25 text-sm">Cargando...</div>
+          <div className="text-center py-20 text-black/50 text-sm">Cargando...</div>
         ) : productos?.length === 0 ? (
-          <div className="text-center py-20 text-black/25 text-sm">
+          <div className="text-center py-20 text-black/50 text-sm">
             {debouncedSearch ? `Sin resultados para "${debouncedSearch}"` : 'No hay productos'}
           </div>
         ) : (
@@ -301,6 +286,7 @@ export default function Productos() {
           utilidades condicionales (opacity-100 / translate-x-0) a veces no
           se generaban y el panel quedaba trabado fuera de pantalla. */}
       <div
+        data-testid="filtros-drawer"
         className="fixed inset-0 z-50 md:hidden transition-opacity duration-200"
         style={{
           opacity: filtrosAbiertos ? 1 : 0,
@@ -314,8 +300,8 @@ export default function Productos() {
           style={{ transform: filtrosAbiertos ? 'translateX(0)' : 'translateX(-100%)' }}
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-black/10">
-            <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-black/40">
-              <SlidersHorizontal size={14} className="text-black/30" /> Filtros
+            <span className="flex items-center gap-2 text-sm font-medium text-black/70">
+              <SlidersHorizontal size={14} className="text-black/50" /> Filtros
             </span>
             <button
               onClick={() => setFiltrosAbiertos(false)}
