@@ -91,6 +91,30 @@ test.describe('Admin — Tipo de menú del navbar', () => {
   });
 });
 
+test.describe('Admin — Desplegable de categorías del navbar', () => {
+  test('el toggle aparece en modo Tradicional, viene activo y se persiste apagado; en Hamburguesa se oculta', async ({ page }) => {
+    await loginComoAdmin(page);
+    let putBody: any = null;
+    await mockHomepage(page, [NAVBAR_TRADICIONAL], (body) => { putBody = body; });
+    await mockConfig(page);
+
+    await page.goto('/admin/configuracion');
+    await page.getByRole('button', { name: 'Editar navbar' }).click();
+
+    const desc = page.getByText('Al pasar el mouse por el link a /productos se despliegan las categorías');
+    await expect(desc).toBeVisible();
+    await desc.locator('../..').getByRole('button').click(); // activo por defecto → lo apaga
+
+    await page.getByRole('button', { name: 'Guardar inicio' }).click();
+    await expect(page.getByText('¡Guardado correctamente!')).toBeVisible();
+    const navSec = (putBody.secciones as any[]).find((s) => s.tipo === 'navbar');
+    expect(navSec.datos.menu_categorias).toBe(false);
+
+    await page.getByRole('button', { name: 'Hamburguesa', exact: true }).click();
+    await expect(desc).toHaveCount(0);
+  });
+});
+
 test.describe('Admin — Links del navbar (agregar / quitar / reordenar)', () => {
   test('permite agregar, quitar y reordenar links, y persistirlos', async ({ page }) => {
     await loginComoAdmin(page);

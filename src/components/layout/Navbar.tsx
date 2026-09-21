@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Search, X, Menu, ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { ShoppingCart, User, Search, X, Menu, ArrowRight, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useAuthStore } from '../../store/auth.store';
 import { useCarritoStore } from '../../store/carrito.store';
 import { useConfiguracion } from '../../hooks/useConfiguracion';
@@ -10,6 +10,7 @@ import { useTemaGlobalData, cargarGoogleFont } from '../../hooks/useThemeGlobal'
 import BuscadorConSugerencias from '../ui/BuscadorConSugerencias';
 import { useCategoriasArbol } from '../../hooks/useCategoriasArbol';
 import MenuMobileLinks from './MenuMobileLinks';
+import MegaMenuCategorias from './MegaMenuCategorias';
 
 // Resuelve un valor booleano priorizando el bloque navbar (Fase 1) sobre
 // las claves legacy sueltas de /configuracion (Fase 0 y anteriores).
@@ -84,6 +85,12 @@ export default function Navbar() {
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+  // Desplegable de categorías de "Productos" (desktop, solo menú Tradicional).
+  const [megaOpen, setMegaOpen] = useState(false);
+  const megaTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const punteroTactil = useRef(false);
+  const megaTrigger = useRef<HTMLButtonElement>(null);
 
   const { data: config } = useConfiguracion();
   const { data: secciones } = useHomepageSecciones();
@@ -118,6 +125,8 @@ export default function Navbar() {
   // desplegable se alinea al mismo lado que el ícono — es lo que el usuario
   // espera (el menú "sale" del botón que tocó).
   const menuPosicion: 'izquierda' | 'derecha' = navDatos.menu_posicion === 'izquierda' ? 'izquierda' : 'derecha';
+  // Toggle del admin (default activo): el link a /productos despliega las categorías.
+  const menuCategorias: boolean = navDatos.menu_categorias !== false && tipoMenu === 'tradicional' && raices.length > 0;
 
   const navBg: string = navDatos.bg_color || config?.navbar_bg_color || tema.bg_color;
   const navColor: string = navDatos.texto_color || config?.navbar_texto_color || tema.texto_color;
@@ -164,7 +173,37 @@ export default function Navbar() {
 
   // Depende también de `search`: las categorías navegan a /productos?categoria_id=N,
   // así que estando ya en /productos cambia solo el query y el menú quedaba abierto.
-  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); }, [location.pathname, location.search]);
+  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); setMegaOpen(false); }, [location.pathname, location.search]);
+
+  // Hover con intención: abre a los 120ms y cierra a los 200ms, así cruzar
+  // en diagonal hacia el panel no lo cierra, ni un roce accidental lo abre.
+  const programarMega = (abrir: boolean, ms: number) => {
+    clearTimeout(megaTimer.current);
+    megaTimer.current = setTimeout(() => setMegaOpen(abrir), ms);
+  };
+  useEffect(() => () => clearTimeout(megaTimer.current), []);
+
+  // Abierto: Esc lo cierra (devolviendo el foco al disparador) y un toque/click
+  // afuera también.
+  useEffect(() => {
+    if (!megaOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setMegaOpen(false); megaTrigger.current?.focus(); }
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-mega]')) setMegaOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onPointer); };
+  }, [megaOpen]);
+
+  // Abre el panel y manda el foco al primer link (teclado / lector de pantalla).
+  const abrirMegaConTeclado = () => {
+    clearTimeout(megaTimer.current);
+    setMegaOpen(true);
+    setTimeout(() => document.querySelector<HTMLElement>('#mega-categorias a')?.focus(), 30);
+  };
 
   // Menú abierto: Esc lo cierra y el scroll del fondo queda trabado (el panel
   // tiene su propio scroll interno; sin esto la página se mueve por detrás).
@@ -300,10 +339,16 @@ export default function Navbar() {
                 (link.href !== '/' && location.pathname + location.search === link.href);
               const isHovered = hoveredLink === link.href;
 
-              return (
+              const esMega = menuCategorias && link.href === '/productos';
+              const enlace = (
                 <Link
-                  key={link.href}
                   to={link.href}
+                  onClick={esMega ? (e) => {
+                    // Touch/lápiz: el primer toque despliega, el segundo navega
+                    // ("Ver todos los productos" está adentro del panel).
+                    if (punteroTactil.current && !megaOpen) { e.preventDefault(); clearTimeout(megaTimer.current); setMegaOpen(true); }
+                    else setMegaOpen(false);
+                  } : undefined}
                   className="relative px-5 py-2.5 text-base rounded-xl select-none"
                   style={{
                     color: active ? navColor : isHovered ? navColor : `${navColor}80`,
@@ -345,6 +390,32 @@ export default function Navbar() {
                   )}
                   <span className="relative z-10">{link.label}</span>
                 </Link>
+              );
+              if (!esMega) return <Fragment key={link.href}>{enlace}</Fragment>;
+              return (
+                <div
+                  key={link.href}
+                  data-mega
+                  className="relative flex items-center"
+                  onPointerDown={(e) => { punteroTactil.current = e.pointerType !== 'mouse'; }}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') programarMega(true, 120); }}
+                  onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarMega(false, 200); }}
+                  onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); abrirMegaConTeclado(); } }}
+                >
+                  {enlace}
+                  <button
+                    ref={megaTrigger}
+                    type="button"
+                    aria-label="Ver categorías"
+                    aria-expanded={megaOpen}
+                    aria-controls="mega-categorias"
+                    onClick={(e) => { if (megaOpen) { clearTimeout(megaTimer.current); setMegaOpen(false); } else if (e.detail === 0) abrirMegaConTeclado(); else { clearTimeout(megaTimer.current); setMegaOpen(true); } }}
+                    className="-ml-3 mr-1 flex h-9 w-7 items-center justify-center rounded-lg"
+                    style={{ color: navColor, opacity: 0.6 }}
+                  >
+                    <ChevronDown size={14} className={`transition-transform ${megaOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -454,6 +525,27 @@ export default function Navbar() {
             {menuPosicion === 'derecha' && botonHamburguesa}
           </div>
         </div>
+
+        {/* Desplegable de categorías (desktop). Es un <div> dentro de este <nav>,
+            no un <nav> nuevo: los tests y el panel mobile usan `nav` como selector. */}
+        <AnimatePresence>
+          {menuCategorias && megaOpen && (
+            <motion.div
+              id="mega-categorias"
+              data-mega
+              initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+              transition={{ duration: reduceMotion ? 0 : 0.16, ease: 'easeOut' }}
+              className="absolute left-0 right-0 top-full z-40 hidden md:block border-t shadow-xl"
+              style={{ backgroundColor: navBg, borderColor: navBorder, color: navColor }}
+              onPointerEnter={(e) => { if (e.pointerType === 'mouse') clearTimeout(megaTimer.current); }}
+              onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarMega(false, 200); }}
+            >
+              <MegaMenuCategorias raices={raices} navBorder={navBorder} onNavigate={() => setMegaOpen(false)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Barra de búsqueda expandible */}
         <AnimatePresence>
