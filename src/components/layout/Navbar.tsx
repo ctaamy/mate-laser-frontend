@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Search, X, Menu, ArrowRight, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { useQuery } from '@tanstack/react-query';
+import { ShoppingCart, User, Search, X, Menu, ArrowRight, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useAuthStore } from '../../store/auth.store';
 import { useCarritoStore } from '../../store/carrito.store';
 import { useConfiguracion } from '../../hooks/useConfiguracion';
 import { useHomepageSecciones } from '../../hooks/useHomepageSecciones';
 import { useTemaGlobalData, cargarGoogleFont } from '../../hooks/useThemeGlobal';
-import api from '../../lib/api';
 import BuscadorConSugerencias from '../ui/BuscadorConSugerencias';
-import type { Categoria } from '../../types';
+import { useCategoriasArbol } from '../../hooks/useCategoriasArbol';
+import { track, trackEnlaceCatalogo } from '../../lib/analytics';
+import MenuMobileLinks from './MenuMobileLinks';
+import MegaMenuCategorias from './MegaMenuCategorias';
+import SubmenuCategoria from './SubmenuCategoria';
+import type { NodoCategoria } from '../../lib/categoriasArbol';
 
 // Resuelve un valor booleano priorizando el bloque navbar (Fase 1) sobre
 // las claves legacy sueltas de /configuracion (Fase 0 y anteriores).
@@ -85,15 +88,21 @@ export default function Navbar() {
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+  // Desplegables de categorías del navbar (desktop, solo menú Tradicional): a
+  // lo sumo uno abierto, identificado por el href de su link. "/productos" abre
+  // el panel ancho con todas las categorías; un link a /productos?categoria_id=N
+  // de una raíz con subcategorías (ej. "Diseños") abre un desplegable compacto.
+  const [submenu, setSubmenu] = useState<string | null>(null);
+  const megaTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const punteroTactil = useRef(false);
+  // Cómo se abrió el desplegable (para la métrica nav_desplegable_abre).
+  const viaSubmenu = useRef<'mouse' | 'toque' | 'teclado' | 'click'>('mouse');
 
   const { data: config } = useConfiguracion();
   const { data: secciones } = useHomepageSecciones();
   const tema = useTemaGlobalData();
-  const { data: categorias } = useQuery<Categoria[]>({
-    queryKey: ['categorias'],
-    queryFn: () => api.get('/categorias').then((r) => r.data),
-  });
-  const raices = categorias?.filter(c => !c.padre_id) ?? [];
+  const { raices } = useCategoriasArbol({ ocultarVacias: true });
 
   // El navbar es un bloque más (tipo 'navbar') dentro de homepage_sections,
   // igual que el resto de las secciones. Mientras conviva con instalaciones
@@ -123,6 +132,8 @@ export default function Navbar() {
   // desplegable se alinea al mismo lado que el ícono — es lo que el usuario
   // espera (el menú "sale" del botón que tocó).
   const menuPosicion: 'izquierda' | 'derecha' = navDatos.menu_posicion === 'izquierda' ? 'izquierda' : 'derecha';
+  // Toggle del admin (default activo): el link a /productos despliega las categorías.
+  const menuCategorias: boolean = navDatos.menu_categorias !== false && tipoMenu === 'tradicional' && raices.length > 0;
 
   const navBg: string = navDatos.bg_color || config?.navbar_bg_color || tema.bg_color;
   const navColor: string = navDatos.texto_color || config?.navbar_texto_color || tema.texto_color;
@@ -167,7 +178,73 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); }, [location.pathname]);
+  // Depende también de `search`: las categorías navegan a /productos?categoria_id=N,
+  // así que estando ya en /productos cambia solo el query y el menú quedaba abierto.
+  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); clearTimeout(megaTimer.current); setSubmenu(null); }, [location.pathname, location.search]);
+
+  // Hover con intención: abre a los 120ms y cierra a los 200ms, así cruzar
+  // en diagonal hacia el panel no lo cierra, ni un roce accidental lo abre.
+  const programarSubmenu = (key: string | null, ms: number) => {
+    clearTimeout(megaTimer.current);
+    megaTimer.current = setTimeout(() => { if (key) viaSubmenu.current = 'mouse'; setSubmenu(key); }, ms);
+  };
+  useEffect(() => () => clearTimeout(megaTimer.current), []);
+
+  // Métrica: cada vez que un desplegable pasa a abierto (no al cerrar ni al cambiar de página).
+  useEffect(() => {
+    if (!submenu) return;
+    track('nav_desplegable_abre', { menu: navLinks.find((l) => l.href === submenu)?.label ?? submenu, via: viaSubmenu.current });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submenu]);
+
+  const porKey = (attr: 'submenuTrigger' | 'submenuPanel', key: string | null) =>
+    [...document.querySelectorAll<HTMLElement>(`[data-submenu-${attr === 'submenuTrigger' ? 'trigger' : 'panel'}]`)]
+      .find((el) => el.dataset[attr] === key);
+
+  // Abierto: Esc lo cierra (devolviendo el foco al disparador) y un toque/click
+  // afuera también.
+  useEffect(() => {
+    if (!submenu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setSubmenu(null); porKey('submenuTrigger', submenu)?.focus(); }
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-mega]')) setSubmenu(null);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onPointer); };
+  }, [submenu]);
+
+  // Abre el panel y manda el foco al primer link (teclado / lector de pantalla).
+  const abrirSubmenuConTeclado = (key: string) => {
+    clearTimeout(megaTimer.current);
+    viaSubmenu.current = 'teclado';
+    setSubmenu(key);
+    setTimeout(() => porKey('submenuPanel', key)?.querySelector<HTMLElement>('a')?.focus(), 30);
+  };
+
+  // Link del navbar → raíz con subcategorías visibles (null si no aplica).
+  const raizDeLink = (href: string): NodoCategoria | null => {
+    const [ruta, query = ''] = href.split('?');
+    if (ruta !== '/productos') return null;
+    const id = Number(new URLSearchParams(query).get('categoria_id'));
+    return raices.find((r) => r.id === id && r.hijas.length > 0) ?? null;
+  };
+
+  // Menú abierto: Esc lo cierra y el scroll del fondo queda trabado (el panel
+  // tiene su propio scroll interno; sin esto la página se mueve por detrás).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('keydown', onKey);
+    const overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflowPrevio;
+    };
+  }, [menuOpen]);
 
   // Cierra el dropdown del usuario al hacer click fuera
   useEffect(() => {
@@ -197,6 +274,7 @@ export default function Navbar() {
     <motion.button
       onClick={() => setMenuOpen(s => !s)}
       aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+      aria-expanded={menuOpen}
       className={`w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
       style={{ color: navColor }}
       whileTap={{ scale: 0.9 }}
@@ -282,16 +360,32 @@ export default function Navbar() {
           {/* Links — desktop con pill hover (solo en modo Tradicional; en
               Hamburguesa se agrupan en el mismo menú desplegable que mobile) */}
           {tipoMenu === 'tradicional' && (
-          <div className="hidden md:flex items-center gap-1" onMouseLeave={() => setHoveredLink(null)}>
+          <div className="hidden md:flex items-center gap-1 self-stretch" onMouseLeave={() => setHoveredLink(null)}>
             {navLinks.map(link => {
               const active = location.pathname === link.href ||
                 (link.href !== '/' && location.pathname + location.search === link.href);
               const isHovered = hoveredLink === link.href;
 
-              return (
+              const esMega = menuCategorias && link.href === '/productos';
+              const raizSub = menuCategorias && !esMega ? raizDeLink(link.href) : null;
+              const tieneSub = esMega || !!raizSub;
+              const abierto = submenu === link.href;
+              const enlace = (
                 <Link
-                  key={link.href}
                   to={link.href}
+                  onClick={(e) => {
+                    if (tieneSub) {
+                      // Touch/lápiz: el primer toque despliega, el segundo navega
+                      // (el "ver todo" está adentro del panel). Ese primer toque no
+                      // navega, así que tampoco cuenta como click en la categoría.
+                      if (punteroTactil.current && !abierto) {
+                        e.preventDefault(); clearTimeout(megaTimer.current); viaSubmenu.current = 'toque'; setSubmenu(link.href);
+                        return;
+                      }
+                      clearTimeout(megaTimer.current); setSubmenu(null);
+                    }
+                    trackEnlaceCatalogo('navbar_link', link.href, raices);
+                  }}
                   className="relative px-5 py-2.5 text-base rounded-xl select-none"
                   style={{
                     color: active ? navColor : isHovered ? navColor : `${navColor}80`,
@@ -333,6 +427,52 @@ export default function Navbar() {
                   )}
                   <span className="relative z-10">{link.label}</span>
                 </Link>
+              );
+              if (!tieneSub) return <Fragment key={link.href}>{enlace}</Fragment>;
+              const panelId = esMega ? 'mega-categorias' : `submenu-categoria-${raizSub!.id}`;
+              return (
+                <div
+                  key={link.href}
+                  data-mega
+                  className="relative flex items-center self-stretch"
+                  onPointerDown={(e) => { punteroTactil.current = e.pointerType !== 'mouse'; }}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') programarSubmenu(link.href, 120); }}
+                  onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarSubmenu(null, 200); }}
+                  onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); abrirSubmenuConTeclado(link.href); } }}
+                >
+                  {enlace}
+                  <button
+                    data-submenu-trigger={link.href}
+                    type="button"
+                    aria-label={esMega ? 'Ver categorías' : `Ver subcategorías de ${link.label}`}
+                    aria-expanded={abierto}
+                    aria-controls={panelId}
+                    onClick={(e) => { if (abierto) { clearTimeout(megaTimer.current); setSubmenu(null); } else if (e.detail === 0) abrirSubmenuConTeclado(link.href); else { clearTimeout(megaTimer.current); viaSubmenu.current = punteroTactil.current ? 'toque' : 'click'; setSubmenu(link.href); } }}
+                    className="-ml-3 mr-1 flex h-9 w-7 items-center justify-center rounded-lg"
+                    style={{ color: navColor, opacity: 0.6 }}
+                  >
+                    <ChevronDown size={14} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                  </button>
+                  {/* Desplegable compacto de una categoría raíz: dentro del wrapper (que
+                      ocupa todo el alto de la barra), pegado a su base. El ancho lo
+                      maneja el panel de "Productos", que vive aparte en el <nav>. */}
+                  <AnimatePresence>
+                    {raizSub && abierto && (
+                      <motion.div
+                        id={panelId}
+                        data-submenu-panel={link.href}
+                        initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+                        transition={{ duration: reduceMotion ? 0 : 0.16, ease: 'easeOut' }}
+                        className="absolute left-0 top-full z-40 min-w-56 rounded-b-xl border border-t-0 shadow-xl"
+                        style={{ backgroundColor: navBg, borderColor: navBorder, color: navColor }}
+                      >
+                        <SubmenuCategoria raiz={raizSub} navBorder={navBorder} onNavigate={() => { clearTimeout(megaTimer.current); setSubmenu(null); }} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               );
             })}
           </div>
@@ -443,6 +583,28 @@ export default function Navbar() {
           </div>
         </div>
 
+        {/* Desplegable de categorías (desktop). Es un <div> dentro de este <nav>,
+            no un <nav> nuevo: los tests y el panel mobile usan `nav` como selector. */}
+        <AnimatePresence>
+          {menuCategorias && submenu === '/productos' && (
+            <motion.div
+              id="mega-categorias"
+              data-mega
+              data-submenu-panel="/productos"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
+              transition={{ duration: reduceMotion ? 0 : 0.16, ease: 'easeOut' }}
+              className="absolute left-0 right-0 top-full z-40 hidden md:block border-t shadow-xl"
+              style={{ backgroundColor: navBg, borderColor: navBorder, color: navColor }}
+              onPointerEnter={(e) => { if (e.pointerType === 'mouse') clearTimeout(megaTimer.current); }}
+              onPointerLeave={(e) => { if (e.pointerType === 'mouse') programarSubmenu(null, 200); }}
+            >
+              <MegaMenuCategorias raices={raices} navBorder={navBorder} onNavigate={() => { clearTimeout(megaTimer.current); setSubmenu(null); }} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Barra de búsqueda expandible */}
         <AnimatePresence>
           {searchOpen && mostrarBuscar && (
@@ -501,74 +663,23 @@ export default function Navbar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              className={`fixed z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)] top-16 sm:top-[var(--nav-h)]
+              className={`fixed z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)] top-16 sm:top-[var(--nav-h)] max-h-[calc(100dvh-4rem)] sm:max-h-[calc(100dvh-var(--nav-h))] overflow-y-auto overscroll-contain
                 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}
                 ${menuPosicion === 'izquierda' ? 'left-3' : 'right-3'}`}
               style={{ '--nav-h': `${navAltura}px`, backgroundColor: navBg, borderColor: navBorder, fontFamily: navFontFamily } as React.CSSProperties}
             >
-              <nav className="px-4 py-3 flex flex-col gap-1">
-                {navLinks.map((link, i) => {
-                  const active = location.pathname === link.href;
-                  return (
-                    <motion.div
-                      key={link.href}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05, duration: 0.2 }}
-                    >
-                      <Link
-                        to={link.href}
-                        className="flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-colors"
-                        style={{
-                          color: navColor,
-                          backgroundColor: active ? `${navColor}0d` : 'transparent',
-                          fontWeight: active ? 600 : 400,
-                        }}
-                      >
-                        {link.label}
-                        {active && <motion.span layoutId="mobile-dot" className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: navColor }} />}
-                      </Link>
-                    </motion.div>
-                  );
-                })}
-
-                {raices.length > 0 && (
-                  <>
-                    <div className="my-1 mx-4 h-px" style={{ backgroundColor: `${navColor}15` }} />
-                    {raices.map((cat, i) => {
-                      const hijos = categorias?.filter(c => c.padre_id === cat.id) ?? [];
-                      return (
-                        <motion.div
-                          key={cat.id}
-                          initial={{ opacity: 0, x: -12 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: (navLinks.length + i) * 0.05, duration: 0.2 }}
-                        >
-                          <Link
-                            to={`/productos?categoria_id=${cat.id}`}
-                            className="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-colors"
-                            style={{ color: navColor, opacity: 0.8 }}
-                          >
-                            {cat.nombre}
-                            {hijos.length > 0 && (
-                              <ChevronRight size={13} style={{ opacity: 0.35 }} />
-                            )}
-                          </Link>
-                          {hijos.map(hijo => (
-                            <Link
-                              key={hijo.id}
-                              to={`/productos?categoria_id=${hijo.id}`}
-                              className="flex items-center px-4 py-2 rounded-xl text-sm transition-colors"
-                              style={{ color: navColor, opacity: 0.45, paddingLeft: '2rem' }}
-                            >
-                              {hijo.nombre}
-                            </Link>
-                          ))}
-                        </motion.div>
-                      );
-                    })}
-                  </>
-                )}
+              {/* Cualquier link del panel cierra el menú, incluso si la URL
+                  no cambia (misma categoría): el efecto sobre location solo
+                  cubre las navegaciones que sí la cambian. */}
+              <nav className="px-4 py-3 flex flex-col gap-1"
+                onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setMenuOpen(false); }}>
+                <MenuMobileLinks
+                  navLinks={navLinks}
+                  raices={raices}
+                  navColor={navColor}
+                  pathname={location.pathname}
+                  search={location.search}
+                />
               </nav>
 
               {/* Acciones rápidas mobile */}

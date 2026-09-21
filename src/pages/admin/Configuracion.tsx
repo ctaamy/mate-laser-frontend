@@ -2159,6 +2159,11 @@ function NavbarEditor({ datos, set, nombreTienda, tema }: {
             Hamburguesa
           </button>
         </div>
+        {tipoMenu === 'tradicional' && (
+          <Toggle label="Desplegable de categorías"
+            desc="Al pasar el mouse por el link a /productos (o por el de una categoría con subcategorías, ej. Diseños) se despliega su menú"
+            value={bool('menu_categorias')} onChange={v => set('menu_categorias', v)} />
+        )}
         {links.length > 6 && tipoMenu === 'tradicional' && (
           <p className="text-[10px] text-amber-600">
             {links.length} links puede verse apretado en modo Tradicional en pantallas más chicas de desktop — considerá Hamburguesa.

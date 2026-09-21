@@ -206,7 +206,7 @@ function SubcategoriaRow({
           className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--n-100)] transition-colors">
           <Pencil size={13} />
         </button>
-        <button onClick={() => onDelete(cat)}
+        <button onClick={() => onDelete(cat)} title={cat.activo ? 'Desactivar' : 'Eliminar definitivamente'} aria-label={cat.activo ? 'Desactivar' : 'Eliminar definitivamente'}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-red-500 hover:bg-red-50 transition-colors">
           <Trash2 size={13} />
         </button>
@@ -253,7 +253,7 @@ function CategoriaRow({
             className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--n-100)] transition-colors">
             <Pencil size={13} />
           </button>
-          <button onClick={() => onDelete(cat)}
+          <button onClick={() => onDelete(cat)} title={cat.activo ? 'Desactivar' : 'Eliminar definitivamente'} aria-label={cat.activo ? 'Desactivar' : 'Eliminar definitivamente'}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--ink-soft)] hover:text-red-500 hover:bg-red-50 transition-colors">
             <Trash2 size={13} />
           </button>
@@ -298,7 +298,10 @@ export default function CategoriasPanel() {
   const opcionesPadre = padres;
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/categorias/${id}`),
+    // Activa: soft-delete (queda inactiva, visible acá). Inactiva: borrado real,
+    // que el backend solo permite si no tiene productos ni subcategorías.
+    mutationFn: (cat: Categoria) =>
+      api.delete(cat.activo ? `/categorias/${cat.id}` : `/categorias/${cat.id}/definitivo`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categorias'] });
       queryClient.invalidateQueries({ queryKey: ['categorias-admin'] });
@@ -313,8 +316,13 @@ export default function CategoriasPanel() {
     setModalAbierto(true);
   };
   const handleEliminar = (cat: Categoria) => {
-    if (confirm(`¿Eliminar "${cat.nombre}"? Los productos de esta categoría quedarán sin categoría.`))
-      deleteMutation.mutate(cat.id);
+    const msg = cat.activo
+      ? `¿Desactivar "${cat.nombre}"? Deja de verse en la tienda; después la podés eliminar definitivamente si no tiene productos.`
+      : `¿Eliminar "${cat.nombre}" definitivamente? No se puede deshacer.`;
+    if (!confirm(msg)) return;
+    deleteMutation.mutate(cat, {
+      onError: (e: any) => alert(e?.response?.data?.message ?? 'No se pudo eliminar la categoría.'),
+    });
   };
   const handleClose = () => { setModalAbierto(false); setEditando(null); };
 

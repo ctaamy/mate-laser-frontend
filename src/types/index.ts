@@ -62,6 +62,9 @@ export interface Categoria {
   orden: number;
   activo: boolean;
   imagen_configurador_url?: string | null;
+  // Productos activos de la categoría (la raíz incluye los de sus hijas). Lo
+  // suma GET /categorias; puede faltar (backend viejo) → tratar como desconocido.
+  cantidad_productos?: number;
   other_categorias?: Categoria[];
 }
 

@@ -24,6 +24,7 @@ Estado y decisiones para que Google indexe el sitio y los links compartidos
 | description/OG/Twitter genéricos + imagen de marca para compartir (1200×630) | `index.html` + `public/og-default.png` |
 | JSON-LD `Organization` alimentado desde el admin | valor base en `index.html`; `jsonLdOrganizacion` en `src/lib/seo.ts`; `src/hooks/useOrganizacionSeo.ts` (montado en `Layout`) |
 | Plantillas de title/description/JSON-LD Product (puras, testeadas) | `src/lib/seo.ts` |
+| JSON-LD `BreadcrumbList` en la ficha de producto (Inicio › Productos › [padre] › categoría › producto), junto al `Product` en un mismo `<script data-seo="pagina">` (array). `metaProducto(p, migas)`; las migas salen de `src/lib/migas.ts`. Si el server de la Fase 2 inyecta el JSON-LD del producto, tiene que armar el mismo array | `src/lib/seo.ts` (`jsonLdMigas`), `src/lib/migas.ts`, `src/components/ui/MigasProducto.tsx` |
 | Aplica el meta al `<head>` y lo restaura al salir de la página | `src/hooks/usePageMeta.ts` |
 | Pantalla "no encontrada" con noindex (catch-all) | `src/pages/NoEncontrada.tsx` |
 | Cableado | `Home`, `Productos`, `ProductoDetalle`, `PaginaEstatica`, `App` |

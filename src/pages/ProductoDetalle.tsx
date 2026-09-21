@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, Shield, MessageCircle, ChevronRight, Minus, Plus, Zap } from 'lucide-react';
+import { ShoppingCart, Shield, MessageCircle, Minus, Plus, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { isAxiosError } from 'axios';
 import api from '../lib/api';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { metaNoEncontrado, metaProducto } from '../lib/seo';
+import { armarMigas } from '../lib/migas';
+import { useCategoriasArbol } from '../hooks/useCategoriasArbol';
 import { useCarritoStore } from '../store/carrito.store';
 import { useToastStore } from '../store/toast.store';
 import type { Producto } from '../types';
@@ -16,6 +18,7 @@ import CuotasBanner from '../components/ui/CuotasBanner';
 import ProductosRecomendados from '../components/ui/ProductosRecomendados';
 import CalculadoraEnvioPDP from '../components/ui/CalculadoraEnvioPDP';
 import NotaPersonalizacion from '../components/ui/NotaPersonalizacion';
+import MigasProducto from '../components/ui/MigasProducto';
 
 const T = { duration: 0.4, ease: 'easeOut' as const };
 
@@ -37,12 +40,17 @@ export default function ProductoDetalle() {
     enabled: !!slug,
   });
 
+  // Migas: Inicio › Productos › [padre] › categoría › producto. El padre sale
+  // del árbol de categorías (misma query cacheada que usa el resto del sitio).
+  const { porId } = useCategoriasArbol();
+  const migas = producto ? armarMigas(producto, porId) : [];
+
   // SEO: title/description/canonical/OG/JSON-LD del producto. Solo un 404 real
   // de la API marca noindex — un error transitorio (red, 5xx) no debe sacar la
   // PDP del índice si justo lo ve Googlebot.
   usePageMeta(
     producto
-      ? metaProducto(producto)
+      ? metaProducto(producto, migas)
       : isAxiosError(error) && error.response?.status === 404
         ? metaNoEncontrado('producto')
         : null,
@@ -270,16 +278,7 @@ export default function ProductoDetalle() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* BREADCRUMB */}
-      <div className="border-b border-black/[0.06]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-2 text-[11px] text-black/35 font-medium overflow-x-auto no-scrollbar whitespace-nowrap">
-          <Link to="/" className="hover:text-black transition-colors">Inicio</Link>
-          <ChevronRight size={10} />
-          <Link to="/productos" className="hover:text-black transition-colors">Productos</Link>
-          <ChevronRight size={10} />
-          <span className="text-black/70">{producto.nombre}</span>
-        </div>
-      </div>
+      <MigasProducto migas={migas} />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-20">

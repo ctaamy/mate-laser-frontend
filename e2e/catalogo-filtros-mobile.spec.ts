@@ -59,18 +59,20 @@ test.describe('Catálogo — filtros en drawer (mobile)', () => {
     // Abrir el drawer.
     await btnFiltros.click();
     await expect(verResultados).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Mates', exact: true })).toBeVisible();
+    await expect(page.getByTestId('filtros-drawer').getByRole('button', { name: 'Mates', exact: true })).toBeVisible();
   });
 
   test('elegir una categoría en el drawer aplica el filtro en la URL', async ({ page }) => {
     await page.goto('/productos');
     await page.getByRole('button', { name: 'Filtrar' }).click();
 
-    await page.getByRole('button', { name: 'Bombillas', exact: true }).click();
+    await page.getByTestId('filtros-drawer').getByRole('button', { name: 'Bombillas', exact: true }).click();
     await expect(page).toHaveURL(/categoria_id=2/);
 
+    // Categoría es single-select: elegirla cierra el drawer solo.
+    await expect(page.getByRole('button', { name: /Ver \d+ productos/ })).toBeHidden();
+
     // El badge del botón Filtros refleja que hay 1 filtro activo.
-    await page.getByRole('button', { name: /Ver \d+ productos/ }).click();
     await expect(page.getByRole('button', { name: 'Filtrar' })).toContainText('1');
   });
 
