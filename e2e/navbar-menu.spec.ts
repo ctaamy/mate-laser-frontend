@@ -441,3 +441,65 @@ test.describe('Sitio público — alto de la barra con logo grande', () => {
     expect(navBox.height).toBeGreaterThanOrEqual(130);
   });
 });
+
+// Fase 0 de la navegación por categorías: en mobile el panel del hamburguesa
+// era más alto que la pantalla (fixed, sin scroll) y dejaba categorías y el
+// botón de login inalcanzables; además solo se cerraba si cambiaba el pathname,
+// así que elegir una categoría estando ya en /productos (cambia solo el query)
+// dejaba el menú abierto.
+test.describe('Sitio público — menú mobile con muchas categorías', () => {
+  const CATEGORIAS = Array.from({ length: 12 }, (_, i) => ({
+    id: i + 1, nombre: `Categoría ${i + 1}`, slug: `cat-${i + 1}`, padre_id: null, orden: i, activo: true,
+  }));
+
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 600 });
+    await page.route('**/api/v1/categorias', (route) => route.fulfill({ json: CATEGORIAS }));
+    await page.route('**/api/v1/productos**', (route) =>
+      route.fulfill({ json: { data: [], total: 0, page: 1, totalPages: 1 } }),
+    );
+    await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (r) => r.fulfill({ json: [NAVBAR_TRADICIONAL] }));
+    await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (r) => r.fulfill({ json: {} }));
+  });
+
+  test('el panel no excede la pantalla y tiene scroll interno para llegar a la última categoría', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Abrir menú').click();
+
+    const panelInner = page.locator('nav').last();
+    await expect(panelInner.getByRole('link', { name: 'Categoría 1', exact: true })).toBeVisible();
+    const panel = panelInner.locator('..');
+    const box = (await panel.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(600 + 1);
+
+    const ultima = panelInner.getByRole('link', { name: 'Categoría 12', exact: true });
+    await ultima.scrollIntoViewIfNeeded();
+    await expect(ultima).toBeInViewport();
+  });
+
+  test('elegir una categoría estando ya en /productos cierra el menú y aplica el filtro', async ({ page }) => {
+    await page.goto('/productos?categoria_id=1');
+    await page.getByLabel('Abrir menú').click();
+
+    await page.locator('nav').last().getByRole('link', { name: 'Categoría 2', exact: true }).click();
+
+    await expect(page).toHaveURL(/categoria_id=2/);
+    await expect(page.getByLabel('Abrir menú')).toBeVisible(); // ícono de hamburguesa, no la X
+    await expect(page.getByLabel('Cerrar menú')).toHaveCount(0);
+  });
+
+  test('clickear la categoría ya seleccionada (URL sin cambios) también cierra el menú', async ({ page }) => {
+    await page.goto('/productos?categoria_id=1');
+    await page.getByLabel('Abrir menú').click();
+    await page.locator('nav').last().getByRole('link', { name: 'Categoría 1', exact: true }).click();
+    await expect(page.getByLabel('Cerrar menú')).toHaveCount(0);
+  });
+
+  test('Esc cierra el menú', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Abrir menú').click();
+    await expect(page.getByLabel('Cerrar menú')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByLabel('Cerrar menú')).toHaveCount(0);
+  });
+});

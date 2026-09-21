@@ -167,7 +167,23 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); }, [location.pathname]);
+  // Depende también de `search`: las categorías navegan a /productos?categoria_id=N,
+  // así que estando ya en /productos cambia solo el query y el menú quedaba abierto.
+  useEffect(() => { setMenuOpen(false); setSearchOpen(false); setUserOpen(false); }, [location.pathname, location.search]);
+
+  // Menú abierto: Esc lo cierra y el scroll del fondo queda trabado (el panel
+  // tiene su propio scroll interno; sin esto la página se mueve por detrás).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('keydown', onKey);
+    const overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflowPrevio;
+    };
+  }, [menuOpen]);
 
   // Cierra el dropdown del usuario al hacer click fuera
   useEffect(() => {
@@ -197,6 +213,7 @@ export default function Navbar() {
     <motion.button
       onClick={() => setMenuOpen(s => !s)}
       aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+      aria-expanded={menuOpen}
       className={`w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}`}
       style={{ color: navColor }}
       whileTap={{ scale: 0.9 }}
@@ -501,12 +518,16 @@ export default function Navbar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-              className={`fixed z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)] top-16 sm:top-[var(--nav-h)]
+              className={`fixed z-40 shadow-2xl rounded-b-2xl border w-72 max-w-[calc(100vw-1.5rem)] top-16 sm:top-[var(--nav-h)] max-h-[calc(100dvh-4rem)] sm:max-h-[calc(100dvh-var(--nav-h))] overflow-y-auto overscroll-contain
                 ${tipoMenu === 'tradicional' ? 'md:hidden' : ''}
                 ${menuPosicion === 'izquierda' ? 'left-3' : 'right-3'}`}
               style={{ '--nav-h': `${navAltura}px`, backgroundColor: navBg, borderColor: navBorder, fontFamily: navFontFamily } as React.CSSProperties}
             >
-              <nav className="px-4 py-3 flex flex-col gap-1">
+              {/* Cualquier link del panel cierra el menú, incluso si la URL
+                  no cambia (misma categoría): el efecto sobre location solo
+                  cubre las navegaciones que sí la cambian. */}
+              <nav className="px-4 py-3 flex flex-col gap-1"
+                onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setMenuOpen(false); }}>
                 {navLinks.map((link, i) => {
                   const active = location.pathname === link.href;
                   return (
