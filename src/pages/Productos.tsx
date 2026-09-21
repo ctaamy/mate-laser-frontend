@@ -11,6 +11,7 @@ import type { Producto, Categoria } from '../types';
 import ProductGrid from '../components/ui/ProductGrid';
 import { CategoriasFiltro, CategoriasChips } from '../components/catalogo/CategoriasFiltro';
 import { useCategoriasArbol } from '../hooks/useCategoriasArbol';
+import { track, trackCategoriaClick, type OrigenCategoria } from '../lib/analytics';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { metaBusqueda, metaCatalogo, metaCategoria, type PageMeta } from '../lib/seo';
 
@@ -55,7 +56,7 @@ export default function Productos() {
 
   const seleccionadaId = categoria_id ? Number(categoria_id) : null;
   // Árbol para la navegación: sin categorías vacías (salvo la elegida por URL).
-  const { raices } = useCategoriasArbol({ ocultarVacias: true, seleccionadaId });
+  const { raices, porId } = useCategoriasArbol({ ocultarVacias: true, seleccionadaId });
 
   const { data: categorias } = useQuery<Categoria[]>({
     queryKey: ['categorias'],
@@ -108,6 +109,15 @@ export default function Productos() {
   };
   usePageMeta(metaListado());
 
+  // Métrica: se llegó a una categoría sin productos (callejón sin salida). Solo
+  // con la categoría como único filtro: con búsqueda o "aptos para grabar" el 0
+  // puede ser de la combinación, no de la categoría.
+  useEffect(() => {
+    if (isLoading || !categorias || !categoria_id || debouncedSearch || apto_grabado || totalProductos !== 0) return;
+    track('categoria_vacia_vista', { categoria: categoriaActual?.nombre ?? 'desconocida', categoria_id: Number(categoria_id) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, categoria_id, debouncedSearch, apto_grabado, totalProductos, !!categorias]);
+
   const handleAgregar = (producto: Producto) => {
     // Defensa extra: la card ya no muestra el botón para productos sin stock,
     // pero cortamos acá también para que ninguna ruta futura re-cuele el
@@ -135,7 +145,10 @@ export default function Productos() {
   // Elegir categoría: filtra, vuelve al inicio de la grilla (con la sidebar
   // sticky se puede estar scrolleado) y cierra el drawer mobile — la categoría
   // es single-select, no tiene sentido dejarlo abierto esperando "Ver N".
-  const seleccionarCategoria = (id: number | null) => {
+  const seleccionarCategoria = (id: number | null, origen: OrigenCategoria) => {
+    const nodo = id === null ? undefined : porId.get(id);
+    if (id === null) trackCategoriaClick(origen, 'todos');
+    else if (nodo) trackCategoriaClick(origen, nodo);
     setFiltro('categoria_id', id === null ? '' : String(id));
     window.scrollTo({ top: 0 });
     setFiltrosAbiertos(false);
@@ -148,11 +161,11 @@ export default function Productos() {
 
   // Cuerpo de los filtros — compartido entre la sidebar de desktop y el
   // drawer de mobile, así no hay dos copias que mantener en sync.
-  const filtrosBody = (
+  const renderFiltros = (origen: 'sidebar' | 'drawer') => (
     <>
       <div className="mb-7">
         <div className="text-sm font-medium text-black/70 mb-2">Categorías</div>
-        <CategoriasFiltro raices={raices} seleccionadaId={seleccionadaId} onSelect={seleccionarCategoria} />
+        <CategoriasFiltro raices={raices} seleccionadaId={seleccionadaId} onSelect={(id) => seleccionarCategoria(id, origen)} />
       </div>
 
       <div className="mb-6">
@@ -199,7 +212,7 @@ export default function Productos() {
           <SlidersHorizontal size={14} className="text-black/50" />
           <span className="text-sm font-medium text-black/70">Filtros</span>
         </div>
-        {filtrosBody}
+        {renderFiltros('sidebar')}
       </aside>
 
       {/* MAIN */}
@@ -247,7 +260,7 @@ export default function Productos() {
           </div>
         </div>
 
-        <CategoriasChips raices={raices} seleccionadaId={seleccionadaId} onSelect={seleccionarCategoria} />
+        <CategoriasChips raices={raices} seleccionadaId={seleccionadaId} onSelect={(id) => seleccionarCategoria(id, 'chips')} />
 
         <p className="mb-5 text-xs font-medium text-black/55">{cantidadProductos} productos</p>
 
@@ -312,7 +325,7 @@ export default function Productos() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-5">
-            {filtrosBody}
+            {renderFiltros('drawer')}
           </div>
           <div className="border-t border-black/10 p-4">
             <button

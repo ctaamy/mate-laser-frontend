@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { NodoCategoria } from '../../lib/categoriasArbol';
+import { trackCategoriaClick, trackEnlaceCatalogo } from '../../lib/analytics';
 
 interface NavLink { label: string; href: string }
 
@@ -59,12 +60,12 @@ export default function MenuMobileLinks({ navLinks, raices, navColor, pathname, 
             className="overflow-hidden"
           >
             <div className="ml-3 mb-1 flex flex-col border-l" style={{ borderColor: `${navColor}20` }}>
-              <Link to="/productos" className={filaLink} style={{ color: navColor, fontWeight: 600 }}>
+              <Link to="/productos" className={filaLink} style={{ color: navColor, fontWeight: 600 }} onClick={() => trackCategoriaClick('menu_mobile', 'todos')}>
                 Ver todos los productos
               </Link>
               {raices.map((r) =>
                 r.hijas.length === 0 ? (
-                  <Link key={r.id} to={`/productos?categoria_id=${r.id}`} className={filaLink} style={tenue}>
+                  <Link key={r.id} to={`/productos?categoria_id=${r.id}`} className={filaLink} style={tenue} onClick={() => trackCategoriaClick('menu_mobile', r)}>
                     {r.nombre}
                   </Link>
                 ) : (
@@ -81,11 +82,11 @@ export default function MenuMobileLinks({ navLinks, raices, navColor, pathname, 
                     </button>
                     {rama === r.id && (
                       <div className="ml-3 flex flex-col border-l" style={{ borderColor: `${navColor}15` }}>
-                        <Link to={`/productos?categoria_id=${r.id}`} className={filaLink} style={{ color: navColor, fontWeight: 500 }}>
+                        <Link to={`/productos?categoria_id=${r.id}`} className={filaLink} style={{ color: navColor, fontWeight: 500 }} onClick={() => trackCategoriaClick('menu_mobile', r)}>
                           Todo {r.nombre}
                         </Link>
                         {r.hijas.map((h) => (
-                          <Link key={h.id} to={`/productos?categoria_id=${h.id}`} className={filaLink} style={{ color: navColor, opacity: 0.65 }}>
+                          <Link key={h.id} to={`/productos?categoria_id=${h.id}`} className={filaLink} style={{ color: navColor, opacity: 0.65 }} onClick={() => trackCategoriaClick('menu_mobile', h)}>
                             {h.nombre}
                           </Link>
                         ))}
@@ -118,6 +119,7 @@ export default function MenuMobileLinks({ navLinks, raices, navColor, pathname, 
             ) : (
               <Link
                 to={link.href}
+                onClick={() => trackEnlaceCatalogo('menu_mobile', link.href, raices)}
                 className="flex min-h-12 items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-colors"
                 style={{
                   color: navColor,

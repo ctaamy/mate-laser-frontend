@@ -53,3 +53,12 @@ export function construirArbol(categorias: Categoria[] = [], opts: Opciones = {}
   }
   return { raices: visibles, porId };
 }
+
+/** categoria_id de un href a /productos?categoria_id=N (null si no es de categoría). */
+export function categoriaIdDeHref(href: string | undefined): number | null {
+  if (!href) return null;
+  const [ruta, query = ''] = href.split('?');
+  if (ruta !== '/productos') return null;
+  const id = Number(new URLSearchParams(query).get('categoria_id'));
+  return Number.isInteger(id) && id > 0 ? id : null;
+}

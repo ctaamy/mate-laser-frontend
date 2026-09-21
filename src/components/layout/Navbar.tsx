@@ -9,6 +9,7 @@ import { useHomepageSecciones } from '../../hooks/useHomepageSecciones';
 import { useTemaGlobalData, cargarGoogleFont } from '../../hooks/useThemeGlobal';
 import BuscadorConSugerencias from '../ui/BuscadorConSugerencias';
 import { useCategoriasArbol } from '../../hooks/useCategoriasArbol';
+import { track, trackEnlaceCatalogo } from '../../lib/analytics';
 import MenuMobileLinks from './MenuMobileLinks';
 import MegaMenuCategorias from './MegaMenuCategorias';
 import SubmenuCategoria from './SubmenuCategoria';
@@ -95,6 +96,8 @@ export default function Navbar() {
   const [submenu, setSubmenu] = useState<string | null>(null);
   const megaTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const punteroTactil = useRef(false);
+  // Cómo se abrió el desplegable (para la métrica nav_desplegable_abre).
+  const viaSubmenu = useRef<'mouse' | 'toque' | 'teclado' | 'click'>('mouse');
 
   const { data: config } = useConfiguracion();
   const { data: secciones } = useHomepageSecciones();
@@ -183,9 +186,16 @@ export default function Navbar() {
   // en diagonal hacia el panel no lo cierra, ni un roce accidental lo abre.
   const programarSubmenu = (key: string | null, ms: number) => {
     clearTimeout(megaTimer.current);
-    megaTimer.current = setTimeout(() => setSubmenu(key), ms);
+    megaTimer.current = setTimeout(() => { if (key) viaSubmenu.current = 'mouse'; setSubmenu(key); }, ms);
   };
   useEffect(() => () => clearTimeout(megaTimer.current), []);
+
+  // Métrica: cada vez que un desplegable pasa a abierto (no al cerrar ni al cambiar de página).
+  useEffect(() => {
+    if (!submenu) return;
+    track('nav_desplegable_abre', { menu: navLinks.find((l) => l.href === submenu)?.label ?? submenu, via: viaSubmenu.current });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submenu]);
 
   const porKey = (attr: 'submenuTrigger' | 'submenuPanel', key: string | null) =>
     [...document.querySelectorAll<HTMLElement>(`[data-submenu-${attr === 'submenuTrigger' ? 'trigger' : 'panel'}]`)]
@@ -209,6 +219,7 @@ export default function Navbar() {
   // Abre el panel y manda el foco al primer link (teclado / lector de pantalla).
   const abrirSubmenuConTeclado = (key: string) => {
     clearTimeout(megaTimer.current);
+    viaSubmenu.current = 'teclado';
     setSubmenu(key);
     setTimeout(() => porKey('submenuPanel', key)?.querySelector<HTMLElement>('a')?.focus(), 30);
   };
@@ -362,12 +373,19 @@ export default function Navbar() {
               const enlace = (
                 <Link
                   to={link.href}
-                  onClick={tieneSub ? (e) => {
-                    // Touch/lápiz: el primer toque despliega, el segundo navega
-                    // (el "ver todo" está adentro del panel).
-                    if (punteroTactil.current && !abierto) { e.preventDefault(); clearTimeout(megaTimer.current); setSubmenu(link.href); }
-                    else { clearTimeout(megaTimer.current); setSubmenu(null); }
-                  } : undefined}
+                  onClick={(e) => {
+                    if (tieneSub) {
+                      // Touch/lápiz: el primer toque despliega, el segundo navega
+                      // (el "ver todo" está adentro del panel). Ese primer toque no
+                      // navega, así que tampoco cuenta como click en la categoría.
+                      if (punteroTactil.current && !abierto) {
+                        e.preventDefault(); clearTimeout(megaTimer.current); viaSubmenu.current = 'toque'; setSubmenu(link.href);
+                        return;
+                      }
+                      clearTimeout(megaTimer.current); setSubmenu(null);
+                    }
+                    trackEnlaceCatalogo('navbar_link', link.href, raices);
+                  }}
                   className="relative px-5 py-2.5 text-base rounded-xl select-none"
                   style={{
                     color: active ? navColor : isHovered ? navColor : `${navColor}80`,
@@ -429,7 +447,7 @@ export default function Navbar() {
                     aria-label={esMega ? 'Ver categorías' : `Ver subcategorías de ${link.label}`}
                     aria-expanded={abierto}
                     aria-controls={panelId}
-                    onClick={(e) => { if (abierto) { clearTimeout(megaTimer.current); setSubmenu(null); } else if (e.detail === 0) abrirSubmenuConTeclado(link.href); else { clearTimeout(megaTimer.current); setSubmenu(link.href); } }}
+                    onClick={(e) => { if (abierto) { clearTimeout(megaTimer.current); setSubmenu(null); } else if (e.detail === 0) abrirSubmenuConTeclado(link.href); else { clearTimeout(megaTimer.current); viaSubmenu.current = punteroTactil.current ? 'toque' : 'click'; setSubmenu(link.href); } }}
                     className="-ml-3 mr-1 flex h-9 w-7 items-center justify-center rounded-lg"
                     style={{ color: navColor, opacity: 0.6 }}
                   >

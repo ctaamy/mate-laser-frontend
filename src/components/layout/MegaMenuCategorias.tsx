@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { NodoCategoria } from '../../lib/categoriasArbol';
+import { trackCategoriaClick } from '../../lib/analytics';
 
 interface Props {
   raices: NodoCategoria[];
@@ -25,9 +26,9 @@ export default function MegaMenuCategorias({ raices, navBorder, onNavigate }: Pr
       <div className="grid gap-x-8 gap-y-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(10.5rem, 1fr))' }}>
         {conHijas.map((r) => (
           <div key={r.id}>
-            <Link to={`/productos?categoria_id=${r.id}`} className={titulo} style={linea}>{r.nombre}</Link>
+            <Link to={`/productos?categoria_id=${r.id}`} className={titulo} style={linea} onClick={() => trackCategoriaClick('navbar_panel', r)}>{r.nombre}</Link>
             {r.hijas.map((h) => (
-              <Link key={h.id} to={`/productos?categoria_id=${h.id}`} className={enlace}>{h.nombre}</Link>
+              <Link key={h.id} to={`/productos?categoria_id=${h.id}`} className={enlace} onClick={() => trackCategoriaClick('navbar_panel', h)}>{h.nombre}</Link>
             ))}
           </div>
         ))}
@@ -35,13 +36,13 @@ export default function MegaMenuCategorias({ raices, navBorder, onNavigate }: Pr
           <div>
             {conHijas.length > 0 && <div className="border-b pb-2 mb-1.5 text-sm font-semibold" style={linea}>Más</div>}
             {sinHijas.map((r) => (
-              <Link key={r.id} to={`/productos?categoria_id=${r.id}`} className={enlace}>{r.nombre}</Link>
+              <Link key={r.id} to={`/productos?categoria_id=${r.id}`} className={enlace} onClick={() => trackCategoriaClick('navbar_panel', r)}>{r.nombre}</Link>
             ))}
           </div>
         )}
       </div>
       <div className="mt-6 border-t pt-4" style={linea}>
-        <Link to="/productos" className="text-sm font-semibold hover:underline underline-offset-4">Ver todos los productos</Link>
+        <Link to="/productos" className="text-sm font-semibold hover:underline underline-offset-4" onClick={() => trackCategoriaClick('navbar_panel', 'todos')}>Ver todos los productos</Link>
       </div>
     </div>
   );
