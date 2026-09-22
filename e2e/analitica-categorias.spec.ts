@@ -164,16 +164,31 @@ test.describe('Umami — menú mobile', () => {
       await page.getByLabel('Abrir menú').click();
       const panel = page.locator('nav').last();
       const productos = panel.getByRole('button', { name: 'Productos', exact: true });
+      await expect(productos).toBeVisible();
       if ((await productos.getAttribute('aria-expanded')) !== 'true') await productos.click();
       return panel;
+    };
+    // Tras elegir un link del menú hay que esperar a que la navegación se asiente Y
+    // a que el panel termine de salir (queda solo el <nav> de la barra) antes de
+    // reabrirlo: React Router aplica el cambio de ruta con baja prioridad y el efecto
+    // que cierra el menú al navegar puede llegar después de un "Abrir menú" apurado
+    // y cerrar el panel recién reabierto (flake ~40% bajo carga).
+    const esperarCierre = async (url: RegExp) => {
+      await expect(page).toHaveURL(url);
+      await expect(page.locator('nav')).toHaveCount(1);
     };
 
     let panel = await abrirProductos();
     await panel.getByRole('link', { name: 'Termos' }).click();
+    await esperarCierre(/categoria_id=10$/);
+
     panel = await abrirProductos();
     await panel.getByRole('link', { name: 'Ver todos los productos' }).click();
+    await esperarCierre(/\/productos$/);
+
     await page.getByLabel('Abrir menú').click();
     await page.locator('nav').last().getByRole('link', { name: 'Taller' }).click();
+    await expect(page).toHaveURL(/\/nosotros$/);
 
     expect((await eventos(page, 'nav_categoria_click')).map((e) => e.d)).toEqual([
       { origen: 'menu_mobile', categoria: 'Termos', categoria_id: 10, nivel: 'raiz' },
