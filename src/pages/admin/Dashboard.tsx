@@ -13,6 +13,17 @@ import { navGroups, type NavItem } from '../../components/layout/AdminLayout';
 // página, no tiene sentido como tarjeta de sí misma.
 const moduleGroups = navGroups.filter((g) => g.label !== 'General');
 
+// Etiquetas del desglose "Por canal" — valores deben coincidir con
+// CANALES_VENTA_MANUAL del backend (mate-laser-backend/src/common/metodos-pago.ts).
+const ORIGEN_VENTA_LABELS: Record<string, string> = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  whatsapp: 'WhatsApp',
+  feria: 'Feria',
+  presencial: 'Presencial',
+  otro: 'Otro',
+};
+
 function ModuleCard({ item }: { item: NavItem }) {
   const { label, description, icon: Icon, to } = item;
   const disabled = !to;
@@ -171,6 +182,22 @@ export default function AdminDashboard() {
           De las ventas históricas: <span className="font-medium text-[var(--ink)]">${stats.ventas_totales_web.toLocaleString('es-AR')}</span> online
           {' · '}
           <span className="font-medium text-[var(--ink)]">${stats.ventas_totales_manual.toLocaleString('es-AR')}</span> cargadas a mano ({stats.ordenes_totales_manual} {stats.ordenes_totales_manual === 1 ? 'orden' : 'órdenes'})
+        </p>
+      )}
+
+      {/* Desglose del canal manual por origen_venta — mismo criterio que el
+          bloque de arriba: solo aparece si hay al menos una venta con canal
+          informado, para no ensuciar el dashboard antes de que se use. */}
+      {!!stats?.ventas_por_origen?.some((o: { origen_venta: string | null }) => o.origen_venta) && (
+        <p className="text-xs text-[var(--ink-soft)] -mt-4">
+          Por canal:{' '}
+          {stats.ventas_por_origen
+            .filter((o: { origen_venta: string | null }) => o.origen_venta)
+            .map((o: { origen_venta: string; ordenes: number }, i: number, arr: unknown[]) => (
+              <span key={o.origen_venta}>
+                <span className="font-medium text-[var(--ink)]">{ORIGEN_VENTA_LABELS[o.origen_venta] ?? o.origen_venta}</span> ({o.ordenes}){i < arr.length - 1 ? ' · ' : ''}
+              </span>
+            ))}
         </p>
       )}
 

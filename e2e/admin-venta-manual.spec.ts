@@ -147,6 +147,78 @@ test.describe('Admin — Órdenes — venta manual con método de envío', () =>
       calle: 'Av. Corrientes 1234', cp: '1000', provincia: 'Buenos Aires', ciudad: 'CABA',
     }));
   });
+
+  // Hallazgo de auditoría: el checkout público exige quién recibe/DNI para
+  // logística privada (proveedor 'oca', BENI Express) pero la venta manual
+  // no lo pedía para el mismo courier — ver DireccionEnvioDto.esLogisticaPrivada.
+  test('BENI Express (oca): pide quién recibe y DNI, y los manda en direccion_envio', async ({ page }) => {
+    await page.route('**/api/v1/envios', (route) => route.fulfill({
+      json: [...METODOS_ENVIO_MOCK, { id: 3, nombre: 'BENI Express', proveedor: 'oca', costo_fijo: 6000, api_conectada: false, activo: true }],
+    }));
+    await page.route('**/api/v1/envios/calcular', (route) => route.fulfill({
+      json: [{ id: 3, nombre: 'BENI Express', proveedor: 'oca', costo: 6000, disponible: true }],
+    }));
+
+    let bodyEnviado: any = null;
+    await page.route('**/api/v1/ordenes/venta-manual', (route) => {
+      bodyEnviado = route.request().postDataJSON();
+      route.fulfill({ json: { id: 'venta-4', estado: 'pagado' } });
+    });
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+
+    await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+
+    await page.getByText('Método de envío', { exact: true }).locator('..').locator('select').selectOption('3');
+    await expect(page.getByText('¿Recibe el comprador?', { exact: false })).toBeVisible();
+
+    await page.getByPlaceholder('Calle y número').fill('Av. Corrientes 1234');
+    await page.getByPlaceholder('CP').fill('1000');
+    await page.getByPlaceholder('Buenos Aires').first().fill('Buenos Aires');
+    await page.getByPlaceholder('Buenos Aires').nth(1).fill('CABA');
+
+    // Sin elegir "¿Recibe el comprador?" ni cargar DNI, no debería poder
+    // completarse silenciosamente con datos incompletos.
+    await page.getByText('¿Recibe el comprador?', { exact: false }).locator('..').locator('select').selectOption('false');
+    await page.getByPlaceholder('Nombre de quien recibe').fill('María Gómez');
+    await page.getByPlaceholder('Ej: 30123456').fill('30123456');
+
+    await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
+
+    await expect.poll(() => bodyEnviado).not.toBeNull();
+    expect(bodyEnviado.direccion_envio).toEqual(expect.objectContaining({
+      recibe_comprador: false, quien_recibe: 'María Gómez', dni_receptor: '30123456',
+    }));
+  });
+
+  test('BENI Express (oca): "recibe el comprador" autocompleta con el nombre del cliente y deshabilita el campo', async ({ page }) => {
+    await page.route('**/api/v1/envios', (route) => route.fulfill({
+      json: [...METODOS_ENVIO_MOCK, { id: 3, nombre: 'BENI Express', proveedor: 'oca', costo_fijo: 6000, api_conectada: false, activo: true }],
+    }));
+    await page.route('**/api/v1/envios/calcular', (route) => route.fulfill({
+      json: [{ id: 3, nombre: 'BENI Express', proveedor: 'oca', costo: 6000, disponible: true }],
+    }));
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+
+    await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+    await page.getByText('Método de envío', { exact: true }).locator('..').locator('select').selectOption('3');
+    await page.getByPlaceholder('Calle y número').fill('Av. Corrientes 1234');
+    await page.getByPlaceholder('CP').fill('1000');
+    await page.getByPlaceholder('Buenos Aires').first().fill('Buenos Aires');
+    await page.getByPlaceholder('Buenos Aires').nth(1).fill('CABA');
+
+    await page.getByText('Cliente (opcional)', { exact: true }).locator('..').locator('input').fill('Juan Pérez');
+    await page.getByText('¿Recibe el comprador?', { exact: false }).locator('..').locator('select').selectOption('true');
+
+    const quienRecibe = page.getByPlaceholder('Nombre de quien recibe');
+    await expect(quienRecibe).toHaveValue('Juan Pérez');
+    await expect(quienRecibe).toBeDisabled();
+  });
 });
 
 test.describe('Admin — Órdenes — registrar pago de una venta manual con seña', () => {
@@ -290,5 +362,116 @@ test.describe('Admin — Órdenes — filtro por canal (Fase 3)', () => {
     await page.goto('/admin/ordenes');
 
     await expect(page.getByText('por Admin', { exact: false })).toBeVisible();
+  });
+});
+
+// Bug encontrado en la auditoría: el modal cerraba directo con cualquier
+// click en el backdrop, sin avisar, perdiendo todo lo cargado. Mismo patrón
+// que admin-productos.spec.ts (useDirtyGuard).
+test.describe('Admin — Órdenes — cerrar el modal de venta manual sin perder datos', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [] } }));
+  });
+
+  test('click afuera del modal con productos cargados pide confirmación antes de cerrar', async ({ page }) => {
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+    await expect(page.getByRole('heading', { name: 'Cargar venta manual' })).toBeVisible();
+
+    await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+    await expect(page.getByText('Total: $8.000')).toBeVisible();
+
+    let dialogVisto = false;
+    page.once('dialog', async (dialog) => {
+      dialogVisto = true;
+      expect(dialog.type()).toBe('confirm');
+      await dialog.dismiss(); // cancelar → el modal sigue abierto con los datos
+    });
+
+    await page.mouse.click(5, 5);
+    await page.waitForTimeout(200);
+
+    expect(dialogVisto).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Cargar venta manual' })).toBeVisible();
+    await expect(page.getByText('Total: $8.000')).toBeVisible();
+  });
+
+  test('click afuera del modal sin cambios cierra directo, sin pedir confirmación', async ({ page }) => {
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+    await expect(page.getByRole('heading', { name: 'Cargar venta manual' })).toBeVisible();
+
+    let dialogVisto = false;
+    page.once('dialog', async (dialog) => { dialogVisto = true; await dialog.dismiss(); });
+
+    await page.mouse.click(5, 5);
+
+    await expect(page.getByRole('heading', { name: 'Cargar venta manual' })).not.toBeVisible();
+    expect(dialogVisto).toBe(false);
+  });
+
+  test('confirmar el cierre descarta los datos y la próxima apertura arranca vacía', async ({ page }) => {
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+    await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+
+    page.once('dialog', async (dialog) => await dialog.accept());
+    await page.mouse.click(5, 5);
+    await expect(page.getByRole('heading', { name: 'Cargar venta manual' })).not.toBeVisible();
+
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+    await expect(page.getByText('Todavía no agregaste productos.')).toBeVisible();
+  });
+});
+
+test.describe('Admin — Órdenes — canal de venta (Instagram, feria, etc.)', () => {
+  test('lo manda en origen_venta cuando se selecciona', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [] } }));
+
+    let bodyEnviado: any = null;
+    await page.route('**/api/v1/ordenes/venta-manual', (route) => {
+      bodyEnviado = route.request().postDataJSON();
+      route.fulfill({ json: { id: 'venta-5', estado: 'pagado' } });
+    });
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+
+    await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+    await page.getByText('Canal de venta', { exact: false }).locator('..').locator('select').selectOption('feria');
+
+    await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
+
+    await expect.poll(() => bodyEnviado).not.toBeNull();
+    expect(bodyEnviado.origen_venta).toBe('feria');
+  });
+
+  test('sin seleccionar nada, no manda origen_venta', async ({ page }) => {
+    await loginComoAdmin(page);
+    await mockBackendAdminProductos(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [] } }));
+
+    let bodyEnviado: any = null;
+    await page.route('**/api/v1/ordenes/venta-manual', (route) => {
+      bodyEnviado = route.request().postDataJSON();
+      route.fulfill({ json: { id: 'venta-6', estado: 'pagado' } });
+    });
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: '+ Cargar venta manual' }).click();
+    await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+
+    await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
+
+    await expect.poll(() => bodyEnviado).not.toBeNull();
+    expect(bodyEnviado.origen_venta).toBeUndefined();
   });
 });

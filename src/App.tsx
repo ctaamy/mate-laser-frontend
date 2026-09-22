@@ -42,6 +42,7 @@ import AdminConfiguracion from './pages/admin/Configuracion';
 import AdminConfiguradorV2 from './pages/admin/ConfiguradorV2';
 import AdminPromocionesBancarias from './pages/admin/PromocionesBancarias';
 import AdminUsuarios from './pages/admin/Usuarios';
+import EtiquetaOrden from './pages/admin/EtiquetaOrden';
 
 // Texto de arranque de /nosotros hasta que se cargue el definitivo desde el
 // admin (Configuración → Páginas). Corto y verdadero a propósito — la
@@ -206,6 +207,12 @@ export default function App() {
             <Route path="promociones-bancarias" element={<AdminPromocionesBancarias />} />
             <Route path="usuarios" element={<AdminUsuarios />} />
           </Route>
+
+          {/* Vista standalone (sin el chrome de AdminLayout) para imprimir la
+              etiqueta interna de un pedido — ver EtiquetaOrden. */}
+          <Route path="/admin/ordenes/:id/etiqueta" element={
+            <AdminRoute><EtiquetaOrden /></AdminRoute>
+          } />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

@@ -174,6 +174,9 @@ export interface Orden {
   // 'web' (checkout público, default) o 'admin_manual' (venta cargada a
   // mano en el admin — presencial, redes, feria). Ver CLAUDE.md.
   canal?: string;
+  // Sub-canal de una venta manual (Instagram, feria, etc.) — ver
+  // CANALES_VENTA_MANUAL en el backend. Solo poblado para canal='admin_manual'.
+  origen_venta?: string;
   cargado_por_id?: string;
   cargado_por?: { id: string; email: string; nombre?: string; apellido?: string };
   items_orden?: ItemOrden[];
