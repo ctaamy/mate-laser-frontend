@@ -183,7 +183,14 @@ export interface Orden {
   pagos?: Pago[];
   envios_orden?: { tracking_number?: string; estado?: string }[];
   usuarios?: { nombre: string; apellido: string };
-  metodos_envio?: { nombre: string };
+  // En el admin (findOne/findAll con include: { metodos_envio: true }) viene
+  // la fila completa, no solo el nombre recortado que expone el endpoint
+  // público — ver EtiquetaOrden.tsx y el botón "Imprimir etiqueta".
+  metodos_envio?: {
+    nombre: string;
+    proveedor?: string;
+    ubicacion?: { direccion?: string; localidad?: string; partido?: string; horarios?: string } | null;
+  };
 }
 
 export interface ItemOrden {
