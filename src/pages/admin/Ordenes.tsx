@@ -10,6 +10,7 @@ import AdminModal from '../../components/admin/ui/AdminModal';
 import { AdminInput, AdminSelect, AdminTextarea, AdminLabel } from '../../components/admin/ui/AdminInput';
 import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type Localidad } from '../../lib/georef';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { useDirtyGuard } from '../../hooks/useDirtyGuard';
 import type { Orden, Producto, MetodoEnvio } from '../../types';
 
 const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
@@ -18,6 +19,17 @@ const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_p
 // del backend (mate-laser-backend/src/common/metodos-pago.ts). Excluye
 // mercadopago a propósito.
 const METODOS_VENTA_MANUAL = ['efectivo', 'transferencia', 'otro'];
+
+// Sub-canal de una venta manual — valores deben coincidir con
+// CANALES_VENTA_MANUAL del backend (mismo archivo que METODOS_VENTA_MANUAL).
+const CANALES_VENTA = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'feria', label: 'Feria' },
+  { value: 'presencial', label: 'Presencial / local' },
+  { value: 'otro', label: 'Otro' },
+];
 
 interface ItemVentaManual {
   producto_id: string;
@@ -36,6 +48,7 @@ export default function AdminOrdenes() {
   const queryClient = useQueryClient();
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroCanal, setFiltroCanal] = useState('');
+  const [filtroOrigenVenta, setFiltroOrigenVenta] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null);
   const [nuevoEstado, setNuevoEstado] = useState('');
@@ -54,6 +67,7 @@ export default function AdminOrdenes() {
   const [montoPagado, setMontoPagado] = useState<number | ''>('');
   const [nombreCliente, setNombreCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
+  const [origenVenta, setOrigenVenta] = useState('');
   const [notasManual, setNotasManual] = useState('');
   const [errorVentaManual, setErrorVentaManual] = useState('');
 
@@ -67,6 +81,13 @@ export default function AdminOrdenes() {
   const [provinciaEnvio, setProvinciaEnvio] = useState('');
   const [partidoEnvio, setPartidoEnvio] = useState<string | undefined>(undefined);
   const [especificacionesEnvio, setEspecificacionesEnvio] = useState('');
+  // Quién recibe / DNI — exigidos por el backend para logística privada
+  // (proveedor 'oca', ver esLogisticaPrivada en create-orden.dto.ts) igual
+  // que en el checkout público (Checkout.tsx). Antes la venta manual no los
+  // pedía para el mismo courier — dato encontrado en la auditoría.
+  const [recibeCompradorManual, setRecibeCompradorManual] = useState<boolean | null>(null);
+  const [quienRecibeManual, setQuienRecibeManual] = useState('');
+  const [dniReceptorManual, setDniReceptorManual] = useState('');
   const [provincias, setProvincias] = useState<Provincia[] | null>(null);
   const [provinciasFallback, setProvinciasFallback] = useState(false);
   const [localidades, setLocalidades] = useState<Localidad[] | null>(null);
@@ -76,14 +97,19 @@ export default function AdminOrdenes() {
   const [montoNuevoPago, setMontoNuevoPago] = useState<number | ''>('');
   const [metodoNuevoPago, setMetodoNuevoPago] = useState('efectivo');
 
+  // Evita perder lo cargado si se hace click afuera del modal por error —
+  // mismo patrón que Productos.tsx/PromocionesBancarias.tsx (ver useDirtyGuard).
+  const { marcarSnapshot, confirmarCierre } = useDirtyGuard<Record<string, unknown>>();
+
   const busquedaDeb = useDebouncedValue(busqueda.trim(), 300);
 
   const { data: ordenes, isLoading, isError } = useQuery({
-    queryKey: ['admin-ordenes-lista', filtroEstado, filtroCanal, busquedaDeb],
+    queryKey: ['admin-ordenes-lista', filtroEstado, filtroCanal, filtroOrigenVenta, busquedaDeb],
     queryFn: () => {
       const params = new URLSearchParams({ limit: '100' });
       if (filtroEstado) params.set('estado', filtroEstado);
       if (filtroCanal) params.set('canal', filtroCanal);
+      if (filtroOrigenVenta) params.set('origen_venta', filtroOrigenVenta);
       if (busquedaDeb) params.set('search', busquedaDeb);
       return api.get(`/ordenes?${params}`).then(r => r.data.data);
     },
@@ -142,7 +168,7 @@ export default function AdminOrdenes() {
     mutationFn: (data: any) => api.post('/ordenes/venta-manual', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
-      cerrarModalVentaManual();
+      resetYCerrarVentaManual();
     },
     onError: (err: any) => {
       const msg = err.response?.data?.message;
@@ -198,7 +224,23 @@ export default function AdminOrdenes() {
   const productoSeleccionado = productos?.find(p => p.id === itemProductoId);
   const varianteSeleccionada = productoSeleccionado?.variantes_producto?.find(v => v.id === itemVarianteId);
 
-  const cerrarModalVentaManual = () => {
+  // Snapshot de todo lo que se puede tipear en el modal de venta manual — lo
+  // compara useDirtyGuard para saber si hay algo sin guardar al cerrar.
+  const snapshotVentaManual = () => ({
+    ventaItems, itemProductoId, itemVarianteId, itemCantidad, itemPrecio,
+    metodoPagoManual, montoPagado, nombreCliente, telefonoCliente, origenVenta, notasManual,
+    metodoEnvioId, calleEnvio, pisoEnvio, cpEnvio, ciudadEnvio, provinciaEnvio,
+    especificacionesEnvio, recibeCompradorManual, quienRecibeManual, dniReceptorManual,
+  });
+
+  const abrirModalVentaManual = () => {
+    marcarSnapshot(snapshotVentaManual());
+    setModalVentaManualAbierto(true);
+  };
+
+  // Resetea el form y cierra sin preguntar — tras un guardado exitoso (no hay
+  // nada que "descartar") y desde cerrarModalVentaManual una vez confirmado.
+  const resetYCerrarVentaManual = () => {
     setModalVentaManualAbierto(false);
     setVentaItems([]);
     setItemProductoId('');
@@ -209,6 +251,7 @@ export default function AdminOrdenes() {
     setMontoPagado('');
     setNombreCliente('');
     setTelefonoCliente('');
+    setOrigenVenta('');
     setNotasManual('');
     setMetodoEnvioId('');
     setCalleEnvio('');
@@ -218,7 +261,18 @@ export default function AdminOrdenes() {
     setProvinciaEnvio('');
     setPartidoEnvio(undefined);
     setEspecificacionesEnvio('');
+    setRecibeCompradorManual(null);
+    setQuienRecibeManual('');
+    setDniReceptorManual('');
     setErrorVentaManual('');
+  };
+
+  // Backdrop-click, botón × y "Cancelar" pasan los tres por acá (ver
+  // AdminModal) — si hay cambios sin guardar respecto al snapshot tomado al
+  // abrir, confirma antes de descartarlos.
+  const cerrarModalVentaManual = () => {
+    if (!confirmarCierre(snapshotVentaManual())) return;
+    resetYCerrarVentaManual();
   };
 
   const handleSeleccionarProducto = (id: string) => {
@@ -258,6 +312,10 @@ export default function AdminOrdenes() {
 
   const metodoEnvioSeleccionado = metodosEnvio?.find(m => m.id === metodoEnvioId);
   const esRetiroEnvio = metodoEnvioSeleccionado?.proveedor === 'retiro';
+  // Mismo criterio que Checkout.tsx (isPrivada): cualquier proveedor que no
+  // sea retiro/correo/andreani exige saber quién recibe el paquete y su DNI.
+  const esLogisticaPrivadaManual = !!metodoEnvioSeleccionado
+    && !['retiro', 'andreani', 'correo'].includes(metodoEnvioSeleccionado.proveedor);
 
   // Previsualización del costo real (misma fuente que usa el checkout
   // público, POST /envios/calcular) -- el backend siempre recalcula esto
@@ -279,6 +337,7 @@ export default function AdminOrdenes() {
       monto_pagado: montoPagado === '' ? 0 : Number(montoPagado),
       nombre_cliente: nombreCliente || undefined,
       telefono_cliente: telefonoCliente || undefined,
+      origen_venta: origenVenta || undefined,
       notas: notasManual || undefined,
       metodo_envio_id: metodoEnvioId || undefined,
       direccion_envio: (metodoEnvioId && !esRetiroEnvio) ? {
@@ -289,6 +348,11 @@ export default function AdminOrdenes() {
         provincia: provinciaEnvio,
         partido: partidoEnvio,
         especificaciones: especificacionesEnvio || undefined,
+        ...(esLogisticaPrivadaManual && {
+          recibe_comprador: recibeCompradorManual ?? undefined,
+          quien_recibe: (recibeCompradorManual === true ? nombreCliente : quienRecibeManual) || undefined,
+          dni_receptor: dniReceptorManual || undefined,
+        }),
       } : undefined,
     });
   };
@@ -319,7 +383,7 @@ export default function AdminOrdenes() {
           <p className="text-sm text-[var(--ink-soft)] mt-0.5">{ordenes?.length || 0} órdenes</p>
         </div>
         <div className="flex items-center gap-3">
-          <AdminButton variant="primary" onClick={() => setModalVentaManualAbierto(true)}>
+          <AdminButton variant="primary" onClick={abrirModalVentaManual}>
             + Cargar venta manual
           </AdminButton>
           <AdminInput
@@ -334,6 +398,12 @@ export default function AdminOrdenes() {
             <option value="web">Web</option>
             <option value="admin_manual">Manual</option>
           </AdminSelect>
+          {filtroCanal === 'admin_manual' && (
+            <AdminSelect value={filtroOrigenVenta} onChange={e => setFiltroOrigenVenta(e.target.value)} fullWidth={false}>
+              <option value="">Todos los orígenes</option>
+              {CANALES_VENTA.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </AdminSelect>
+          )}
           <AdminSelect value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} fullWidth={false}>
             <option value="">Todos los estados</option>
             {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
@@ -355,7 +425,9 @@ export default function AdminOrdenes() {
                 <div>
                   #{orden.id.slice(0, 8).toUpperCase()}
                   {orden.canal === 'admin_manual' && (
-                    <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--ink)] bg-[var(--n-100)] px-1.5 py-0.5 rounded">Manual</span>
+                    <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--ink)] bg-[var(--n-100)] px-1.5 py-0.5 rounded">
+                      Manual{orden.origen_venta && ` · ${CANALES_VENTA.find(c => c.value === orden.origen_venta)?.label ?? orden.origen_venta}`}
+                    </span>
                   )}
                   {(orden.items_orden ?? []).some((i: any) => i.combo_id) && (
                     <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--accent)] bg-[var(--accent-soft)] px-1.5 py-0.5 rounded">Combo</span>
@@ -436,7 +508,7 @@ export default function AdminOrdenes() {
               <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Productos</div>
               <div className="flex flex-col gap-2">
                 {(ordenSeleccionada.items_orden ?? []).map((item: any) => (
-                  <div key={item.id} className={`flex items-start justify-between gap-3 rounded-[var(--radius-el)] px-3 py-2 ${item.combo_id ? 'bg-[var(--accent-soft)] border border-[var(--accent)]/30' : 'bg-[var(--n-50)]'}`}>
+                  <div key={item.id} className={`flex items-start justify-between gap-3 rounded-[var(--radius-el)] px-3 py-2 border ${item.combo_id ? 'bg-[var(--accent-soft)] border-[var(--accent)]/30' : 'bg-[var(--n-50)] border-[var(--line)]'}`}>
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-[var(--ink)] truncate flex items-center gap-1.5">
                         {item.nombre_producto}
@@ -464,7 +536,7 @@ export default function AdminOrdenes() {
             {ordenSeleccionada.canal === 'admin_manual' ? (
               <div>
                 <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Venta manual</div>
-                <div className="bg-[var(--n-50)] rounded-[var(--radius-el)] px-3 py-2.5 text-sm text-[var(--ink)] flex flex-col gap-1">
+                <div className="bg-[var(--n-50)] border border-[var(--line)] rounded-[var(--radius-el)] px-3 py-2.5 text-sm text-[var(--ink)] flex flex-col gap-1">
                   {ordenSeleccionada.direccion_envio?.nombre && (
                     <div><span className="text-[var(--ink-soft)]">Cliente: </span>{ordenSeleccionada.direccion_envio.nombre}{ordenSeleccionada.direccion_envio.telefono && ` · ${ordenSeleccionada.direccion_envio.telefono}`}</div>
                   )}
@@ -494,11 +566,13 @@ export default function AdminOrdenes() {
             ) : (
               <div>
                 <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Envío</div>
-                <div className="bg-[var(--n-50)] rounded-[var(--radius-el)] px-3 py-2.5 text-sm text-[var(--ink)] flex flex-col gap-1">
+                <div className="bg-[var(--n-50)] border border-[var(--line)] rounded-[var(--radius-el)] px-3 py-2.5 text-sm text-[var(--ink)] flex flex-col gap-1">
                   <div>
                     <span className="text-[var(--ink-soft)]">Destinatario: </span>
-                    {ordenSeleccionada.nombre_cliente} {ordenSeleccionada.apellido_cliente}
-                    {ordenSeleccionada.telefono_cliente && ` · ${ordenSeleccionada.telefono_cliente}`}
+                    {ordenSeleccionada.usuarios
+                      ? `${ordenSeleccionada.usuarios.nombre} ${ordenSeleccionada.usuarios.apellido}`
+                      : (ordenSeleccionada.direccion_envio?.nombre || 'Invitado')}
+                    {ordenSeleccionada.direccion_envio?.telefono && ` · ${ordenSeleccionada.direccion_envio.telefono}`}
                   </div>
                   <div>
                     <span className="text-[var(--ink-soft)]">Modalidad: </span>
@@ -518,6 +592,20 @@ export default function AdminOrdenes() {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Etiqueta interna imprimible — solo para los 2 métodos sin API
+                de courier real conectada (ver EtiquetaOrden.tsx). Sirve tanto
+                para ventas manuales como para pedidos web con ese método. */}
+            {(ordenSeleccionada.metodos_envio?.proveedor === 'retiro' || ordenSeleccionada.metodos_envio?.proveedor === 'oca') && (
+              <a
+                href={`/admin/ordenes/${ordenSeleccionada.id}/etiqueta`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[var(--accent)] hover:underline -mt-2"
+              >
+                Imprimir etiqueta
+              </a>
             )}
 
             {esVentaManualPendiente && (
@@ -597,7 +685,7 @@ export default function AdminOrdenes() {
             Para ventas realizadas fuera de la web (presencial, redes, feria). Descuenta stock al cargarla, aunque solo se haya cobrado una seña.
           </p>
           {errorVentaManual && (
-            <div className="text-xs text-[var(--error)] bg-[var(--error-soft)] border border-[var(--error)]/30 rounded-[var(--radius-el)] px-3 py-2">
+            <div className="text-xs text-[var(--error)] bg-[var(--error-soft)] border-l-4 border-[var(--error)] rounded-[var(--radius-el)] px-3 py-2">
               {errorVentaManual}
             </div>
           )}
@@ -606,7 +694,7 @@ export default function AdminOrdenes() {
             <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2">Productos</div>
             <div className="flex flex-col gap-2">
               {ventaItems.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-3 rounded-[var(--radius-el)] px-3 py-2 bg-[var(--n-50)]">
+                <div key={idx} className="flex items-center justify-between gap-3 rounded-[var(--radius-el)] px-3 py-2 bg-[var(--n-50)] border border-[var(--line)]">
                   <div className="text-sm text-[var(--ink)]">
                     {item.nombre_producto} — {item.cantidad} × ${item.precio_unitario.toLocaleString('es-AR')}
                   </div>
@@ -694,6 +782,39 @@ export default function AdminOrdenes() {
                   <AdminInput className="w-24" value={cpEnvio} onChange={e => setCpEnvio(e.target.value)} placeholder="CP" />
                 </div>
                 <AdminInput value={especificacionesEnvio} onChange={e => setEspecificacionesEnvio(e.target.value)} placeholder="Referencias / especificaciones (opcional)" />
+
+                {/* BENI Express es courier privado (no correo formal): igual
+                    que en el checkout público, hace falta saber quién retira
+                    el paquete y su DNI. */}
+                {esLogisticaPrivadaManual && (
+                  <div className="grid grid-cols-[1fr_1fr_auto] gap-3">
+                    <div>
+                      <AdminLabel>¿Recibe el comprador?</AdminLabel>
+                      <AdminSelect
+                        value={recibeCompradorManual === null ? '' : String(recibeCompradorManual)}
+                        onChange={e => setRecibeCompradorManual(e.target.value === '' ? null : e.target.value === 'true')}
+                      >
+                        <option value="">Seleccioná</option>
+                        <option value="true">Sí</option>
+                        <option value="false">No, un tercero</option>
+                      </AdminSelect>
+                    </div>
+                    <div>
+                      <AdminLabel>Quién recibe</AdminLabel>
+                      <AdminInput
+                        value={recibeCompradorManual === true ? nombreCliente : quienRecibeManual}
+                        onChange={e => setQuienRecibeManual(e.target.value)}
+                        disabled={recibeCompradorManual === true}
+                        placeholder="Nombre de quien recibe"
+                      />
+                    </div>
+                    <div className="w-28">
+                      <AdminLabel>DNI</AdminLabel>
+                      <AdminInput value={dniReceptorManual} onChange={e => setDniReceptorManual(e.target.value)} placeholder="Ej: 30123456" />
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-xs text-[var(--ink-soft)]">
                   Costo de envío estimado: <span className="font-medium text-[var(--ink)]">${costoEnvioPreview.toLocaleString('es-AR')}</span> — se recalcula al guardar.
                 </p>
@@ -727,6 +848,14 @@ export default function AdminOrdenes() {
             Dejalo vacío o en $0 si todavía no cobraste nada (queda "pendiente de pago"). Si cobrás menos que el total, queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
           </p>
 
+          <div>
+            <AdminLabel>Canal de venta (opcional)</AdminLabel>
+            <AdminSelect value={origenVenta} onChange={e => setOrigenVenta(e.target.value)}>
+              <option value="">Sin especificar</option>
+              {CANALES_VENTA.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </AdminSelect>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <AdminLabel>Cliente (opcional)</AdminLabel>
@@ -739,7 +868,7 @@ export default function AdminOrdenes() {
           </div>
           <div>
             <AdminLabel>Notas internas</AdminLabel>
-            <AdminTextarea value={notasManual} onChange={e => setNotasManual(e.target.value)} className="h-16" placeholder="Ej: entregado en feria de Palermo" />
+            <AdminTextarea value={notasManual} onChange={e => setNotasManual(e.target.value)} className="h-16" placeholder="Notas internas (opcional)" />
           </div>
         </div>
       </AdminModal>

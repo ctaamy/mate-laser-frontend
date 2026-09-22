@@ -48,3 +48,57 @@ test.describe('Admin — Órdenes — ítems del pedido en el modal de gestión'
     await expect(page.getByText('Sin ítems.')).toBeVisible();
   });
 });
+
+// "Imprimir etiqueta": ticket interno para BENI Express/retiro, los 2 únicos
+// métodos sin API de courier real conectada (ver EtiquetaOrden.tsx). No debe
+// aparecer para métodos con API real (Correo/Andreani, aunque hoy tampoco
+// estén conectados) ni para órdenes sin método de envío.
+test.describe('Admin — Órdenes — botón "Imprimir etiqueta"', () => {
+  const ordenCon = (proveedor: string | null) => ({
+    ...ORDEN_CON_ITEMS,
+    id: 'orden-etiqueta-1',
+    metodo_envio_nombre: proveedor ? 'Envío' : undefined,
+    metodos_envio: proveedor ? { nombre: 'Envío', proveedor } : undefined,
+  });
+
+  test('aparece para BENI Express (oca)', async ({ page }) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [ordenCon('oca')] } }));
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: 'Gestionar' }).click();
+
+    await expect(page.getByRole('link', { name: 'Imprimir etiqueta' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Imprimir etiqueta' })).toHaveAttribute('href', '/admin/ordenes/orden-etiqueta-1/etiqueta');
+  });
+
+  test('aparece para retiro', async ({ page }) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [ordenCon('retiro')] } }));
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: 'Gestionar' }).click();
+
+    await expect(page.getByRole('link', { name: 'Imprimir etiqueta' })).toBeVisible();
+  });
+
+  test('no aparece para un método con API de courier real (correo/andreani)', async ({ page }) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [ordenCon('correo')] } }));
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: 'Gestionar' }).click();
+
+    await expect(page.getByRole('link', { name: 'Imprimir etiqueta' })).not.toBeVisible();
+  });
+
+  test('no aparece sin método de envío', async ({ page }) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes?**', (route) => route.fulfill({ json: { data: [ordenCon(null)] } }));
+
+    await page.goto('/admin/ordenes');
+    await page.getByRole('button', { name: 'Gestionar' }).click();
+
+    await expect(page.getByRole('link', { name: 'Imprimir etiqueta' })).not.toBeVisible();
+  });
+});
