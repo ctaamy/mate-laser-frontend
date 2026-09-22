@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { DollarSign, Package, Clock, ArrowRight, AlertCircle, LayoutGrid, TrendingUp } from 'lucide-react';
 import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
@@ -138,6 +139,96 @@ function Delta({ actual, anterior }: { actual: number; anterior: number | null |
     <span className={`text-xs font-medium ${positivo ? 'text-emerald-600' : 'text-[var(--error)]'}`}>
       {positivo ? '+' : ''}{pct.toFixed(0)}% vs. período anterior
     </span>
+  );
+}
+
+// Gráfico de tendencia de ventas — SVG a mano, sin librería (ver decisión
+// con arquitecto: sin code-splitting hoy, cualquier librería para esto le
+// pegaría al bundle de la tienda pública, no solo al admin). Polilínea
+// recta (no curva suavizada, que "inventaría" tendencia entre puntos que
+// no existe), tooltip por posición del mouse (no hit-testing sobre la
+// línea), ticks de fecha fijos. Un solo punto (rango "hoy") no alcanza
+// para trazar una línea — el caller decide qué mostrar en ese caso.
+function GraficoTendencia({ serie }: { serie: Array<{ fecha: string; ventas: number }> }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const ANCHO = 600;
+  const ALTO = 180;
+  const PAD_X = 8;
+  const PAD_Y = 24;
+
+  const maxVentas = Math.max(1, ...serie.map(p => p.ventas));
+  const x = (i: number) => serie.length > 1 ? PAD_X + (i / (serie.length - 1)) * (ANCHO - PAD_X * 2) : ANCHO / 2;
+  const y = (v: number) => ALTO - PAD_Y - (v / maxVentas) * (ALTO - PAD_Y * 2);
+  const puntos = serie.map((p, i) => `${x(i)},${y(p.ventas)}`).join(' ');
+
+  const formatFecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+
+  // Hasta 6 ticks fijos (primero, último, equiespaciados entre medio) — con
+  // pocos puntos no hace falta un algoritmo de "nice ticks".
+  const cantTicks = Math.min(6, serie.length);
+  const indicesTicks = Array.from(
+    new Set(Array.from({ length: cantTicks }, (_, i) => Math.round((i / (cantTicks - 1 || 1)) * (serie.length - 1)))),
+  );
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    const idx = Math.round(ratio * (serie.length - 1));
+    setHoverIdx(Math.max(0, Math.min(serie.length - 1, idx)));
+  };
+
+  return (
+    <div className="relative">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${ANCHO} ${ALTO}`}
+        width="100%"
+        height={ALTO}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverIdx(null)}
+        className="overflow-visible"
+      >
+        <line x1={PAD_X} y1={ALTO - PAD_Y} x2={ANCHO - PAD_X} y2={ALTO - PAD_Y} stroke="var(--line)" strokeWidth={1} />
+
+        <motion.polyline
+          points={puntos}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        />
+
+        {hoverIdx !== null && (
+          <>
+            <line x1={x(hoverIdx)} y1={PAD_Y} x2={x(hoverIdx)} y2={ALTO - PAD_Y} stroke="var(--line)" strokeWidth={1} strokeDasharray="3,3" />
+            <circle cx={x(hoverIdx)} cy={y(serie[hoverIdx].ventas)} r={4} fill="var(--accent)" />
+          </>
+        )}
+
+        {indicesTicks.map(i => (
+          <text key={i} x={x(i)} y={ALTO - 6} fontSize="10" textAnchor="middle" fill="var(--ink-soft)">
+            {formatFecha(serie[i].fecha)}
+          </text>
+        ))}
+      </svg>
+
+      {hoverIdx !== null && (
+        <div
+          className="absolute top-0 bg-[var(--ink)] text-white text-xs rounded-lg px-2 py-1.5 pointer-events-none -translate-x-1/2 -translate-y-full whitespace-nowrap"
+          style={{ left: `${(x(hoverIdx) / ANCHO) * 100}%` }}
+        >
+          <div className="font-medium">${serie[hoverIdx].ventas.toLocaleString('es-AR')}</div>
+          <div className="text-[10px] opacity-70">{formatFecha(serie[hoverIdx].fecha)}</div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -372,6 +463,19 @@ export default function AdminDashboard() {
                   <div className="mt-1 h-4"><Delta actual={metricas.periodo_actual.ticket_promedio} anterior={metricas.periodo_anterior?.ticket_promedio} /></div>
                 </AdminCard>
               </div>
+
+              {/* Tendencia de ventas — no se traza con un solo punto (rango
+                  "hoy": no hay granularidad más fina que el día). */}
+              {metricas.serie_temporal.length >= 2 ? (
+                <AdminCard>
+                  <div className="text-sm font-medium text-[var(--ink)] mb-3">Tendencia de ventas</div>
+                  <GraficoTendencia serie={metricas.serie_temporal} />
+                </AdminCard>
+              ) : rango === 'hoy' && (
+                <p className="text-xs text-[var(--ink-soft)] -mt-2">
+                  La tendencia necesita más de un día — elegí 7D, 30D o Todo para verla.
+                </p>
+              )}
 
               {/* Ranking de productos */}
               <AdminCard padded={false}>
