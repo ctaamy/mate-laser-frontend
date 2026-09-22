@@ -82,6 +82,13 @@ test.describe('Admin — Dashboard — tab Métricas', () => {
       { origen_venta: null, ventas: 0, ordenes: 0 },
     ],
     cupones: { ordenes_con_cupon: 2, ordenes_totales: 8, descuento_total: 4000 },
+    serie_temporal: [
+      { fecha: '2026-09-18T00:00:00.000Z', ventas: 10000 },
+      { fecha: '2026-09-19T00:00:00.000Z', ventas: 0 },
+      { fecha: '2026-09-20T00:00:00.000Z', ventas: 25000 },
+      { fecha: '2026-09-21T00:00:00.000Z', ventas: 15000 },
+      { fecha: '2026-09-22T00:00:00.000Z', ventas: 50000 },
+    ],
   };
 
   const setupBase = async (page: any) => {
@@ -223,5 +230,111 @@ test.describe('Admin — Dashboard — tab Métricas', () => {
     // No se dispara la query de métricas hasta entrar al tab — antes de
     // eso no debería haber pedido nada a /ordenes/metricas.
     await expect(page.getByText('Ventas del período')).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe('Admin — Dashboard — gráfico de tendencia de ventas', () => {
+  const METRICAS_BASE = {
+    rango: '30d',
+    periodo_actual: { ventas: 100000, ordenes: 8, ticket_promedio: 12500 },
+    periodo_anterior: null,
+    ranking_productos: [],
+    ticket_promedio_por_canal: [],
+    personalizacion: { lineas_totales: 0, pct_con_grabado: 0, pct_con_bombilla: 0 },
+    ventas_por_origen: [],
+    cupones: { ordenes_con_cupon: 0, ordenes_totales: 0, descuento_total: 0 },
+  };
+
+  const setupBase = async (page: any) => {
+    await loginComoAdmin(page);
+    await page.route('**/api/v1/ordenes/estadisticas', (route: any) =>
+      route.fulfill({ json: { ventas_totales: 0, ventas_hoy: 0, ordenes_totales: 0, ordenes_pendientes: 0 } }),
+    );
+    await page.route('**/api/v1/ordenes?**', (route: any) => route.fulfill({ json: { data: [] } }));
+    await page.route('**/api/v1/productos/admin/todos**', (route: any) => route.fulfill({ json: { data: [] } }));
+  };
+
+  test('con 2 o más puntos, dibuja el gráfico', async ({ page }) => {
+    await setupBase(page);
+    await page.route('**/api/v1/ordenes/metricas**', (route) => route.fulfill({ json: {
+      ...METRICAS_BASE,
+      serie_temporal: [
+        { fecha: '2026-09-20T00:00:00.000Z', ventas: 10000 },
+        { fecha: '2026-09-21T00:00:00.000Z', ventas: 20000 },
+      ],
+    } }));
+
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Métricas' }).click();
+
+    await expect(page.getByText('Tendencia de ventas')).toBeVisible();
+    await expect(page.locator('svg polyline')).toBeVisible();
+  });
+
+  test('con un solo punto (rango "hoy"), no dibuja el gráfico y explica por qué', async ({ page }) => {
+    await setupBase(page);
+    await page.route('**/api/v1/ordenes/metricas**', (route) => route.fulfill({ json: {
+      ...METRICAS_BASE,
+      rango: 'hoy',
+      serie_temporal: [{ fecha: '2026-09-22T00:00:00.000Z', ventas: 5000 }],
+    } }));
+
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Métricas' }).click();
+    await page.getByRole('button', { name: 'Hoy', exact: true }).click();
+
+    await expect(page.getByText('Tendencia de ventas')).not.toBeVisible();
+    await expect(page.getByText(/La tendencia necesita más de un día/)).toBeVisible();
+  });
+
+  test('sin ventas (todos los puntos en 0) no rompe, sigue dibujando el eje', async ({ page }) => {
+    await setupBase(page);
+    await page.route('**/api/v1/ordenes/metricas**', (route) => route.fulfill({ json: {
+      ...METRICAS_BASE,
+      serie_temporal: [
+        { fecha: '2026-09-20T00:00:00.000Z', ventas: 0 },
+        { fecha: '2026-09-21T00:00:00.000Z', ventas: 0 },
+        { fecha: '2026-09-22T00:00:00.000Z', ventas: 0 },
+      ],
+    } }));
+
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Métricas' }).click();
+
+    // No se chequea toBeVisible() acá: la línea anima su trazo de entrada
+    // (motion, pathLength 0→1) y con los 3 puntos superpuestos en la misma
+    // altura (todos en $0) el bounding box intermedio de la animación puede
+    // medir 0 en algún frame — falso negativo de timing, no del componente
+    // (las otras 3 pruebas de este gráfico, con datos reales, sí verifican
+    // toBeVisible() y pasan). Lo que importa acá es que no se rompa con
+    // todos los valores en cero: attached al DOM y puntos sin NaN/Infinity.
+    const polyline = page.locator('svg polyline');
+    await expect(polyline).toHaveCount(1);
+    const points = await polyline.getAttribute('points');
+    expect(points).not.toContain('NaN');
+    expect(points).not.toContain('Infinity');
+  });
+
+  test('al pasar el mouse sobre el gráfico, muestra un tooltip con el valor', async ({ page }) => {
+    await setupBase(page);
+    await page.route('**/api/v1/ordenes/metricas**', (route) => route.fulfill({ json: {
+      ...METRICAS_BASE,
+      serie_temporal: [
+        { fecha: '2026-09-20T00:00:00.000Z', ventas: 10000 },
+        { fecha: '2026-09-21T00:00:00.000Z', ventas: 20000 },
+        { fecha: '2026-09-22T00:00:00.000Z', ventas: 77000 },
+      ],
+    } }));
+
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Métricas' }).click();
+
+    const svg = page.locator('svg').filter({ has: page.locator('polyline') });
+    const box = await svg.boundingBox();
+    if (!box) throw new Error('no se encontró el svg');
+    // Extremo derecho → último punto ($77.000, el más alto de la serie).
+    await page.mouse.move(box.x + box.width - 5, box.y + box.height / 2);
+
+    await expect(page.getByText('$77.000')).toBeVisible();
   });
 });
