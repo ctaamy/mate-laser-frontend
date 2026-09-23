@@ -80,6 +80,11 @@ export default function Pago() {
         paymentMethods: {
           creditCard: 'all',
           debitCard: 'all',
+          // Desde la actualización de MP de marzo 2025 el Brick trata las
+          // prepagas como método aparte de crédito — sin esto, esas
+          // tarjetas se rechazan con "No pudimos obtener la información
+          // de pago" aunque las credenciales estén bien.
+          prepaidCard: 'all',
           ticket: 'all',
         },
         visual: {
