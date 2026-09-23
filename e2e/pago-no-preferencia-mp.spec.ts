@@ -25,6 +25,24 @@ test('montar /pago/:id NO dispara POST a /preferencia-mp', async ({ page }) => {
   ).toHaveLength(0);
 });
 
+// Regresión: desde la actualización de MP de marzo 2025, el Payment Brick
+// trata las tarjetas prepagas como un método aparte de crédito — si
+// "prepaidCard" no está en customization.paymentMethods, esas tarjetas
+// quedan rechazadas con "No pudimos obtener la información de pago" (bug
+// real detectado en prod: la key de MP estaba bien, faltaba este campo).
+test('el Brick de pago acepta tarjetas prepagas', async ({ page }) => {
+  await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+  await page.goto('/pago/orden-e2e-1');
+
+  await page.waitForFunction(() => (window as any).__mpBrickSettings != null);
+
+  const paymentMethods = await page.evaluate(
+    () => (window as any).__mpBrickSettings.customization.paymentMethods,
+  );
+
+  expect(paymentMethods.prepaidCard, 'falta "prepaidCard" en customization.paymentMethods del Brick').toBe('all');
+});
+
 // M2: /pago/:id retomado (del mail o MiCuenta) para una orden que ya no admite
 // pago no debe montar el Brick — muestra el estado.
 test('/pago/:id de una orden ya pagada muestra "ya está pago", sin Brick', async ({ page }) => {
