@@ -18,8 +18,8 @@ const fieldCls =
 // de Ordenes.tsx, quedaba estirado a todo el ancho en vez de auto.
 interface WidthProp { fullWidth?: boolean }
 
-export function AdminLabel({ children }: { children: ReactNode }) {
-  return <label className="text-xs text-[var(--ink-soft)] mb-1 block font-medium">{children}</label>;
+export function AdminLabel({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
+  return <label htmlFor={htmlFor} className="text-xs text-[var(--ink-soft)] mb-1 block font-medium">{children}</label>;
 }
 
 export function AdminInput({ className = '', fullWidth = true, ...rest }: InputHTMLAttributes<HTMLInputElement> & WidthProp) {
