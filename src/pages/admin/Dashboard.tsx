@@ -441,6 +441,10 @@ export default function AdminDashboard() {
               </button>
             ))}
           </div>
+          {/* Las compras de prueba (las que se marcan desde Órdenes → Gestionar)
+              nunca entran en estas cifras: sin esta línea, un total más bajo
+              que "todo lo que se compró" parece un bug. */}
+          <p className="text-xs text-[var(--ink-soft)] -mt-3">No incluye órdenes de prueba.</p>
 
           {metricasError ? (
             <ErrorNote mensaje="No se pudieron cargar las métricas. Probá recargar la página." />
