@@ -3,7 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import {
   LayoutDashboard, Package, ShoppingBag, Tag, Truck, Settings, LogOut,
-  ExternalLink, Layers, Wand2, CreditCard, Users, DollarSign, PackageSearch,
+  ExternalLink, Layers, Wand2, CreditCard, Users, Wallet, PackageSearch,
   ShieldCheck, FileText, History, Menu, X, PanelLeft, PanelLeftClose, Boxes,
   ChevronDown,
 } from 'lucide-react';
@@ -27,6 +27,9 @@ export type NavItem = {
   icon: any;
   to?: string;
   end?: boolean;
+  // El ítem es la puerta de una sección con rutas hijas (ej. /admin/caja/movimientos):
+  // queda activo en toda la sección, no solo en la ruta exacta.
+  prefix?: boolean;
   disabled?: boolean;
   // Solo la usa el grid de tarjetas del Dashboard — el sidebar la ignora.
   description?: string;
@@ -62,7 +65,7 @@ export const navGroups: NavGroup[] = [
       { to: '/admin/ordenes', label: 'Órdenes', icon: ShoppingBag, description: 'Seguimiento y gestión de pedidos.' },
       { to: '/admin/promociones-bancarias', label: 'Promociones bancarias', icon: CreditCard, description: 'Cuotas y descuentos por medio de pago.' },
       { to: '/admin/cupones', label: 'Cupones', icon: Tag, description: 'Códigos de descuento activos.' },
-      { label: 'Pagos y transacciones', icon: DollarSign, disabled: true, description: 'Estado de pagos de Mercado Pago y webhooks.' },
+      { to: '/admin/caja', label: 'Caja y compras', icon: Wallet, prefix: true, description: 'Cuentas, entradas y salidas de plata.' },
     ],
   },
   {
@@ -110,6 +113,7 @@ function itemMatchesLocation(item: NavItem, pathname: string, search: string): b
   if (!item.to) return false;
   const [itemPathname, itemQuery] = item.to.split('?');
   if (itemQuery) return pathname === itemPathname && search === `?${itemQuery}`;
+  if (item.prefix) return pathname === itemPathname || pathname.startsWith(`${itemPathname}/`);
   return pathname === itemPathname;
 }
 

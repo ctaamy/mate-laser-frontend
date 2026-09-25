@@ -42,6 +42,9 @@ import AdminConfiguracion from './pages/admin/Configuracion';
 import AdminConfiguradorV2 from './pages/admin/ConfiguradorV2';
 import AdminPromocionesBancarias from './pages/admin/PromocionesBancarias';
 import AdminUsuarios from './pages/admin/Usuarios';
+import AdminCajaLayout from './pages/admin/caja/CajaLayout';
+import AdminCajaResumen from './pages/admin/caja/CajaResumen';
+import AdminCajaMovimientos from './pages/admin/caja/CajaMovimientos';
 import EtiquetaOrden from './pages/admin/EtiquetaOrden';
 
 // Texto de arranque de /nosotros hasta que se cargue el definitivo desde el
@@ -206,6 +209,11 @@ export default function App() {
             <Route path="configurador-v2" element={<AdminConfiguradorV2 />} />
             <Route path="promociones-bancarias" element={<AdminPromocionesBancarias />} />
             <Route path="usuarios" element={<AdminUsuarios />} />
+            {/* Hub "Caja y compras": una tarjeta, submódulos adentro como pestañas. */}
+            <Route path="caja" element={<AdminCajaLayout />}>
+              <Route index element={<AdminCajaResumen />} />
+              <Route path="movimientos" element={<AdminCajaMovimientos />} />
+            </Route>
           </Route>
 
           {/* Vista standalone (sin el chrome de AdminLayout) para imprimir la
