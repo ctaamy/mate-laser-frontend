@@ -18,6 +18,8 @@ declare global {
         create: (type: string, containerId: string, settings: object) => Promise<{ unmount: () => void }>;
       };
     };
+    // Device ID que genera el SDK de MP (MercadoPago.js V2) al instanciarse.
+    MP_DEVICE_SESSION_ID?: string;
   }
 }
 
@@ -107,10 +109,16 @@ export default function Pago() {
           }
         },
         onSubmit: ({ formData }: { formData: any }) => {
-          // El Brick llama esto cuando el usuario confirma el pago
+          // El Brick llama esto cuando el usuario confirma el pago.
+          // Device ID: lo genera el SDK de MP de forma asíncrona (por eso se lee
+          // ahora y no al montar el Brick). El backend se lo pasa a MP como
+          // header X-Meli-Session-Id para su motor antifraude. Es opcional: si
+          // el SDK no lo generó, el pago sigue igual.
+          const deviceId = window.MP_DEVICE_SESSION_ID;
           return api.post('/pagos/procesar-mp', {
             ...formData,
             external_reference: id,
+            ...(typeof deviceId === 'string' && deviceId ? { device_id: deviceId } : {}),
           }).then(res => {
             const { status } = res.data;
             if (status === 'approved') {
