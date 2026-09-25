@@ -34,7 +34,7 @@ const ORDEN_BENI = {
 test.describe('Admin — Etiqueta interna imprimible', () => {
   test('retiro: muestra el punto de retiro (desde metodos_envio.ubicacion), no la dirección del cliente', async ({ page }) => {
     await loginComoAdmin(page);
-    await page.route(`**/api/v1/ordenes/${ORDEN_RETIRO.id}`, (route) => route.fulfill({ json: ORDEN_RETIRO }));
+    await page.route(`**/api/v1/ordenes/${ORDEN_RETIRO.id}/completa`, (route) => route.fulfill({ json: ORDEN_RETIRO }));
 
     await page.goto(`/admin/ordenes/${ORDEN_RETIRO.id}/etiqueta`);
 
@@ -46,9 +46,28 @@ test.describe('Admin — Etiqueta interna imprimible', () => {
     await expect(page.getByText('Frágil')).toBeVisible();
   });
 
+  // GET /ordenes/:id (invitados y clientes) devuelve la orden recortada — sin
+  // `metodos_envio.ubicacion` ni notas — y, al ser de auth opcional, con el token
+  // vencido degrada a invitado sin dar 401 (el frontend solo refresca ante un
+  // 401). La etiqueta tiene que pedir la ruta de admin, que exige sesión.
+  test('pide la orden por la ruta de admin (/completa), no por la pública', async ({ page }) => {
+    await loginComoAdmin(page);
+    const pedidos: string[] = [];
+    page.on('request', (req) => {
+      const { pathname } = new URL(req.url());
+      if (pathname.includes('/api/v1/ordenes/')) pedidos.push(pathname);
+    });
+    await page.route(`**/api/v1/ordenes/${ORDEN_RETIRO.id}/completa`, (route) => route.fulfill({ json: ORDEN_RETIRO }));
+
+    await page.goto(`/admin/ordenes/${ORDEN_RETIRO.id}/etiqueta`);
+    await expect(page.getByText('Av. Siempreviva 742')).toBeVisible();
+
+    expect(pedidos).toEqual([`/api/v1/ordenes/${ORDEN_RETIRO.id}/completa`]);
+  });
+
   test('BENI Express: muestra la dirección del destinatario y quién recibe/DNI', async ({ page }) => {
     await loginComoAdmin(page);
-    await page.route(`**/api/v1/ordenes/${ORDEN_BENI.id}`, (route) => route.fulfill({ json: ORDEN_BENI }));
+    await page.route(`**/api/v1/ordenes/${ORDEN_BENI.id}/completa`, (route) => route.fulfill({ json: ORDEN_BENI }));
 
     await page.goto(`/admin/ordenes/${ORDEN_BENI.id}/etiqueta`);
 
@@ -59,7 +78,7 @@ test.describe('Admin — Etiqueta interna imprimible', () => {
 
   test('orden inexistente: muestra un error en vez de romperse en blanco', async ({ page }) => {
     await loginComoAdmin(page);
-    await page.route('**/api/v1/ordenes/orden-no-existe', (route) => route.fulfill({ status: 404, json: { message: 'no encontrada' } }));
+    await page.route('**/api/v1/ordenes/orden-no-existe/completa', (route) => route.fulfill({ status: 404, json: { message: 'no encontrada' } }));
 
     await page.goto('/admin/ordenes/orden-no-existe/etiqueta');
 

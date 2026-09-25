@@ -13,9 +13,13 @@ import ResumenDireccionEnvio from '../../components/ui/ResumenDireccionEnvio';
 export default function EtiquetaOrden() {
   const { id } = useParams<{ id: string }>();
 
+  // /completa es solo de admin y devuelve la orden entera (punto de retiro y
+  // notas incluidos). GET /ordenes/:id, en cambio, devuelve la vista pública y,
+  // al ser de auth opcional, con el token vencido degrada en silencio a
+  // invitado sin dar 401 — la etiqueta saldría sin la dirección del retiro.
   const { data: orden, isLoading, isError } = useQuery({
     queryKey: ['orden-etiqueta', id],
-    queryFn: () => api.get(`/ordenes/${id}`).then(r => r.data),
+    queryFn: () => api.get(`/ordenes/${id}/completa`).then(r => r.data),
     enabled: !!id,
   });
 
