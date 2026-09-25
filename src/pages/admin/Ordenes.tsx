@@ -26,9 +26,9 @@ const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_p
 const ESTADOS_CON_STOCK = ['pagado', 'en_preparacion', 'listo_para_retirar', 'enviado', 'entregado'];
 const ESTADOS_MARCABLES_PRUEBA = [...ESTADOS_CON_STOCK, 'cancelado', 'rechazado'];
 
-// Qué hacer con una orden pre-pago para poder marcarla. OJO: cambiar el estado a
-// mano a "cancelado" NO devuelve el stock reservado (PUT /ordenes/:id no lo
-// toca), así que solo se aconseja donde es seguro: MP sin pagar (nunca descontó
+// Qué hacer con una orden pre-pago para poder marcarla. Cancelar a mano por PUT
+// /ordenes/:id ya devuelve el stock (una sola vez, por evidencia de `stock_origen`),
+// pero acá se sigue aconsejando lo más simple: MP sin pagar (nunca descontó
 // stock), la reserva que vence sola (el cron devuelve el stock) o "Anular venta".
 function pistaOrdenNoMarcable(estado: string): string {
   if (estado === 'pendiente') {
@@ -139,6 +139,9 @@ export default function AdminOrdenes() {
   // la confirmación lleva un checkbox.
   const [modoPrueba, setModoPrueba] = useState<'marcar' | 'desmarcar' | null>(null);
   const [reintegrarStock, setReintegrarStock] = useState(true);
+  // Cancelar a mano una orden ya paga desde "Gestionar": el backend exige saber si
+  // el producto vuelve al estante (PUT /ordenes/:id → 400 sin `reintegrar_stock`).
+  const [reintegrarAlCancelar, setReintegrarAlCancelar] = useState(true);
   const [errorPrueba, setErrorPrueba] = useState('');
   // Aviso persistente sobre la tabla: al marcar, la fila desaparece de la lista
   // (las pruebas están ocultas) y sin esto parecería que se borró.
@@ -280,7 +283,17 @@ export default function AdminOrdenes() {
     setNotas(orden.notas || '');
     setMetodoNuevoPago(orden.metodo_pago || 'efectivo');
     setCuentaCajaPago('');
+    // Si ya salió del taller (enviado/entregado) el producto probablemente no
+    // vuelve al estante: arranca destildado. Es solo el default, el admin decide.
+    setReintegrarAlCancelar(!['enviado', 'entregado'].includes(orden.estado));
   };
+
+  // La transición a "cancelado" de una orden que ya tuvo su pago aprobado es la
+  // única que el backend no resuelve solo: pide el `reintegrar_stock` explícito.
+  const cancelaOrdenPaga = !!ordenSeleccionada
+    && nuevoEstado === 'cancelado'
+    && ordenSeleccionada.estado !== 'cancelado'
+    && ESTADOS_CON_STOCK.includes(ordenSeleccionada.estado);
 
   const handleActualizar = () => {
     if (!ordenSeleccionada) return;
@@ -292,6 +305,11 @@ export default function AdminOrdenes() {
         numero_seguimiento: tracking || undefined,
         url_seguimiento: trackingUrl || undefined,
         notas: notas || undefined,
+        // Siempre un boolean al cancelar una orden paga (si no, 400). Si el stock ya
+        // volvió (`stock_liberado_en`), va false: no hay nada que devolver.
+        ...(cancelaOrdenPaga && {
+          reintegrar_stock: reintegrarAlCancelar && !ordenSeleccionada.stock_liberado_en,
+        }),
       },
     });
   };
@@ -840,6 +858,31 @@ export default function AdminOrdenes() {
                 {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
               </AdminSelect>
             </div>
+            {cancelaOrdenPaga && (
+              <div
+                role="group"
+                aria-label="Qué pasa con el stock al cancelar"
+                className="flex flex-col gap-2 rounded-[var(--radius-el)] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+              >
+                {ordenSeleccionada?.stock_liberado_en ? (
+                  <p className="text-xs">El stock de esta orden ya estaba devuelto: no se toca.</p>
+                ) : (
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 mt-0.5 accent-[var(--accent)]"
+                      checked={reintegrarAlCancelar}
+                      onChange={e => setReintegrarAlCancelar(e.target.checked)}
+                    />
+                    <span>
+                      Devolver el producto al stock
+                      <span className="block text-xs">Destildalo solo si el producto ya salió del taller y no vuelve al estante.</span>
+                    </span>
+                  </label>
+                )}
+                <p className="text-xs">No reembolsa el pago: si ya cobraste, devolvé la plata desde Mercado Pago o la Caja.</p>
+              </div>
+            )}
             <div>
               <AdminLabel>Número de seguimiento</AdminLabel>
               <AdminInput value={tracking} onChange={e => setTracking(e.target.value)} placeholder="Ej: CA123456789AR" />
