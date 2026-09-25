@@ -183,9 +183,10 @@ export interface Orden {
   pagos?: Pago[];
   envios_orden?: { tracking_number?: string; estado?: string }[];
   usuarios?: { nombre: string; apellido: string };
-  // En el admin (findOne/findAll con include: { metodos_envio: true }) viene
-  // la fila completa, no solo el nombre recortado que expone el endpoint
-  // público — ver EtiquetaOrden.tsx y el botón "Imprimir etiqueta".
+  // En el admin (GET /ordenes y GET /ordenes/:id/completa) viene la fila
+  // completa; GET /ordenes/:id (invitados y clientes) la trae recortada, sin
+  // `ubicacion` ni credenciales — ver EtiquetaOrden.tsx y el botón
+  // "Imprimir etiqueta".
   metodos_envio?: {
     nombre: string;
     proveedor?: string;
