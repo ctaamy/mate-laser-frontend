@@ -13,8 +13,8 @@ export const TIPO_CUENTA_LABEL: Record<TipoCuenta, string> = {
 };
 
 // Chips de "+ Gasto": las 7 del ux-reviewer. `reembolso` y `contracargo` existen
-// en el backend (se anotan a mano hasta que el sync de pagos los vea) pero no se
-// ofrecen como chip: viven en "Otros" hasta la Fase 2.
+// en el backend: los reembolsos totales los anota solo el sincronizador de cobros;
+// los parciales y los contracargos siguen siendo manuales y viven en "Otros".
 export const CATEGORIAS_GASTO_CHIPS = [
   { value: 'insumos', label: 'Insumos' },
   { value: 'envios', label: 'Envíos' },
@@ -50,12 +50,21 @@ export const CATEGORIA_LABEL: Record<string, string> = {
   comision_mp: 'Comisión de Mercado Pago',
 };
 
+/** Qué cobros recibe una cuenta por defecto (una sola cuenta activa por cada uno). */
+export type RecibeCuenta = 'transferencias_web' | 'efectivo_ventas';
+
+export const RECIBE_LABEL: Record<RecibeCuenta, string> = {
+  transferencias_web: 'Las transferencias de la web',
+  efectivo_ventas: 'El efectivo de las ventas',
+};
+
 export interface CuentaCaja {
   id: string;
   nombre: string;
   tipo: TipoCuenta;
   titular: string | null;
   alias: string | null;
+  recibe: RecibeCuenta | null;
   es_del_negocio: boolean;
   saldo_inicial: number;
   fecha_inicio: string;
@@ -65,6 +74,8 @@ export interface CuentaCaja {
 
 export interface CuentaConSaldo extends CuentaCaja {
   saldo: number;
+  /** Plata de Mercado Pago ya en la cuenta pero que MP todavía no libera (incluida en `saldo`). */
+  a_liberar: number;
 }
 
 export interface SocioSaldo {
@@ -78,8 +89,35 @@ export interface SocioSaldo {
 export interface SaldosCaja {
   configurada: boolean;
   cuentas: CuentaConSaldo[];
+  /** Todo lo que hay en las cuentas del negocio, incluido lo que MP todavía no libera. */
   total_negocio: number;
+  a_liberar_total: number;
+  /** `total_negocio` − `a_liberar_total`: lo que se puede usar hoy. */
+  total_disponible: number;
   socios: SocioSaldo[];
+}
+
+/** Resultado de POST /caja/sincronizar: qué pasó al pasar los cobros a la caja. */
+export interface ResumenSync {
+  ejecutado_en: string;
+  revisados: number;
+  creados: number;
+  ya_estaban: number;
+  saltados: { prueba: number; sin_cuenta: number; antes_de_inicio: number; sin_monto: number };
+  sin_cuenta: { pago_id: string; orden_id: string; proveedor: string; monto: number; pagado_en: string }[];
+}
+
+// Mismo criterio que validarCuentaParaCobro del backend (common/caja-cobro.ts).
+const TIPOS_POR_METODO: Record<string, readonly TipoCuenta[]> = {
+  efectivo: ['efectivo'],
+  transferencia: ['banco', 'mercadopago'],
+  otro: ['efectivo', 'banco', 'mercadopago'],
+};
+
+/** Cuentas del negocio (activas, sin bolsillos) donde puede entrar un cobro por ese método. */
+export function cuentasParaMetodo<T extends { tipo: TipoCuenta; archivada: boolean }>(cuentas: T[], metodoPago: string): T[] {
+  const tipos = TIPOS_POR_METODO[metodoPago] ?? [];
+  return cuentas.filter((c) => !c.archivada && tipos.includes(c.tipo));
 }
 
 export interface MovimientoCaja {

@@ -30,6 +30,8 @@ export default function SetupCaja() {
   const [fecha, setFecha] = useState(hoyART());
   const [cuentas, setCuentas] = useState<FilaCuentaSetup[]>(() => [fila('Efectivo', 'efectivo'), fila('Banco', 'banco'), fila('Mercado Pago', 'mercadopago')]);
   const [socios, setSocios] = useState<string[] | null>(null);
+  // Clave de la cuenta que recibe las transferencias de los pedidos de la web (0 = decidir después).
+  const [recibeTransferencias, setRecibeTransferencias] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
@@ -48,6 +50,9 @@ export default function SetupCaja() {
   const montosOk = cuentas.every((c) => !Number.isNaN(saldoDe(c)));
   const nombresOk = cuentas.length > 0 && cuentas.every((c) => c.nombre.trim());
   const mpOk = cuentas.filter((c) => c.tipo === 'mercadopago').length <= 1;
+  // Si sacan la cuenta elegida de la lista, la elección se cae sola.
+  const bancos = cuentas.filter((c) => c.tipo === 'banco' || c.tipo === 'mercadopago');
+  const receptora = bancos.find((c) => c.clave === recibeTransferencias)?.clave ?? 0;
   const total = cuentas.reduce((acc, c) => acc + (Number.isNaN(saldoDe(c)) ? 0 : saldoDe(c)), 0);
 
   const empezar = async () => {
@@ -61,6 +66,7 @@ export default function SetupCaja() {
           tipo: c.tipo,
           saldo_inicial: saldoDe(c),
           ...(c.titular.trim() ? { titular: c.titular.trim() } : {}),
+          ...(c.clave === receptora ? { recibe: 'transferencias_web' as const } : {}),
         })),
         socios: sociosActuales.map((s) => s.trim()).filter(Boolean),
       });
@@ -125,6 +131,19 @@ export default function SetupCaja() {
           Agregar otra cuenta
         </AdminButton>
       </div>
+
+      {bancos.length > 0 && (
+        <div className="sm:max-w-sm">
+          <AdminLabel htmlFor="setup-recibe-transferencias">¿A qué cuenta llegan las transferencias de los pedidos de la web?</AdminLabel>
+          <AdminSelect id="setup-recibe-transferencias" value={receptora} onChange={(e) => setRecibeTransferencias(Number(e.target.value))}>
+            <option value={0}>Lo decido después</option>
+            {bancos.map((c) => <option key={c.clave} value={c.clave}>{c.nombre || '(sin nombre)'}</option>)}
+          </AdminSelect>
+          <p className="mt-1 text-xs text-[var(--ink-soft)]">
+            Así los cobros por transferencia entran solos a la caja. Los de Mercado Pago van a la cuenta de Mercado Pago, y el efectivo de las ventas a tu cuenta de efectivo.
+          </p>
+        </div>
+      )}
 
       <div>
         <h3 className="text-sm font-medium text-[var(--ink)]">¿Quiénes son los socios?</h3>

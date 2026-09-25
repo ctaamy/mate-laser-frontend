@@ -6,8 +6,8 @@ import NuevoMovimientoSheet from '../../../components/admin/caja/NuevoMovimiento
 import TransferenciaSheet from '../../../components/admin/caja/TransferenciaSheet';
 import ArqueoSheet from '../../../components/admin/caja/ArqueoSheet';
 import CuentasSheet from '../../../components/admin/caja/CuentasSheet';
-import { useSaldos } from '../../../hooks/useCaja';
-import type { SaldosCaja } from '../../../lib/caja';
+import { useSaldos, useSincronizarCobros } from '../../../hooks/useCaja';
+import type { ResumenSync, SaldosCaja } from '../../../lib/caja';
 
 export type Hoja = 'gasto' | 'ingreso' | 'transferencia' | 'arqueo' | 'cuentas';
 const HOJAS: readonly Hoja[] = ['gasto', 'ingreso', 'transferencia', 'arqueo', 'cuentas'];
@@ -19,6 +19,12 @@ export interface CajaContext {
   error: boolean;
   abrir: (hoja: Hoja) => void;
   avisar: (mensaje: string) => void;
+  /** Pasa los cobros nuevos a la caja. `forzar` = la persona lo pidió: no usar el resultado de hace segundos. */
+  sincronizar: (forzar?: boolean) => void;
+  sincronizando: boolean;
+  /** Resultado de la última sincronización (cobros nuevos, y los que no se pudieron ubicar en una cuenta). */
+  resumenSync: ResumenSync | undefined;
+  errorSync: boolean;
 }
 
 const TABS = [
@@ -36,6 +42,8 @@ export default function AdminCajaLayout() {
   const [params, setParams] = useSearchParams();
   const { data: saldos, isLoading, isError } = useSaldos();
   const [aviso, setAviso] = useState<string | null>(null);
+  const sync = useSincronizarCobros();
+  const sincronizoAlAbrir = useRef(false);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (temporizador.current) clearTimeout(temporizador.current); }, []);
@@ -50,6 +58,16 @@ export default function AdminCajaLayout() {
   const hoja = HOJAS.find((h) => h === pedida) ?? null;
   const configurada = !!saldos?.configurada;
 
+  // Al abrir la caja, los cobros que entraron desde la última vez se anotan solos
+  // (además del proceso automático cada 10 minutos en el servidor).
+  const { mutate: sincronizarAhora } = sync;
+  useEffect(() => {
+    if (!configurada || sincronizoAlAbrir.current) return;
+    sincronizoAlAbrir.current = true;
+    sincronizarAhora(false);
+  }, [configurada, sincronizarAhora]);
+  const sincronizar = useCallback((forzar = false) => sincronizarAhora(forzar), [sincronizarAhora]);
+
   const abrir = useCallback(
     (h: Hoja) => setParams((p) => { const n = new URLSearchParams(p); n.set('nuevo', h); return n; }),
     [setParams],
@@ -60,7 +78,17 @@ export default function AdminCajaLayout() {
   );
 
   const cuentas = saldos?.cuentas ?? [];
-  const contexto: CajaContext = { saldos, cargando: isLoading, error: isError, abrir, avisar };
+  const contexto: CajaContext = {
+    saldos,
+    cargando: isLoading,
+    error: isError,
+    abrir,
+    avisar,
+    sincronizar,
+    sincronizando: sync.isPending,
+    resumenSync: sync.data,
+    errorSync: sync.isError,
+  };
 
   return (
     <div className="flex flex-col gap-5 p-4 pb-24 md:p-6">
@@ -121,7 +149,7 @@ export default function AdminCajaLayout() {
       {configurada && hoja === 'ingreso' && <NuevoMovimientoSheet tipo="ingreso" cuentas={cuentas} onClose={cerrar} onGuardado={avisar} />}
       {configurada && hoja === 'transferencia' && <TransferenciaSheet cuentas={cuentas} onClose={cerrar} onGuardado={avisar} />}
       {configurada && hoja === 'arqueo' && <ArqueoSheet cuentas={cuentas} onClose={cerrar} onGuardado={avisar} />}
-      {configurada && hoja === 'cuentas' && <CuentasSheet onClose={cerrar} onGuardado={avisar} />}
+      {configurada && hoja === 'cuentas' && <CuentasSheet onClose={cerrar} onGuardado={avisar} onCambioDeCuenta={() => sincronizar(true)} />}
     </div>
   );
 }
