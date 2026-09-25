@@ -11,6 +11,8 @@ import { AdminInput, AdminSelect, AdminTextarea, AdminLabel } from '../../compon
 import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type Localidad } from '../../lib/georef';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useDirtyGuard } from '../../hooks/useDirtyGuard';
+import SelectorCuentaCobro from '../../components/admin/caja/SelectorCuentaCobro';
+import { useCuentaObligatoria } from '../../hooks/useCaja';
 import type { Orden, Producto, MetodoEnvio } from '../../types';
 
 const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
@@ -96,6 +98,9 @@ export default function AdminOrdenes() {
   // Registrar pago (saldar seña pendiente)
   const [montoNuevoPago, setMontoNuevoPago] = useState<number | ''>('');
   const [metodoNuevoPago, setMetodoNuevoPago] = useState('efectivo');
+  // Caja: en qué cuenta entró la plata ('' = la de siempre para ese medio).
+  const [cuentaCajaVenta, setCuentaCajaVenta] = useState('');
+  const [cuentaCajaPago, setCuentaCajaPago] = useState('');
 
   // Evita perder lo cargado si se hace click afuera del modal por error —
   // mismo patrón que Productos.tsx/PromocionesBancarias.tsx (ver useDirtyGuard).
@@ -200,6 +205,7 @@ export default function AdminOrdenes() {
     setTrackingUrl(orden.url_seguimiento || '');
     setNotas(orden.notas || '');
     setMetodoNuevoPago(orden.metodo_pago || 'efectivo');
+    setCuentaCajaPago('');
   };
 
   const handleActualizar = () => {
@@ -228,7 +234,7 @@ export default function AdminOrdenes() {
   // compara useDirtyGuard para saber si hay algo sin guardar al cerrar.
   const snapshotVentaManual = () => ({
     ventaItems, itemProductoId, itemVarianteId, itemCantidad, itemPrecio,
-    metodoPagoManual, montoPagado, nombreCliente, telefonoCliente, origenVenta, notasManual,
+    metodoPagoManual, montoPagado, cuentaCajaVenta, nombreCliente, telefonoCliente, origenVenta, notasManual,
     metodoEnvioId, calleEnvio, pisoEnvio, cpEnvio, ciudadEnvio, provinciaEnvio,
     especificacionesEnvio, recibeCompradorManual, quienRecibeManual, dniReceptorManual,
   });
@@ -249,6 +255,8 @@ export default function AdminOrdenes() {
     setItemPrecio('');
     setMetodoPagoManual('efectivo');
     setMontoPagado('');
+    setCuentaCajaVenta('');
+    setCuentaCajaVenta('');
     setNombreCliente('');
     setTelefonoCliente('');
     setOrigenVenta('');
@@ -328,6 +336,10 @@ export default function AdminOrdenes() {
   const costoEnvioPreview = esRetiroEnvio ? 0 : (costosEnvioPreview?.find((c: any) => c.id === metodoEnvioId)?.costo ?? 0);
   const totalVentaManual = subtotalVentaManual + (metodoEnvioId ? costoEnvioPreview : 0);
 
+  const cobraAlCargar = montoPagado !== '' && Number(montoPagado) > 0;
+  // "Otro" no tiene una cuenta por defecto: si ya hay caja, hay que elegirla o el cobro quedaría sin anotar.
+  const cuentaVentaObligatoria = useCuentaObligatoria(metodoPagoManual, cobraAlCargar);
+  const cuentaPagoObligatoria = useCuentaObligatoria(metodoNuevoPago, montoNuevoPago !== '' && Number(montoNuevoPago) > 0);
   const handleCrearVentaManual = () => {
     if (ventaItems.length === 0) return;
     setErrorVentaManual('');
@@ -335,6 +347,8 @@ export default function AdminOrdenes() {
       items: ventaItems,
       metodo_pago: metodoPagoManual,
       monto_pagado: montoPagado === '' ? 0 : Number(montoPagado),
+      // Solo si se cobró algo: sin cobro no hay pago que ubicar en una cuenta.
+      cuenta_caja_id: cobraAlCargar && cuentaCajaVenta ? cuentaCajaVenta : undefined,
       nombre_cliente: nombreCliente || undefined,
       telefono_cliente: telefonoCliente || undefined,
       origen_venta: origenVenta || undefined,
@@ -361,7 +375,7 @@ export default function AdminOrdenes() {
     if (!ordenSeleccionada || montoNuevoPago === '' || Number(montoNuevoPago) <= 0) return;
     registrarPagoMutation.mutate({
       id: ordenSeleccionada.id,
-      data: { monto: Number(montoNuevoPago), metodo_pago: metodoNuevoPago },
+      data: { monto: Number(montoNuevoPago), metodo_pago: metodoNuevoPago, ...(cuentaCajaPago ? { cuenta_caja_id: cuentaCajaPago } : {}) },
     });
   };
 
@@ -630,12 +644,17 @@ export default function AdminOrdenes() {
                   </div>
                   <AdminButton
                     variant="primary"
-                    disabled={registrarPagoMutation.isPending || montoNuevoPago === ''}
+                    disabled={registrarPagoMutation.isPending || montoNuevoPago === '' || (cuentaPagoObligatoria && !cuentaCajaPago)}
                     onClick={handleRegistrarPago}
                   >
                     {registrarPagoMutation.isPending ? 'Guardando...' : 'Registrar'}
                   </AdminButton>
                 </div>
+                {montoNuevoPago !== '' && Number(montoNuevoPago) > 0 && (
+                  <div className="mt-2">
+                    <SelectorCuentaCobro id="registrar-pago-cuenta" metodoPago={metodoNuevoPago} value={cuentaCajaPago} onChange={setCuentaCajaPago} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -673,7 +692,7 @@ export default function AdminOrdenes() {
           <AdminButton variant="secondary" onClick={cerrarModalVentaManual}>Cancelar</AdminButton>
           <AdminButton
             variant="primary"
-            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0}
+            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0 || (cuentaVentaObligatoria && !cuentaCajaVenta)}
             onClick={handleCrearVentaManual}
           >
             {crearVentaManualMutation.isPending ? 'Guardando...' : 'Cargar venta'}
@@ -844,6 +863,9 @@ export default function AdminOrdenes() {
               />
             </div>
           </div>
+          {cobraAlCargar && (
+            <SelectorCuentaCobro id="venta-manual-cuenta" metodoPago={metodoPagoManual} value={cuentaCajaVenta} onChange={setCuentaCajaVenta} />
+          )}
           <p className="text-xs text-[var(--ink-soft)] -mt-2">
             Dejalo vacío o en $0 si todavía no cobraste nada (queda "pendiente de pago"). Si cobrás menos que el total, queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
           </p>

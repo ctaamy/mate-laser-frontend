@@ -1,23 +1,33 @@
 import { useState } from 'react';
 import AdminSheet from '../ui/AdminSheet';
 import AdminButton from '../ui/AdminButton';
-import { AdminInput, AdminLabel } from '../ui/AdminInput';
+import { AdminInput, AdminLabel, AdminSelect } from '../ui/AdminInput';
 import { ChipGroup, ErrorBanner, MontoInput } from './campos';
 import { useCajaMutaciones, useCuentas } from '../../../hooks/useCaja';
 import {
+  RECIBE_LABEL,
   TIPO_CUENTA_LABEL,
   formatearMonto,
   hoyART,
   mensajeError,
   parsearMonto,
   type CuentaCaja,
+  type RecibeCuenta,
   type TipoCuenta,
 } from '../../../lib/caja';
 
 interface Props {
   onClose: () => void;
   onGuardado: (mensaje: string) => void;
+  /** Cambió qué cuenta recibe qué: los cobros que estaban sin cuenta ya se pueden anotar. */
+  onCambioDeCuenta?: () => void;
 }
+
+/** Qué se puede recibir por defecto según el tipo de cuenta (Mercado Pago ya recibe los pagos de MP). */
+const RECIBE_POR_TIPO: Partial<Record<TipoCuenta, RecibeCuenta>> = {
+  efectivo: 'efectivo_ventas',
+  banco: 'transferencias_web',
+};
 
 const TIPOS_ALTA: { value: Exclude<TipoCuenta, 'bolsillo'>; label: string }[] = [
   { value: 'banco', label: 'Banco' },
@@ -26,7 +36,7 @@ const TIPOS_ALTA: { value: Exclude<TipoCuenta, 'bolsillo'>; label: string }[] = 
 ];
 
 /** "Mis cuentas": alta, edición y archivo. Las cuentas nunca se borran. */
-export default function CuentasSheet({ onClose, onGuardado }: Props) {
+export default function CuentasSheet({ onClose, onGuardado, onCambioDeCuenta }: Props) {
   const { data: cuentas = [], isLoading } = useCuentas(true);
   const [agregando, setAgregando] = useState(false);
   const activas = cuentas.filter((c) => !c.archivada);
@@ -39,7 +49,7 @@ export default function CuentasSheet({ onClose, onGuardado }: Props) {
 
         <ul className="flex flex-col divide-y divide-[var(--line)]">
           {activas.map((c) => (
-            <FilaCuenta key={c.id} cuenta={c} onGuardado={onGuardado} />
+            <FilaCuenta key={c.id} cuenta={c} onGuardado={onGuardado} onCambioDeCuenta={onCambioDeCuenta} />
           ))}
         </ul>
 
@@ -66,13 +76,14 @@ export default function CuentasSheet({ onClose, onGuardado }: Props) {
   );
 }
 
-function FilaCuenta({ cuenta, onGuardado }: { cuenta: CuentaCaja; onGuardado: (m: string) => void }) {
+function FilaCuenta({ cuenta, onGuardado, onCambioDeCuenta }: { cuenta: CuentaCaja; onGuardado: (m: string) => void; onCambioDeCuenta?: () => void }) {
   const { actualizarCuenta, archivarCuenta, desarchivarCuenta } = useCajaMutaciones();
   const [editando, setEditando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [nombre, setNombre] = useState(cuenta.nombre);
   const [titular, setTitular] = useState(cuenta.titular ?? '');
   const [alias, setAlias] = useState(cuenta.alias ?? '');
+  const [recibe, setRecibe] = useState<RecibeCuenta | ''>(cuenta.recibe ?? '');
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
@@ -90,11 +101,24 @@ function FilaCuenta({ cuenta, onGuardado }: { cuenta: CuentaCaja; onGuardado: (m
     }
   };
 
+  const opcionRecibe = RECIBE_POR_TIPO[cuenta.tipo];
+  const cambioRecibe = (cuenta.recibe ?? '') !== recibe;
+
   const guardar = () =>
     correr(
-      () => actualizarCuenta.mutateAsync({ id: cuenta.id, nombre: nombre.trim(), titular: titular.trim(), alias: alias.trim() }),
+      () =>
+        actualizarCuenta.mutateAsync({
+          id: cuenta.id,
+          nombre: nombre.trim(),
+          titular: titular.trim(),
+          alias: alias.trim(),
+          ...(cambioRecibe ? { recibe: recibe === '' ? null : recibe } : {}),
+        }),
       'Cuenta actualizada',
-      () => setEditando(false),
+      () => {
+        setEditando(false);
+        if (cambioRecibe) onCambioDeCuenta?.();
+      },
     );
 
   const esBolsillo = cuenta.tipo === 'bolsillo';
@@ -117,6 +141,18 @@ function FilaCuenta({ cuenta, onGuardado }: { cuenta: CuentaCaja; onGuardado: (m
               <AdminInput id={`cta-alias-${cuenta.id}`} value={alias} onChange={(e) => setAlias(e.target.value)} maxLength={100} placeholder="Solo de referencia" />
             </div>
           )}
+          {opcionRecibe && (
+            <div>
+              <AdminLabel htmlFor={`cta-recibe-${cuenta.id}`}>Esta cuenta recibe</AdminLabel>
+              <AdminSelect id={`cta-recibe-${cuenta.id}`} value={recibe} onChange={(e) => setRecibe(e.target.value as RecibeCuenta | '')}>
+                <option value="">Nada en especial</option>
+                <option value={opcionRecibe}>{RECIBE_LABEL[opcionRecibe]}</option>
+              </AdminSelect>
+              <p className="mt-1 text-xs text-[var(--ink-soft)]">
+                Solo una cuenta recibe cada cosa: si elegís esta, se la sacamos a la que la tenía. Los cobros de Mercado Pago entran solos a la cuenta de Mercado Pago.
+              </p>
+            </div>
+          )}
           {error && <ErrorBanner>{error}</ErrorBanner>}
           <div className="flex gap-2">
             <AdminButton size="sm" variant="primary" disabled={ocupado || !nombre.trim()} onClick={guardar}>Guardar</AdminButton>
@@ -133,6 +169,9 @@ function FilaCuenta({ cuenta, onGuardado }: { cuenta: CuentaCaja; onGuardado: (m
                 {cuenta.titular ? ` de ${cuenta.titular}` : ''}
                 {cuenta.alias ? ` — ${cuenta.alias}` : ''}
               </div>
+              {cuenta.recibe && !cuenta.archivada && (
+                <div className="text-xs text-[var(--accent)]" data-testid="cuenta-recibe">Recibe {RECIBE_LABEL[cuenta.recibe].toLowerCase()}</div>
+              )}
             </div>
             {!cuenta.archivada && (
               <span className="shrink-0 text-xs text-[var(--ink-soft)]">Desde {cuenta.fecha_inicio.split('-').reverse().join('/')}</span>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { AlertCircle, ArrowRightLeft, HandCoins, Settings2, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowRightLeft, HandCoins, RefreshCw, Settings2, TrendingDown, TrendingUp } from 'lucide-react';
 import AdminCard from '../../../components/admin/ui/AdminCard';
 import AdminButton from '../../../components/admin/ui/AdminButton';
 import MovimientoCard from '../../../components/admin/caja/MovimientoCard';
@@ -36,7 +36,7 @@ function aclaracion(c: CuentaConSaldo): string {
 }
 
 function FilaSaldo({ cuenta, destacada = false }: { cuenta: CuentaConSaldo; destacada?: boolean }) {
-  const detalle = aclaracion(cuenta);
+  const detalle = [aclaracion(cuenta), cuenta.a_liberar > 0 ? `incluye ${formatearMonto(cuenta.a_liberar)} a liberar` : ''].filter(Boolean).join(', ');
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3.5">
       <div className="min-w-0">
@@ -49,7 +49,7 @@ function FilaSaldo({ cuenta, destacada = false }: { cuenta: CuentaConSaldo; dest
 }
 
 export default function CajaResumen() {
-  const { saldos, cargando, error, abrir } = useOutletContext<CajaContext>();
+  const { saldos, cargando, error, abrir, sincronizar, sincronizando, resumenSync, errorSync } = useOutletContext<CajaContext>();
   const { data: ultimos } = useMovimientos({}, 5);
   // En el celu los grupos arrancan cerrados (una pantalla, sin scroll); en escritorio, abiertos.
   const [abiertos] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);
@@ -79,19 +79,46 @@ export default function CajaResumen() {
   const debemos = saldos.socios.filter((s) => s.le_debemos > 0);
   const tienen = saldos.socios.filter((s) => s.tiene_del_negocio > 0);
   const items = ultimos?.pages[0]?.items ?? [];
+  // El backend viejo no manda estos dos: sin ellos, todo lo que hay es lo disponible.
+  const aLiberar = saldos.a_liberar_total ?? 0;
+  const disponible = saldos.total_disponible ?? saldos.total_negocio;
+  const sinCuenta = resumenSync?.sin_cuenta ?? [];
+  const sinCuentaTotal = resumenSync?.saltados.sin_cuenta ?? 0;
+  const sinCuentaMonto = sinCuenta.reduce((acc, c) => acc + Math.round(c.monto * 100), 0) / 100;
 
   return (
     <div className="flex flex-col gap-6">
       {/* Un solo protagonista: la plata que hay. */}
       <AdminCard className="flex flex-col gap-4">
         <div>
-          <div className="text-sm text-[var(--ink-soft)]">Plata disponible</div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="text-sm text-[var(--ink-soft)]">Plata disponible</div>
+            {/* Los cobros entran solos; esto es para cuando se quiere ver un pago recién hecho sin esperar. */}
+            <AdminButton
+              size="sm"
+              variant="ghost"
+              icon={<RefreshCw size={14} className={sincronizando ? 'animate-spin' : ''} />}
+              disabled={sincronizando}
+              onClick={() => sincronizar(true)}
+              aria-label="Actualizar cobros"
+            >
+              {sincronizando ? 'Actualizando…' : 'Actualizar'}
+            </AdminButton>
+          </div>
           <div className="mt-1 text-4xl font-semibold tabular-nums text-[var(--ink)]" data-testid="total-negocio">
-            {formatearMonto(saldos.total_negocio)}
+            {formatearMonto(disponible)}
           </div>
           <div className="mt-1 text-sm text-[var(--ink-soft)]">
             En {delNegocio.length} {delNegocio.length === 1 ? 'cuenta' : 'cuentas'}, sumando efectivo, bancos y Mercado Pago.
           </div>
+          {aLiberar > 0 && (
+            <p className="mt-2 rounded-[var(--radius-el)] bg-[var(--n-100)] px-3 py-2 text-sm text-[var(--ink)]" data-testid="a-liberar">
+              Además hay <strong className="font-semibold">{formatearMonto(aLiberar)}</strong> en Mercado Pago que todavía no se libera: ya es tuyo, pero no lo podés usar hasta que MP lo acredite.
+            </p>
+          )}
+          {errorSync && (
+            <p role="alert" className="mt-2 text-sm text-[var(--warn)]">No pudimos actualizar los cobros ahora. Se vuelve a intentar solo en unos minutos.</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
@@ -101,6 +128,17 @@ export default function CajaResumen() {
           <AdminButton variant="secondary" className={ACCION} icon={<HandCoins size={15} />} onClick={() => abrir('arqueo')}>Contar la caja</AdminButton>
         </div>
       </AdminCard>
+
+      {sinCuentaTotal > 0 && (
+        <div role="status" data-testid="cobros-sin-cuenta" className="flex flex-col gap-2 rounded-[var(--radius-el)] border-l-4 border-[var(--warn)] bg-[var(--warn-soft)] px-4 py-3 text-sm text-[var(--warn)]">
+          <p>
+            {sinCuentaTotal === 1 ? 'Hay 1 cobro' : `Hay ${sinCuentaTotal} cobros`}
+            {sinCuentaMonto > 0 && sinCuenta.length === sinCuentaTotal ? ` (${formatearMonto(sinCuentaMonto)})` : ''} que no
+            {sinCuentaTotal === 1 ? ' se pudo' : ' se pudieron'} anotar porque no sabemos en qué cuenta entró. Elegí qué cuenta recibe las transferencias de la web y el efectivo de las ventas, y se anotan solos.
+          </p>
+          <AdminButton size="sm" variant="secondary" className="self-start" onClick={() => abrir('cuentas')}>Elegir cuentas</AdminButton>
+        </div>
+      )}
 
       {(debemos.length > 0 || tienen.length > 0) && (
         <div className="flex flex-col gap-2" data-testid="socios">

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
-import type { CuentaCaja, ListaMovimientos, MovimientoCaja, ResultadoArqueo, SaldosCaja } from '../lib/caja';
+import { cuentasParaMetodo } from '../lib/caja';
+import type { CuentaCaja, ListaMovimientos, MovimientoCaja, RecibeCuenta, ResultadoArqueo, ResumenSync, SaldosCaja } from '../lib/caja';
 
 // Todo lo de caja cuelga de ['caja', ...]: una operación exitosa invalida el
 // árbol entero (saldos, listas y cuentas cambian juntos).
@@ -19,12 +20,39 @@ export function useSaldos() {
   });
 }
 
-export function useCuentas(archivadas = false) {
+/**
+ * Pasa los cobros nuevos (pagos aprobados, reembolsos) a la caja. `forzar` se usa
+ * cuando la persona lo pidió o cambió qué cuenta recibe qué: sin eso, el backend
+ * devuelve el resultado de hace segundos en vez de volver a mirar todo.
+ */
+export function useSincronizarCobros() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (forzar: boolean = false) =>
+      api.post<ResumenSync>('/caja/sincronizar', undefined, { params: forzar ? { forzar: true } : undefined }).then((r) => r.data),
+    onSuccess: (r) => {
+      if (r.creados > 0) qc.invalidateQueries({ queryKey: RAIZ });
+    },
+  });
+}
+
+export function useCuentas(archivadas = false, enabled = true) {
   return useQuery({
     queryKey: [...RAIZ, 'cuentas', archivadas],
     queryFn: () =>
       api.get<CuentaCaja[]>('/caja/cuentas', { params: archivadas ? { archivadas: true } : undefined }).then((r) => r.data),
+    enabled,
   });
+}
+
+/**
+ * Con "otro" no hay una cuenta que se pueda suponer: si la caja ya está armada
+ * (hay cuentas donde puede entrar), hay que elegirla o el cobro quedaría sin anotar.
+ * Sin cobro no se pide nada: la pantalla de órdenes no debe cargar cuentas de más.
+ */
+export function useCuentaObligatoria(metodoPago: string, hayCobro: boolean): boolean {
+  const { data: cuentas = [] } = useCuentas(false, hayCobro);
+  return hayCobro && metodoPago === 'otro' && cuentasParaMetodo(cuentas, metodoPago).length > 0;
 }
 
 /** Lista por cursor (nunca por página: dos personas cargan a la vez). */
@@ -71,7 +99,7 @@ export interface NuevaCuenta {
 
 export interface SetupCaja {
   fecha_inicio: string;
-  cuentas: { nombre: string; tipo: string; titular?: string; saldo_inicial: number }[];
+  cuentas: { nombre: string; tipo: string; titular?: string; saldo_inicial: number; recibe?: RecibeCuenta }[];
   socios: string[];
 }
 
@@ -107,7 +135,7 @@ export function useCajaMutaciones() {
       onSuccess: refrescar,
     }),
     actualizarCuenta: useMutation({
-      mutationFn: ({ id, ...d }: { id: string } & Partial<Omit<NuevaCuenta, 'tipo'>> & { orden?: number }) =>
+      mutationFn: ({ id, ...d }: { id: string } & Partial<Omit<NuevaCuenta, 'tipo'>> & { orden?: number; recibe?: RecibeCuenta | null }) =>
         api.put<CuentaCaja>(`/caja/cuentas/${id}`, d).then((r) => r.data),
       onSuccess: refrescar,
     }),
