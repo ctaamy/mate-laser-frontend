@@ -177,6 +177,12 @@ export interface Orden {
   // Sub-canal de una venta manual (Instagram, feria, etc.) — ver
   // CANALES_VENTA_MANUAL en el backend. Solo poblado para canal='admin_manual'.
   origen_venta?: string;
+  // Compra de prueba (Tami/Facu probando el checkout): el backend la deja
+  // fuera de todas las métricas y contadores. Se marca desde Órdenes → Gestionar.
+  es_prueba?: boolean;
+  // Sellado cuando al marcarla como prueba se devolvió su stock al inventario.
+  stock_liberado_en?: string | null;
+  cupon_id?: string | null;
   cargado_por_id?: string;
   cargado_por?: { id: string; email: string; nombre?: string; apellido?: string };
   items_orden?: ItemOrden[];

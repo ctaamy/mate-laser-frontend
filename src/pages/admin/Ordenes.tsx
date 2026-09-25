@@ -17,6 +17,29 @@ import type { Orden, Producto, MetodoEnvio } from '../../types';
 
 const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
 
+// Compras de prueba — espejo de esMarcablePrueba()/stockSostenido() del backend
+// (mate-laser-backend/src/common/estados-orden.ts). El backend es la fuente de
+// verdad (devuelve 409 si no corresponde); esto solo decide qué mostrar.
+// Con el pago aprobado el stock ya salió del inventario; cancelado/rechazado no
+// tienen stock que devolver; las pre-pago no se pueden marcar (pueden tener
+// stock reservado y un webhook/cron las mueve en cualquier momento).
+const ESTADOS_CON_STOCK = ['pagado', 'en_preparacion', 'listo_para_retirar', 'enviado', 'entregado'];
+const ESTADOS_MARCABLES_PRUEBA = [...ESTADOS_CON_STOCK, 'cancelado', 'rechazado'];
+
+// Qué hacer con una orden pre-pago para poder marcarla. OJO: cambiar el estado a
+// mano a "cancelado" NO devuelve el stock reservado (PUT /ordenes/:id no lo
+// toca), así que solo se aconseja donde es seguro: MP sin pagar (nunca descontó
+// stock), la reserva que vence sola (el cron devuelve el stock) o "Anular venta".
+function pistaOrdenNoMarcable(estado: string): string {
+  if (estado === 'pendiente') {
+    return 'Todavía no se pagó y no descontó stock. Cancelala cambiando su estado y después podés marcarla como de prueba.';
+  }
+  if (estado === 'pendiente_pago' || estado === 'pago_parcial') {
+    return 'Es una venta manual sin saldar. Usá "Anular venta" (devuelve el stock) y después podés marcarla como de prueba.';
+  }
+  return 'Todavía no se pagó. Dejá que venza la reserva (se cancela sola y devuelve el stock) y después podés marcarla como de prueba.';
+}
+
 // Métodos válidos para venta manual — debe coincidir con METODOS_VENTA_MANUAL
 // del backend (mate-laser-backend/src/common/metodos-pago.ts). Excluye
 // mercadopago a propósito.
@@ -51,6 +74,9 @@ export default function AdminOrdenes() {
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroCanal, setFiltroCanal] = useState('');
   const [filtroOrigenVenta, setFiltroOrigenVenta] = useState('');
+  // Las compras de prueba (Tami/Facu probando el checkout) vienen ocultas: no
+  // es un filtro de negocio, así que arranca apagado en cada visita.
+  const [incluirPruebas, setIncluirPruebas] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null);
   const [nuevoEstado, setNuevoEstado] = useState('');
@@ -108,13 +134,24 @@ export default function AdminOrdenes() {
 
   const busquedaDeb = useDebouncedValue(busqueda.trim(), 300);
 
+  // --- Compras de prueba: marcar / desmarcar ---
+  // `null` = confirmación cerrada. Es un segundo modal (no `confirm()`) porque
+  // la confirmación lleva un checkbox.
+  const [modoPrueba, setModoPrueba] = useState<'marcar' | 'desmarcar' | null>(null);
+  const [reintegrarStock, setReintegrarStock] = useState(true);
+  const [errorPrueba, setErrorPrueba] = useState('');
+  // Aviso persistente sobre la tabla: al marcar, la fila desaparece de la lista
+  // (las pruebas están ocultas) y sin esto parecería que se borró.
+  const [avisoPrueba, setAvisoPrueba] = useState<string | null>(null);
+
   const { data: ordenes, isLoading, isError } = useQuery({
-    queryKey: ['admin-ordenes-lista', filtroEstado, filtroCanal, filtroOrigenVenta, busquedaDeb],
+    queryKey: ['admin-ordenes-lista', filtroEstado, filtroCanal, filtroOrigenVenta, incluirPruebas, busquedaDeb],
     queryFn: () => {
       const params = new URLSearchParams({ limit: '100' });
       if (filtroEstado) params.set('estado', filtroEstado);
       if (filtroCanal) params.set('canal', filtroCanal);
       if (filtroOrigenVenta) params.set('origen_venta', filtroOrigenVenta);
+      if (incluirPruebas) params.set('incluir_pruebas', 'true');
       if (busquedaDeb) params.set('search', busquedaDeb);
       return api.get(`/ordenes?${params}`).then(r => r.data.data);
     },
@@ -197,6 +234,43 @@ export default function AdminOrdenes() {
       setOrdenSeleccionada(null);
     },
   });
+
+  const pruebaMutation = useMutation({
+    mutationFn: ({ id, accion, reintegrar }: { id: string; accion: 'marcar' | 'desmarcar'; reintegrar: boolean }) =>
+      accion === 'marcar'
+        ? api.post(`/ordenes/${id}/marcar-prueba`, { reintegrar_stock: reintegrar }).then(r => r.data)
+        : api.post(`/ordenes/${id}/desmarcar-prueba`).then(r => r.data),
+    onSuccess: (res, vars) => {
+      // Marcar/desmarcar mueve las métricas del Dashboard, los contadores y el
+      // stock: sin invalidarlos se seguiría viendo el número viejo.
+      for (const key of [
+        'admin-ordenes-lista', 'admin-ordenes', 'admin-ordenes-estadisticas',
+        'admin-ordenes-metricas', 'admin-productos', 'productos-admin-todos',
+      ]) queryClient.invalidateQueries({ queryKey: [key] });
+
+      const numero = `#${vars.id.slice(0, 8).toUpperCase()}`;
+      setAvisoPrueba(
+        vars.accion === 'marcar'
+          ? `Orden ${numero} marcada como prueba. Ya no cuenta en métricas.${res.stock_reintegrado ? ' Se devolvió el stock.' : ''}${res.cupon_liberado ? ' Se liberó el cupón.' : ''}`
+          : `Orden ${numero} desmarcada: vuelve a contar en métricas.${res.stock_recontado ? ' Se volvió a descontar su stock.' : ''}${res.cupon_recontado ? ' Se volvió a contar su cupón.' : ''}`,
+      );
+      setModoPrueba(null);
+      setOrdenSeleccionada(null);
+    },
+    // El error va DENTRO de la confirmación (no se cierra): el 409 del backend
+    // explica por qué no se pudo (pendiente de pago, stock insuficiente al
+    // desmarcar, la orden cambió mientras tanto).
+    onError: (err: { response?: { data?: { message?: string | string[] } } }) => {
+      const msg = err.response?.data?.message;
+      setErrorPrueba(Array.isArray(msg) ? msg.join(' / ') : msg || 'No se pudo completar la operación. Probá de nuevo.');
+    },
+  });
+
+  const abrirConfirmacionPrueba = (modo: 'marcar' | 'desmarcar') => {
+    setErrorPrueba('');
+    setReintegrarStock(true);
+    setModoPrueba(modo);
+  };
 
   const abrirDetalle = (orden: Orden) => {
     setOrdenSeleccionada(orden);
@@ -389,14 +463,42 @@ export default function AdminOrdenes() {
     && (ordenSeleccionada.estado === 'pendiente_pago' || ordenSeleccionada.estado === 'pago_parcial');
   const esVentaManualAnulable = ordenSeleccionada?.canal === 'admin_manual' && ordenSeleccionada.estado !== 'cancelado';
 
+  // --- Compras de prueba ---
+  const esMarcable = !!ordenSeleccionada && ESTADOS_MARCABLES_PRUEBA.includes(ordenSeleccionada.estado);
+  // ¿Tiene stock descontado que se pueda devolver? (si no: checkbox oculto)
+  const tieneStockSostenido = !!ordenSeleccionada
+    && ESTADOS_CON_STOCK.includes(ordenSeleccionada.estado)
+    && !ordenSeleccionada.stock_liberado_en;
+  const pagoConMercadoPago = !!ordenSeleccionada && (
+    ordenSeleccionada.metodo_pago === 'mercadopago'
+    || (ordenSeleccionada.pagos ?? []).some(p => p.proveedor === 'mercadopago' && p.estado === 'aprobado')
+  );
+  const nombreClienteOrden = ordenSeleccionada
+    ? (ordenSeleccionada.usuarios
+        ? `${ordenSeleccionada.usuarios.nombre} ${ordenSeleccionada.usuarios.apellido}`
+        : (ordenSeleccionada.direccion_envio?.nombre || 'Invitado'))
+    : '';
+
+  const handleConfirmarPrueba = () => {
+    if (!ordenSeleccionada || !modoPrueba) return;
+    pruebaMutation.mutate({
+      id: ordenSeleccionada.id,
+      accion: modoPrueba,
+      reintegrar: reintegrarStock && tieneStockSostenido,
+    });
+  };
+
+  const hayFiltros = !!(filtroEstado || filtroCanal || filtroOrigenVenta || busquedaDeb);
+
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+      {/* flex-wrap: a 360 px el buscador + 3 selects desbordaban el ancho. */}
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
         <div>
           <h1 className="text-xl font-medium text-[var(--ink)]">Órdenes</h1>
           <p className="text-sm text-[var(--ink-soft)] mt-0.5">{ordenes?.length || 0} órdenes</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <AdminButton variant="primary" onClick={abrirModalVentaManual}>
             + Cargar venta manual
           </AdminButton>
@@ -425,19 +527,80 @@ export default function AdminOrdenes() {
         </div>
       </div>
 
+      {/* No es un filtro de negocio: va en su propia línea (no entre los
+          selects) y con área táctil de 44 px para el celular. */}
+      <label className="flex items-center gap-2 min-h-[44px] w-fit text-sm text-[var(--ink)] cursor-pointer">
+        <input
+          type="checkbox"
+          className="w-4 h-4 accent-[var(--accent)]"
+          checked={incluirPruebas}
+          onChange={e => setIncluirPruebas(e.target.checked)}
+        />
+        Mostrar pruebas
+      </label>
+
+      {avisoPrueba && (
+        <div
+          role="status"
+          className="mb-3 flex items-start justify-between gap-3 rounded-[var(--radius-el)] border border-[var(--line)] border-l-4 border-l-[var(--accent)] bg-[var(--n-50)] px-3 py-2.5 text-sm text-[var(--ink)]"
+        >
+          <span>
+            {avisoPrueba}
+            {!incluirPruebas && avisoPrueba.includes('marcada como prueba') && (
+              <>
+                {' '}
+                <button type="button" onClick={() => setIncluirPruebas(true)} className="text-[var(--accent)] hover:underline">
+                  Mostrar pruebas
+                </button>
+              </>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setAvisoPrueba(null)}
+            aria-label="Cerrar aviso"
+            className="text-[var(--ink-soft)] hover:text-[var(--ink)] flex-shrink-0"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <AdminCard padded={false}>
+        {/* Con 7 columnas la tabla mide ~635 px: sin esto, el contenedor flex-1 de AdminLayout
+            (que no tiene min-w-0) crecía hasta ese ancho y la PÁGINA desbordaba a 360 px, con el
+            header y el aviso estirados. `w-0 min-w-full` hace que este scroll no aporte ancho
+            intrínseco al padre pero llene su ancho: la tabla scrollea adentro de la card. Local a
+            propósito: arreglarlo en AdminLayout/AdminTable cambia las otras 6 pantallas admin. */}
+        <div className="overflow-x-auto w-0 min-w-full">
         <AdminTable
           columns={['Orden', 'Cliente', 'Total', 'Pago', 'Estado', 'Fecha', 'Acciones']}
           isLoading={isLoading}
           isError={isError}
           isEmpty={!ordenes || ordenes.length === 0}
-          emptyMessage="No hay órdenes todavía"
+          emptyMessage={
+            incluirPruebas
+              ? (hayFiltros ? 'No hay órdenes que coincidan con los filtros' : 'No hay órdenes todavía')
+              : (
+                <>
+                  No hay órdenes que coincidan. Las de prueba están ocultas.{' '}
+                  <button type="button" onClick={() => setIncluirPruebas(true)} className="text-[var(--accent)] hover:underline">
+                    Mostrar pruebas
+                  </button>
+                </>
+              )
+          }
         >
           {ordenes?.map((orden: any) => (
-            <tr key={orden.id} className="border-t border-[var(--line)] hover:bg-[var(--n-50)] transition-colors">
+            <tr key={orden.id} className={`border-t border-[var(--line)] hover:bg-[var(--n-50)] transition-colors ${orden.es_prueba ? 'opacity-70' : ''}`}>
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)] font-mono">
                 <div>
                   #{orden.id.slice(0, 8).toUpperCase()}
+                  {orden.es_prueba && (
+                    <span className="ml-1.5 text-[10px] font-sans font-medium uppercase tracking-wide text-[var(--ink-soft)] border border-dashed border-[var(--ink-soft)] px-1.5 py-0.5 rounded">
+                      Prueba
+                    </span>
+                  )}
                   {orden.canal === 'admin_manual' && (
                     <span className="ml-1.5 text-[10px] font-sans font-medium text-[var(--ink)] bg-[var(--n-100)] px-1.5 py-0.5 rounded">
                       Manual{orden.origen_venta && ` · ${CANALES_VENTA.find(c => c.value === orden.origen_venta)?.label ?? orden.origen_venta}`}
@@ -490,6 +653,7 @@ export default function AdminOrdenes() {
             </tr>
           ))}
         </AdminTable>
+        </div>
       </AdminCard>
 
       {/* MODAL GESTIONAR */}
@@ -516,6 +680,16 @@ export default function AdminOrdenes() {
       >
         {ordenSeleccionada && (
           <div className="flex flex-col gap-4">
+            {/* Estado arriba, acción abajo (sección "Orden de prueba"). */}
+            {ordenSeleccionada.es_prueba && (
+              <div
+                role="note"
+                className="rounded-[var(--radius-el)] border border-dashed border-[var(--ink-soft)] bg-[var(--n-50)] px-3 py-2 text-xs text-[var(--ink)]"
+              >
+                <strong className="font-semibold">Orden de prueba</strong> — no cuenta en métricas ni contadores.
+              </div>
+            )}
+
             {/* Productos — antes no se veía qué se compró desde acá, había
                 que ir a buscarlo por otro lado para poder operar el pedido. */}
             <div>
@@ -678,6 +852,116 @@ export default function AdminOrdenes() {
               <AdminLabel>Notas internas</AdminLabel>
               <AdminTextarea value={notas} onChange={e => setNotas(e.target.value)} className="h-16" />
             </div>
+
+            {/* Compras de prueba. Va al final del cuerpo (no en el footer, que ya
+                lleva Anular venta + Cancelar + Guardar) y en un botón secundario:
+                es reversible, no es "destructivo". */}
+            <div className="pt-2 border-t border-[var(--line)] flex flex-col gap-2">
+              <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider">Orden de prueba</div>
+              {ordenSeleccionada.es_prueba ? (
+                <>
+                  <p className="text-xs text-[var(--ink-soft)]">Se marcó como compra de prueba: no suma en ventas, ticket, ranking ni cupones.</p>
+                  <AdminButton variant="secondary" className="w-fit" onClick={() => abrirConfirmacionPrueba('desmarcar')}>
+                    Desmarcar como prueba
+                  </AdminButton>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-[var(--ink-soft)]">
+                    {esMarcable
+                      ? 'Si es una compra de prueba, marcala para que no cuente en ventas, ticket, ranking ni cupones.'
+                      : pistaOrdenNoMarcable(ordenSeleccionada.estado)}
+                  </p>
+                  <AdminButton variant="secondary" className="w-fit" disabled={!esMarcable} onClick={() => abrirConfirmacionPrueba('marcar')}>
+                    Marcar como prueba
+                  </AdminButton>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </AdminModal>
+
+      {/* CONFIRMAR MARCAR / DESMARCAR PRUEBA — segundo modal (no `confirm()`)
+          porque lleva un checkbox. "Volver" y no "Cancelar", que se confundiría
+          con cancelar la orden. */}
+      <AdminModal
+        open={modoPrueba !== null && !!ordenSeleccionada}
+        onClose={() => { if (!pruebaMutation.isPending) setModoPrueba(null); }}
+        title={ordenSeleccionada
+          ? (modoPrueba === 'desmarcar'
+              ? `¿Desmarcar #${ordenSeleccionada.id.slice(0, 8).toUpperCase()}?`
+              : `¿Marcar #${ordenSeleccionada.id.slice(0, 8).toUpperCase()} como prueba?`)
+          : ''}
+        maxWidth="sm"
+        footer={<>
+          <AdminButton variant="secondary" disabled={pruebaMutation.isPending} onClick={() => setModoPrueba(null)}>
+            Volver
+          </AdminButton>
+          <AdminButton variant="primary" disabled={pruebaMutation.isPending} onClick={handleConfirmarPrueba}>
+            {pruebaMutation.isPending ? 'Guardando...' : modoPrueba === 'desmarcar' ? 'Desmarcar' : 'Marcar como prueba'}
+          </AdminButton>
+        </>}
+      >
+        {ordenSeleccionada && (
+          <div className="flex flex-col gap-3 text-sm text-[var(--ink)]">
+            {/* Identidad de la orden: el riesgo real es marcar una venta de verdad. */}
+            <div className="rounded-[var(--radius-el)] bg-[var(--n-50)] border border-[var(--line)] px-3 py-2 text-xs">
+              {nombreClienteOrden} · ${Number(ordenSeleccionada.total).toLocaleString('es-AR')} · {ordenSeleccionada.estado.replace(/_/g, ' ')}
+            </div>
+
+            {modoPrueba === 'desmarcar' ? (
+              <ul className="list-disc pl-5 flex flex-col gap-1.5 text-[var(--ink-soft)]">
+                <li>Vuelve a contar en ventas, ticket y ranking.</li>
+                {ordenSeleccionada.stock_liberado_en && ESTADOS_CON_STOCK.includes(ordenSeleccionada.estado) && (
+                  <li>Se vuelve a descontar del inventario el stock que se había devuelto. Si ya no alcanza, no se puede desmarcar.</li>
+                )}
+                {ordenSeleccionada.cupon_id && ESTADOS_CON_STOCK.includes(ordenSeleccionada.estado) && (
+                  <li>Se vuelve a contar el uso del cupón.</li>
+                )}
+              </ul>
+            ) : (
+              <>
+                <ul className="list-disc pl-5 flex flex-col gap-1.5 text-[var(--ink-soft)]">
+                  <li>Deja de contar en ventas, ticket, ranking y “Pendientes de pago”.</li>
+                  {ordenSeleccionada.cupon_id && <li>Libera el uso del cupón.</li>}
+                  <li>Podés desmarcarla cuando quieras.</li>
+                </ul>
+
+                {tieneStockSostenido ? (
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 mt-0.5 accent-[var(--accent)]"
+                      checked={reintegrarStock}
+                      onChange={e => setReintegrarStock(e.target.checked)}
+                    />
+                    <span>
+                      Devolver el stock al inventario
+                      <span className="block text-xs text-[var(--ink-soft)]">Destildalo solo si el producto realmente salió del taller.</span>
+                    </span>
+                  </label>
+                ) : (
+                  <p className="text-xs text-[var(--ink-soft)]">
+                    {ordenSeleccionada.stock_liberado_en
+                      ? 'El stock ya estaba devuelto: no se toca.'
+                      : 'No se toca el stock: la orden ya está cancelada.'}
+                  </p>
+                )}
+
+                {pagoConMercadoPago && (
+                  <div className="rounded-[var(--radius-el)] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    No reembolsa el pago: hacelo desde Mercado Pago.
+                  </div>
+                )}
+              </>
+            )}
+
+            {errorPrueba && (
+              <div role="alert" className="border-l-4 border-[var(--error)] bg-[var(--error-soft)] px-3 py-2 text-xs text-[var(--error)]">
+                {errorPrueba}
+              </div>
+            )}
           </div>
         )}
       </AdminModal>

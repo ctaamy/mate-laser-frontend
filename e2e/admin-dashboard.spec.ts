@@ -118,6 +118,27 @@ test.describe('Admin — Dashboard — tab Métricas', () => {
     await expect(page.getByText('$12.500', { exact: false })).toBeVisible();
   });
 
+  // Las compras de prueba (Órdenes → Gestionar → "Marcar como prueba") nunca
+  // entran en estas cifras. Sin la aclaración, un total más bajo que "todo lo
+  // que se compró" parece un bug.
+  test('aclara que las métricas no incluyen órdenes de prueba', async ({ page }) => {
+    await setupBase(page);
+    await page.route('**/api/v1/ordenes/metricas**', (route) => route.fulfill({ json: METRICAS_MOCK }));
+
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Métricas' }).click();
+
+    await expect(page.getByText('No incluye órdenes de prueba.')).toBeVisible();
+  });
+
+  test('la aclaración de pruebas solo aparece en Métricas, no en Operativo', async ({ page }) => {
+    await setupBase(page);
+
+    await page.goto('/admin');
+
+    await expect(page.getByText('No incluye órdenes de prueba.')).not.toBeVisible();
+  });
+
   test('muestra el delta vs. período anterior con signo correcto', async ({ page }) => {
     await setupBase(page);
     await page.route('**/api/v1/ordenes/metricas**', (route) => route.fulfill({ json: METRICAS_MOCK }));
