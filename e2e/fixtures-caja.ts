@@ -58,6 +58,8 @@ export interface Capturas {
   /** POST /caja/sincronizar: si la pantalla lo pidió forzado (botón "Actualizar" / cambio de cuenta). */
   sincronizaciones: { forzar: boolean; cuerpo: string | null }[];
   cuentasActualizadas: { id: string; body: Record<string, unknown> }[];
+  /** PUT /caja/pagos/:pagoId/cuenta (corregir un cobro ya aprobado, Fase 2). */
+  correccionesPago: { pagoId: string; body: { cuenta_caja_id: string; metodo_pago?: string } }[];
 }
 
 export interface OpcionesCaja {
@@ -73,10 +75,16 @@ export interface OpcionesCaja {
   aLiberar?: number;
   /** Resultado de POST /caja/sincronizar (por defecto: nada nuevo, nada sin cuenta). */
   sync?: { creados?: number; sin_cuenta?: { pago_id: string; orden_id: string; proveedor: string; monto: number; pagado_en: string }[] };
+  /** Estado HTTP de PUT /caja/pagos/:pagoId/cuenta (por defecto 200). */
+  estadoCorregirPago?: number;
+  /** Mensaje de error cuando estadoCorregirPago >= 400. */
+  mensajeCorregirPago?: string;
+  /** Proveedor que devuelve PUT /caja/pagos/:pagoId/cuenta cuando el pedido no manda metodo_pago (no cambia). */
+  proveedorPagoSinCambiar?: string;
 }
 
 export async function mockCaja(page: Page, opts: OpcionesCaja = {}): Promise<Capturas> {
-  const cap: Capturas = { movimientos: [], correcciones: [], transferencias: [], arqueos: [], setups: [], anulaciones: [], listados: [], sincronizaciones: [], cuentasActualizadas: [] };
+  const cap: Capturas = { movimientos: [], correcciones: [], transferencias: [], arqueos: [], setups: [], anulaciones: [], listados: [], sincronizaciones: [], cuentasActualizadas: [], correccionesPago: [] };
   let configurada = opts.configurada ?? true;
   let intentosPost = 0;
   const lista = opts.movimientos ?? [mov()];
@@ -163,6 +171,23 @@ export async function mockCaja(page: Page, opts: OpcionesCaja = {}): Promise<Cap
           ya_estaban: 0,
           saltados: { prueba: 0, sin_cuenta: sinCuenta.length, antes_de_inicio: 0, sin_monto: 0 },
           sin_cuenta: sinCuenta,
+        },
+      });
+    }
+
+    if (/^\/pagos\/[^/]+\/cuenta$/.test(ruta) && metodo === 'PUT') {
+      const pagoId = ruta.split('/')[2];
+      const body = cuerpo() as { cuenta_caja_id: string; metodo_pago?: string };
+      cap.correccionesPago.push({ pagoId, body });
+      if (opts.estadoCorregirPago && opts.estadoCorregirPago >= 400) {
+        return route.fulfill({ status: opts.estadoCorregirPago, json: { statusCode: opts.estadoCorregirPago, message: opts.mensajeCorregirPago ?? 'No se pudo corregir el cobro.' } });
+      }
+      return route.fulfill({
+        status: 200,
+        json: {
+          pago: { id: pagoId, cuenta_caja_id: body.cuenta_caja_id, proveedor: body.metodo_pago ?? opts.proveedorPagoSinCambiar ?? 'efectivo' },
+          movimientos_creados: 1,
+          movimientos_anulados: 1,
         },
       });
     }

@@ -120,6 +120,20 @@ export function cuentasParaMetodo<T extends { tipo: TipoCuenta; archivada: boole
   return cuentas.filter((c) => !c.archivada && tipos.includes(c.tipo));
 }
 
+// A diferencia de TIPOS_POR_METODO (solo lo que se carga a mano, nunca
+// mercadopago), acá el cobro que se está corrigiendo puede ser real de
+// Mercado Pago -- mismo criterio que validarCuentaParaCorregirPago del backend.
+const TIPOS_POR_PROVEEDOR: Record<string, readonly TipoCuenta[]> = {
+  ...TIPOS_POR_METODO,
+  mercadopago: ['mercadopago'],
+};
+
+/** Cuentas del negocio donde puede quedar atribuido un cobro YA aprobado al corregirlo. */
+export function cuentasParaProveedor<T extends { tipo: TipoCuenta; archivada: boolean }>(cuentas: T[], proveedor: string): T[] {
+  const tipos = TIPOS_POR_PROVEEDOR[proveedor] ?? [];
+  return cuentas.filter((c) => !c.archivada && tipos.includes(c.tipo));
+}
+
 export interface MovimientoCaja {
   id: string;
   fecha: string;

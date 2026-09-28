@@ -224,6 +224,9 @@ export interface Pago {
   monto: number;
   reserva_vence_en?: string;
   pagado_en?: string;
+  // Caja: en qué cuenta entró este cobro. NULL = la resuelve el sincronizador
+  // por defecto (ver CajaSyncService.corregirCuentaDePago para corregirla).
+  cuenta_caja_id?: string | null;
 }
 
 // Shape recortada tal como la manda el endpoint público (POST
