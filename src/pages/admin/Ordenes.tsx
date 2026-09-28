@@ -128,6 +128,19 @@ export default function AdminOrdenes() {
   const [cuentaCajaVenta, setCuentaCajaVenta] = useState('');
   const [cuentaCajaPago, setCuentaCajaPago] = useState('');
 
+  // --- Editar productos de una venta manual ya cargada (Fase 1) ---
+  // Estado propio, separado del picker de "Cargar venta manual" (arriba): son
+  // dos formularios de items en dos modales distintos, y no siempre está claro
+  // cuál se cerró último -- mezclarlos arriesgaba dejar ítems de un form
+  // colados en el otro.
+  const [editandoItems, setEditandoItems] = useState(false);
+  const [itemsEdicion, setItemsEdicion] = useState<ItemVentaManual[]>([]);
+  const [editItemProductoId, setEditItemProductoId] = useState('');
+  const [editItemVarianteId, setEditItemVarianteId] = useState('');
+  const [editItemCantidad, setEditItemCantidad] = useState(1);
+  const [editItemPrecio, setEditItemPrecio] = useState<number | ''>('');
+  const [errorEditarItems, setErrorEditarItems] = useState('');
+
   // Evita perder lo cargado si se hace click afuera del modal por error —
   // mismo patrón que Productos.tsx/PromocionesBancarias.tsx (ver useDirtyGuard).
   const { marcarSnapshot, confirmarCierre } = useDirtyGuard<Record<string, unknown>>();
@@ -164,7 +177,7 @@ export default function AdminOrdenes() {
   const { data: productos } = useQuery<Producto[]>({
     queryKey: ['productos-admin-todos'],
     queryFn: () => api.get('/productos/admin/todos?limit=200').then(r => r.data.data),
-    enabled: modalVentaManualAbierto,
+    enabled: modalVentaManualAbierto || ordenSeleccionada?.canal === 'admin_manual',
   });
 
   const { data: metodosEnvio } = useQuery<MetodoEnvio[]>({
@@ -238,6 +251,24 @@ export default function AdminOrdenes() {
     },
   });
 
+  const editarItemsMutation = useMutation({
+    mutationFn: ({ id, items }: { id: string; items: ItemVentaManual[] }) =>
+      api.put(`/ordenes/${id}/items`, { items }).then(r => r.data),
+    // A diferencia de las otras mutaciones de este modal, NO cierra: el punto
+    // de "agregar un producto" es seguir viendo la orden con el total ya
+    // actualizado, no volver a la tabla.
+    onSuccess: (ordenActualizada) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
+      setOrdenSeleccionada(ordenActualizada);
+      setEditandoItems(false);
+      setErrorEditarItems('');
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message;
+      setErrorEditarItems(Array.isArray(msg) ? msg.join(' / ') : msg || 'No se pudieron guardar los productos.');
+    },
+  });
+
   const pruebaMutation = useMutation({
     mutationFn: ({ id, accion, reintegrar }: { id: string; accion: 'marcar' | 'desmarcar'; reintegrar: boolean }) =>
       accion === 'marcar'
@@ -286,6 +317,85 @@ export default function AdminOrdenes() {
     // Si ya salió del taller (enviado/entregado) el producto probablemente no
     // vuelve al estante: arranca destildado. Es solo el default, el admin decide.
     setReintegrarAlCancelar(!['enviado', 'entregado'].includes(orden.estado));
+    // Productos de la venta manual, listos para agregar/quitar sin ir a buscarlos
+    // de nuevo -- el accordion arranca cerrado, esto solo prepara la lista.
+    setItemsEdicion((orden.items_orden ?? []).map(i => ({
+      producto_id: i.producto_id || '',
+      variante_id: i.variante_id,
+      nombre_producto: i.nombre_producto,
+      color: i.color,
+      precio_unitario: Number(i.precio_unitario),
+      cantidad: i.cantidad,
+    })));
+    setEditandoItems(false);
+    setEditItemProductoId('');
+    setEditItemVarianteId('');
+    setEditItemCantidad(1);
+    setEditItemPrecio('');
+    setErrorEditarItems('');
+  };
+
+  // Mismo criterio que OrdenesService.editarItemsVentaManual (backend) --
+  // acá solo decide qué mostrar, el backend sigue siendo la fuente de verdad
+  // (400 si de alguna forma esto quedara desincronizado).
+  function razonNoEditableItems(orden: Orden): string | null {
+    if (orden.canal !== 'admin_manual') return 'Esto solo aplica a ventas cargadas a mano.';
+    if (orden.estado === 'cancelado') return 'La venta está anulada.';
+    if (orden.es_prueba) return 'Es una orden de prueba: desmarcala antes de editar los productos.';
+    if (['listo_para_retirar', 'enviado', 'entregado'].includes(orden.estado)) {
+      return 'Ya está lista para retirar, enviada o entregada: no se pueden editar los productos.';
+    }
+    if ((orden.envios_orden ?? []).length > 0) {
+      return 'Ya tiene un envío generado: no se pueden editar los productos.';
+    }
+    if (orden.metodo_envio_id && orden.metodos_envio?.proveedor !== 'retiro') {
+      return 'Tiene un método de envío con costo asociado: agregar productos podría dejar el costo de envío desactualizado.';
+    }
+    return null;
+  }
+
+  const editProductoSeleccionado = productos?.find(p => p.id === editItemProductoId);
+  const editVarianteSeleccionada = editProductoSeleccionado?.variantes_producto?.find(v => v.id === editItemVarianteId);
+
+  const handleSeleccionarProductoEdicion = (id: string) => {
+    setEditItemProductoId(id);
+    setEditItemVarianteId('');
+    const producto = productos?.find(p => p.id === id);
+    setEditItemPrecio(producto ? Number(producto.precio_base) : '');
+  };
+
+  const handleSeleccionarVarianteEdicion = (id: string) => {
+    setEditItemVarianteId(id);
+    const variante = editProductoSeleccionado?.variantes_producto?.find(v => v.id === id);
+    if (variante?.precio_override != null) setEditItemPrecio(Number(variante.precio_override));
+  };
+
+  const handleAgregarItemEdicion = () => {
+    if (!editProductoSeleccionado || editItemPrecio === '' || editItemCantidad < 1) return;
+    setItemsEdicion(prev => [...prev, {
+      producto_id: editProductoSeleccionado.id,
+      variante_id: editItemVarianteId || undefined,
+      nombre_producto: editProductoSeleccionado.nombre + (editVarianteSeleccionada?.color ? ` (${editVarianteSeleccionada.color})` : ''),
+      color: editVarianteSeleccionada?.color,
+      precio_unitario: Number(editItemPrecio),
+      cantidad: editItemCantidad,
+    }]);
+    setEditItemProductoId('');
+    setEditItemVarianteId('');
+    setEditItemCantidad(1);
+    setEditItemPrecio('');
+  };
+
+  const handleQuitarItemEdicion = (idx: number) => {
+    setItemsEdicion(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const subtotalEdicion = itemsEdicion.reduce((acc, i) => acc + i.precio_unitario * i.cantidad, 0);
+
+  const handleGuardarItemsEdicion = () => {
+    if (!ordenSeleccionada || itemsEdicion.length === 0) return;
+    setErrorEditarItems('');
+    editarItemsMutation.mutate({ id: ordenSeleccionada.id, items: itemsEdicion });
   };
 
   // La transición a "cancelado" de una orden que ya tuvo su pago aprobado es la
@@ -737,6 +847,89 @@ export default function AdminOrdenes() {
                   <div className="text-xs text-[var(--ink-soft)]">Sin ítems.</div>
                 )}
               </div>
+
+              {ordenSeleccionada.canal === 'admin_manual' && (() => {
+                const razonBloqueo = razonNoEditableItems(ordenSeleccionada);
+                if (razonBloqueo) {
+                  return (
+                    <div className="text-xs text-[var(--ink-soft)] mt-2" title={razonBloqueo}>
+                      No se pueden editar los productos: {razonBloqueo}
+                    </div>
+                  );
+                }
+                return (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditandoItems(v => !v)}
+                      className="text-xs text-[var(--accent)] hover:underline"
+                    >
+                      {editandoItems ? '– Ocultar' : '+ Agregar producto'}
+                    </button>
+                    {editandoItems && (
+                      <div className="mt-2 flex flex-col gap-2 rounded-[var(--radius-el)] border border-[var(--line)] bg-[var(--n-50)] p-3">
+                        {itemsEdicion.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="truncate">{item.cantidad} × {item.nombre_producto} — ${item.precio_unitario.toLocaleString('es-AR')}</span>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <span className="text-xs text-[var(--ink-soft)]">${(item.precio_unitario * item.cantidad).toLocaleString('es-AR')}</span>
+                              <button type="button" onClick={() => handleQuitarItemEdicion(idx)} className="text-xs text-[var(--error)] hover:underline">Quitar</button>
+                            </div>
+                          </div>
+                        ))}
+                        {itemsEdicion.length === 0 && (
+                          <div className="text-xs text-[var(--ink-soft)]">Sin productos: agregá al menos uno.</div>
+                        )}
+
+                        <div className="flex gap-2 items-end flex-wrap pt-2 border-t border-[var(--line)]">
+                          <div className="flex-1 min-w-[10rem]">
+                            <AdminLabel>Producto</AdminLabel>
+                            <AdminSelect value={editItemProductoId} onChange={e => handleSeleccionarProductoEdicion(e.target.value)}>
+                              <option value="">Elegir producto...</option>
+                              {productos?.map(p => <option key={p.id} value={p.id}>{p.nombre}{p.stock != null ? ` (stock: ${p.stock})` : ''}</option>)}
+                            </AdminSelect>
+                          </div>
+                          {!!editProductoSeleccionado?.variantes_producto?.length && (
+                            <div className="flex-1 min-w-[8rem]">
+                              <AdminLabel>Variante</AdminLabel>
+                              <AdminSelect value={editItemVarianteId} onChange={e => handleSeleccionarVarianteEdicion(e.target.value)}>
+                                <option value="">Sin variante</option>
+                                {editProductoSeleccionado.variantes_producto.map(v => (
+                                  <option key={v.id} value={v.id}>{v.color || v.id.slice(0, 8)} (stock: {v.stock ?? 0})</option>
+                                ))}
+                              </AdminSelect>
+                            </div>
+                          )}
+                          <div className="w-20">
+                            <AdminLabel>Cant.</AdminLabel>
+                            <AdminInput type="number" min={1} value={editItemCantidad} onChange={e => setEditItemCantidad(Number(e.target.value) || 1)} />
+                          </div>
+                          <div className="w-28">
+                            <AdminLabel>Precio unit.</AdminLabel>
+                            <AdminInput type="number" min={0} value={editItemPrecio} onChange={e => setEditItemPrecio(e.target.value === '' ? '' : Number(e.target.value))} />
+                          </div>
+                          <AdminButton variant="secondary" disabled={!editProductoSeleccionado || editItemPrecio === ''} onClick={handleAgregarItemEdicion}>
+                            Agregar
+                          </AdminButton>
+                        </div>
+
+                        {errorEditarItems && <div className="text-xs text-[var(--error)]">{errorEditarItems}</div>}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
+                          <span className="text-xs text-[var(--ink-soft)]">Nuevo subtotal: ${subtotalEdicion.toLocaleString('es-AR')}</span>
+                          <AdminButton
+                            variant="primary"
+                            disabled={editarItemsMutation.isPending || itemsEdicion.length === 0}
+                            onClick={handleGuardarItemsEdicion}
+                          >
+                            {editarItemsMutation.isPending ? 'Guardando...' : 'Guardar productos'}
+                          </AdminButton>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {ordenSeleccionada.canal === 'admin_manual' ? (
