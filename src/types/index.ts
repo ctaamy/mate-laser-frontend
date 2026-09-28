@@ -162,6 +162,7 @@ export interface Orden {
   descuento: number;
   total: number;
   metodo_pago?: string;
+  metodo_envio_id?: number;
   metodo_envio_nombre?: string;
   numero_seguimiento?: string;
   url_seguimiento?: string;
@@ -204,6 +205,7 @@ export interface ItemOrden {
   id: string;
   orden_id: string;
   producto_id?: string;
+  variante_id?: string;
   nombre_producto: string;
   color?: string;
   texto_grabado?: string;
