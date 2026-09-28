@@ -12,7 +12,8 @@ import { obtenerProvincias, obtenerLocalidadesPorProvincia, type Provincia, type
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useDirtyGuard } from '../../hooks/useDirtyGuard';
 import SelectorCuentaCobro from '../../components/admin/caja/SelectorCuentaCobro';
-import { useCuentaObligatoria } from '../../hooks/useCaja';
+import { useCuentaObligatoria, useCuentas } from '../../hooks/useCaja';
+import { cuentasParaProveedor } from '../../lib/caja';
 import type { Orden, Producto, MetodoEnvio } from '../../types';
 
 const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
@@ -141,6 +142,15 @@ export default function AdminOrdenes() {
   const [editItemPrecio, setEditItemPrecio] = useState<number | ''>('');
   const [errorEditarItems, setErrorEditarItems] = useState('');
 
+  // --- Corregir a mano la cuenta/método de un cobro YA aprobado (Fase 2) ---
+  // Por renglón (un pago puede tener seña + saldo) -- nunca un campo más en el
+  // formulario genérico: es una operación de Caja (anula el movimiento viejo y
+  // crea uno nuevo), no un guardado de texto.
+  const [corrigiendoPagoId, setCorrigiendoPagoId] = useState<string | null>(null);
+  const [corregirCuentaId, setCorregirCuentaId] = useState('');
+  const [corregirMetodoPago, setCorregirMetodoPago] = useState('');
+  const [errorCorregirPago, setErrorCorregirPago] = useState('');
+
   // Evita perder lo cargado si se hace click afuera del modal por error —
   // mismo patrón que Productos.tsx/PromocionesBancarias.tsx (ver useDirtyGuard).
   const { marcarSnapshot, confirmarCierre } = useDirtyGuard<Record<string, unknown>>();
@@ -268,6 +278,49 @@ export default function AdminOrdenes() {
       setErrorEditarItems(Array.isArray(msg) ? msg.join(' / ') : msg || 'No se pudieron guardar los productos.');
     },
   });
+
+  // Nombres de cuenta para el listado de pagos y el selector de "Corregir" —
+  // solo se pide con el modal Gestionar abierto (aplica a cualquier canal).
+  const { data: cuentasCaja } = useCuentas(false, !!ordenSeleccionada);
+
+  const corregirPagoMutation = useMutation({
+    mutationFn: ({ pagoId, data }: { pagoId: string; data: { cuenta_caja_id: string; metodo_pago?: string } }) =>
+      api.put(`/caja/pagos/${pagoId}/cuenta`, data).then(r => r.data),
+    // Como editarItemsMutation: no cierra el modal, solo actualiza ese pago en
+    // el listado -- la respuesta trae el pago corregido, no la orden entera.
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-ordenes-lista'] });
+      setOrdenSeleccionada(prev => prev && {
+        ...prev,
+        pagos: (prev.pagos ?? []).map(p => p.id === res.pago.id ? { ...p, cuenta_caja_id: res.pago.cuenta_caja_id, proveedor: res.pago.proveedor } : p),
+      });
+      setCorrigiendoPagoId(null);
+      setErrorCorregirPago('');
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message;
+      setErrorCorregirPago(Array.isArray(msg) ? msg.join(' / ') : msg || 'No se pudo corregir el cobro.');
+    },
+  });
+
+  const abrirCorregirPago = (pago: { id: string; proveedor: string; cuenta_caja_id?: string | null }) => {
+    setCorrigiendoPagoId(pago.id);
+    setCorregirCuentaId(pago.cuenta_caja_id ?? '');
+    setCorregirMetodoPago(pago.proveedor);
+    setErrorCorregirPago('');
+  };
+
+  const handleConfirmarCorregirPago = (pagoId: string) => {
+    if (!corregirCuentaId) return;
+    if (!confirm('Esto anula el movimiento de caja original y crea uno nuevo en la cuenta elegida. No se puede deshacer. ¿Confirmás la corrección?')) return;
+    corregirPagoMutation.mutate({
+      pagoId,
+      data: {
+        cuenta_caja_id: corregirCuentaId,
+        ...(ordenSeleccionada?.canal === 'admin_manual' && { metodo_pago: corregirMetodoPago }),
+      },
+    });
+  };
 
   const pruebaMutation = useMutation({
     mutationFn: ({ id, accion, reintegrar }: { id: string; accion: 'marcar' | 'desmarcar'; reintegrar: boolean }) =>
@@ -989,6 +1042,73 @@ export default function AdminOrdenes() {
                       {ordenSeleccionada.envios_orden[0].estado && ` · ${ordenSeleccionada.envios_orden[0].estado}`}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Pagos + "Corregir" (Fase 2): fuera de la rama admin_manual a
+                propósito -- corregir a qué cuenta entró un cobro aplica a
+                cualquier orden (incluida una real de Mercado Pago), el método
+                de pago en sí solo se corrige en una venta manual. */}
+            {(ordenSeleccionada.pagos ?? []).filter(p => p.estado === 'aprobado').length > 0 && (
+              <div>
+                <div className="text-xs font-semibold text-[var(--ink-soft)] uppercase tracking-wider mb-2 pt-2 border-t border-[var(--line)]">Pagos</div>
+                <div className="flex flex-col gap-1.5">
+                  {(ordenSeleccionada.pagos ?? []).filter(p => p.estado === 'aprobado').map(pago => (
+                    <div key={pago.id} className="bg-[var(--n-50)] border border-[var(--line)] rounded-[var(--radius-el)] px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-[var(--ink)]">
+                          {pago.pagado_en && `${new Date(pago.pagado_en).toLocaleDateString('es-AR')} · `}
+                          ${Number(pago.monto).toLocaleString('es-AR')} · <span className="capitalize">{pago.proveedor}</span>
+                          {' · '}{cuentasCaja?.find(c => c.id === pago.cuenta_caja_id)?.nombre ?? 'sin cuenta elegida'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => corrigiendoPagoId === pago.id ? setCorrigiendoPagoId(null) : abrirCorregirPago(pago)}
+                          className="text-xs text-[var(--accent)] hover:underline flex-shrink-0"
+                        >
+                          {corrigiendoPagoId === pago.id ? 'Ocultar' : 'Corregir'}
+                        </button>
+                      </div>
+
+                      {corrigiendoPagoId === pago.id && (
+                        <div className="mt-1.5 flex flex-col gap-2 rounded-[var(--radius-el)] border border-[var(--line)] bg-[var(--panel)] p-2.5">
+                          <p className="text-xs text-[var(--ink-soft)]">
+                            Esto anula el movimiento de caja original y crea uno nuevo en la cuenta elegida — no se puede deshacer.
+                          </p>
+                          {ordenSeleccionada.canal === 'admin_manual' && (
+                            <div>
+                              <AdminLabel htmlFor={`corregir-metodo-${pago.id}`}>Método de pago</AdminLabel>
+                              <AdminSelect
+                                id={`corregir-metodo-${pago.id}`}
+                                value={corregirMetodoPago}
+                                onChange={e => { setCorregirMetodoPago(e.target.value); setCorregirCuentaId(''); }}
+                              >
+                                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                              </AdminSelect>
+                            </div>
+                          )}
+                          <div>
+                            <AdminLabel htmlFor={`corregir-cuenta-${pago.id}`}>Cuenta correcta</AdminLabel>
+                            <AdminSelect id={`corregir-cuenta-${pago.id}`} value={corregirCuentaId} onChange={e => setCorregirCuentaId(e.target.value)}>
+                              <option value="">Elegí una cuenta...</option>
+                              {cuentasParaProveedor(cuentasCaja ?? [], ordenSeleccionada.canal === 'admin_manual' ? corregirMetodoPago : pago.proveedor).map(c => (
+                                <option key={c.id} value={c.id}>{c.nombre}</option>
+                              ))}
+                            </AdminSelect>
+                          </div>
+                          {errorCorregirPago && <div className="text-xs text-[var(--error)]">{errorCorregirPago}</div>}
+                          <AdminButton
+                            variant="danger"
+                            disabled={!corregirCuentaId || corregirPagoMutation.isPending}
+                            onClick={() => handleConfirmarCorregirPago(pago.id)}
+                          >
+                            {corregirPagoMutation.isPending ? 'Corrigiendo...' : 'Confirmar corrección'}
+                          </AdminButton>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
