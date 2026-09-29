@@ -52,7 +52,8 @@ export function useCuentas(archivadas = false, enabled = true) {
  */
 export function useCuentaObligatoria(metodoPago: string, hayCobro: boolean): boolean {
   const { data: cuentas = [] } = useCuentas(false, hayCobro);
-  return hayCobro && metodoPago === 'otro' && cuentasParaMetodo(cuentas, metodoPago).length > 0;
+  // "Otro" y MercadoLibre no tienen una cuenta por defecto que se pueda suponer.
+  return hayCobro && (metodoPago === 'otro' || metodoPago === 'mercadolibre') && cuentasParaMetodo(cuentas, metodoPago).length > 0;
 }
 
 /** Lista por cursor (nunca por página: dos personas cargan a la vez). */
@@ -145,6 +146,11 @@ export function useCajaMutaciones() {
     }),
     desarchivarCuenta: useMutation({
       mutationFn: (id: string) => api.post(`/caja/cuentas/${id}/desarchivar`).then((r) => r.data),
+      onSuccess: refrescar,
+    }),
+    // "Ya se liberó": la plata de una venta de MercadoLibre pasa de "a liberar" a disponible.
+    liberarMeli: useMutation({
+      mutationFn: (pagoId: string) => api.post(`/caja/pagos/${pagoId}/liberar`).then((r) => r.data),
       onSuccess: refrescar,
     }),
     setup: useMutation({

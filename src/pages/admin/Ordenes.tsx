@@ -47,7 +47,13 @@ function pistaOrdenNoMarcable(estado: string): string {
 // Métodos válidos para venta manual — debe coincidir con METODOS_VENTA_MANUAL
 // del backend (mate-laser-backend/src/common/metodos-pago.ts). Excluye
 // mercadopago a propósito.
-const METODOS_VENTA_MANUAL = ['efectivo', 'transferencia', 'otro'];
+const METODOS_COBRO_SIMPLE = ['efectivo', 'transferencia', 'otro'];
+// + 'mercadolibre': la cobra MeLI (pide neto y fecha de liberación), así que solo se elige al CARGAR
+// la venta, no al registrar un pago posterior ni al corregir un cobro (esos usan METODOS_COBRO_SIMPLE).
+const METODOS_VENTA_MANUAL = [...METODOS_COBRO_SIMPLE, 'mercadolibre'];
+
+const METODO_LABEL: Record<string, string> = { mercadolibre: 'MercadoLibre', mercadopago: 'Mercado Pago' };
+const etiquetaMetodo = (m: string) => METODO_LABEL[m] ?? m;
 
 // Sub-canal de una venta manual — valores deben coincidir con
 // CANALES_VENTA_MANUAL del backend (mismo archivo que METODOS_VENTA_MANUAL).
@@ -55,6 +61,7 @@ const CANALES_VENTA = [
   { value: 'instagram', label: 'Instagram' },
   { value: 'facebook', label: 'Facebook' },
   { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'mercadolibre', label: 'MercadoLibre' },
   { value: 'feria', label: 'Feria' },
   { value: 'presencial', label: 'Presencial / local' },
   { value: 'otro', label: 'Otro' },
@@ -98,6 +105,9 @@ export default function AdminOrdenes() {
   const [itemPrecio, setItemPrecio] = useState<number | ''>('');
   const [metodoPagoManual, setMetodoPagoManual] = useState('efectivo');
   const [montoPagado, setMontoPagado] = useState<number | ''>('');
+  // Venta por MercadoLibre: neto que libera MeLI y fecha estimada (YYYY-MM-DD, opcional).
+  const [netoMeli, setNetoMeli] = useState<number | ''>('');
+  const [liberacionMeli, setLiberacionMeli] = useState('');
   const [nombreCliente, setNombreCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
   const [origenVenta, setOrigenVenta] = useState('');
@@ -502,7 +512,7 @@ export default function AdminOrdenes() {
   // compara useDirtyGuard para saber si hay algo sin guardar al cerrar.
   const snapshotVentaManual = () => ({
     ventaItems, itemProductoId, itemVarianteId, itemCantidad, itemPrecio,
-    metodoPagoManual, montoPagado, cuentaCajaVenta, nombreCliente, telefonoCliente, origenVenta, notasManual,
+    metodoPagoManual, montoPagado, netoMeli, liberacionMeli, cuentaCajaVenta, nombreCliente, telefonoCliente, origenVenta, notasManual,
     metodoEnvioId, calleEnvio, pisoEnvio, cpEnvio, ciudadEnvio, provinciaEnvio,
     especificacionesEnvio, recibeCompradorManual, quienRecibeManual, dniReceptorManual,
   });
@@ -523,6 +533,8 @@ export default function AdminOrdenes() {
     setItemPrecio('');
     setMetodoPagoManual('efectivo');
     setMontoPagado('');
+    setNetoMeli('');
+    setLiberacionMeli('');
     setCuentaCajaVenta('');
     setCuentaCajaVenta('');
     setNombreCliente('');
@@ -608,7 +620,10 @@ export default function AdminOrdenes() {
   const costoEnvioPreview = esRetiroEnvio ? 0 : (costosEnvioPreview?.find((c: any) => c.id === metodoEnvioId)?.costo ?? 0);
   const totalVentaManual = subtotalVentaManual + (metodoEnvioId ? costoEnvioPreview : 0);
 
-  const cobraAlCargar = montoPagado !== '' && Number(montoPagado) > 0;
+  // MercadoLibre cobra la venta entera: no hay seña ni monto a tipear, solo el neto que libera.
+  const esMeli = metodoPagoManual === 'mercadolibre';
+  const netoMeliValido = netoMeli !== '' && Number(netoMeli) > 0 && Number(netoMeli) <= totalVentaManual;
+  const cobraAlCargar = esMeli || (montoPagado !== '' && Number(montoPagado) > 0);
   // "Otro" no tiene una cuenta por defecto: si ya hay caja, hay que elegirla o el cobro quedaría sin anotar.
   const cuentaVentaObligatoria = useCuentaObligatoria(metodoPagoManual, cobraAlCargar);
   const cuentaPagoObligatoria = useCuentaObligatoria(metodoNuevoPago, montoNuevoPago !== '' && Number(montoNuevoPago) > 0);
@@ -618,7 +633,10 @@ export default function AdminOrdenes() {
     crearVentaManualMutation.mutate({
       items: ventaItems,
       metodo_pago: metodoPagoManual,
-      monto_pagado: montoPagado === '' ? 0 : Number(montoPagado),
+      monto_pagado: esMeli ? totalVentaManual : montoPagado === '' ? 0 : Number(montoPagado),
+      ...(esMeli && {
+        mercadolibre: { neto: Number(netoMeli), ...(liberacionMeli && { liberacion_estimada: liberacionMeli }) },
+      }),
       // Solo si se cobró algo: sin cobro no hay pago que ubicar en una cuenta.
       cuenta_caja_id: cobraAlCargar && cuentaCajaVenta ? cuentaCajaVenta : undefined,
       nombre_cliente: nombreCliente || undefined,
@@ -827,7 +845,7 @@ export default function AdminOrdenes() {
                   </div>
                 )}
               </td>
-              <td className="px-5 py-3 text-xs text-[var(--ink-soft)] capitalize">{orden.metodo_pago || '—'}</td>
+              <td className="px-5 py-3 text-xs text-[var(--ink-soft)] capitalize">{orden.metodo_pago ? etiquetaMetodo(orden.metodo_pago) : '—'}</td>
               <td className="px-5 py-3">
                 <PagoBadge estadoPago={estadoPagoDe(orden)} />
               </td>
@@ -1107,7 +1125,7 @@ export default function AdminOrdenes() {
                                 value={corregirMetodoPago}
                                 onChange={e => { setCorregirMetodoPago(e.target.value); setCorregirCuentaId(''); }}
                               >
-                                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                                {METODOS_COBRO_SIMPLE.map(m => <option key={m} value={m}>{m}</option>)}
                               </AdminSelect>
                             </div>
                           )}
@@ -1167,7 +1185,7 @@ export default function AdminOrdenes() {
                   <div className="flex-1">
                     <AdminLabel>Medio de pago</AdminLabel>
                     <AdminSelect value={metodoNuevoPago} onChange={e => setMetodoNuevoPago(e.target.value)}>
-                      {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                      {METODOS_COBRO_SIMPLE.map(m => <option key={m} value={m}>{m}</option>)}
                     </AdminSelect>
                   </div>
                   <AdminButton
@@ -1358,7 +1376,7 @@ export default function AdminOrdenes() {
           <AdminButton variant="secondary" onClick={cerrarModalVentaManual}>Cancelar</AdminButton>
           <AdminButton
             variant="primary"
-            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0 || (cuentaVentaObligatoria && !cuentaCajaVenta)}
+            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0 || (cuentaVentaObligatoria && !cuentaCajaVenta) || (esMeli && (!netoMeliValido || totalVentaManual <= 0))}
             onClick={handleCrearVentaManual}
           >
             {crearVentaManualMutation.isPending ? 'Guardando...' : 'Cargar venta'}
@@ -1516,26 +1534,53 @@ export default function AdminOrdenes() {
             <div>
               <AdminLabel>Medio de pago</AdminLabel>
               <AdminSelect value={metodoPagoManual} onChange={e => setMetodoPagoManual(e.target.value)}>
-                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{etiquetaMetodo(m)}</option>)}
               </AdminSelect>
             </div>
-            <div>
-              <AdminLabel>Monto cobrado ahora</AdminLabel>
-              <AdminInput
-                type="number"
-                min={0}
-                value={montoPagado}
-                onChange={e => setMontoPagado(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder={`Total: $${totalVentaManual.toLocaleString('es-AR')}`}
-              />
-            </div>
+            {esMeli ? (
+              <div>
+                <AdminLabel>Neto que te libera MeLI</AdminLabel>
+                <AdminInput
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={netoMeli}
+                  onChange={e => setNetoMeli(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder={`Menor o igual a ${totalVentaManual.toLocaleString('es-AR')}`}
+                  data-testid="neto-meli"
+                />
+              </div>
+            ) : (
+              <div>
+                <AdminLabel>Monto cobrado ahora</AdminLabel>
+                <AdminInput
+                  type="number"
+                  min={0}
+                  value={montoPagado}
+                  onChange={e => setMontoPagado(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder={`Total: ${totalVentaManual.toLocaleString('es-AR')}`}
+                />
+              </div>
+            )}
           </div>
+          {esMeli && (
+            <div>
+              <AdminLabel htmlFor="liberacion-meli">Fecha estimada de liberación (opcional)</AdminLabel>
+              <AdminInput id="liberacion-meli" type="date" value={liberacionMeli} onChange={e => setLiberacionMeli(e.target.value)} data-testid="liberacion-meli" />
+            </div>
+          )}
           {cobraAlCargar && (
             <SelectorCuentaCobro id="venta-manual-cuenta" metodoPago={metodoPagoManual} value={cuentaCajaVenta} onChange={setCuentaCajaVenta} />
           )}
+          {esMeli ? (
+            <p className="text-xs text-[var(--ink-soft)] -mt-2" data-testid="ayuda-meli">
+              MercadoLibre cobra el total (${totalVentaManual.toLocaleString('es-AR')}). Cargá el neto que te va a liberar, después de su comisión y el envío. Hasta que se libere, esa plata figura en la Caja como "a liberar"; con "Ya se liberó" (o al llegar la fecha) pasa a disponible.
+            </p>
+          ) : (
           <p className="text-xs text-[var(--ink-soft)] -mt-2">
             Dejalo vacío o en $0 si todavía no cobraste nada (queda "pendiente de pago"). Si cobrás menos que el total, queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
           </p>
+          )}
 
           <div>
             <AdminLabel>Canal de venta (opcional)</AdminLabel>

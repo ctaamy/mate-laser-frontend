@@ -5,7 +5,7 @@ import { cuentasParaMetodo } from '../../../lib/caja';
 
 interface Props {
   id: string;
-  /** Método de la venta manual: efectivo | transferencia | otro. */
+  /** Método de la venta manual: efectivo | transferencia | otro | mercadolibre. */
   metodoPago: string;
   /** Id de la cuenta elegida, o '' = automática. */
   value: string;
@@ -17,7 +17,7 @@ interface Props {
  * ofrece las cuentas donde ese medio de pago puede entrar. No se muestra si la
  * caja todavía no está armada (o no hay una cuenta de ese tipo): ahí el cobro se
  * anota en la cuenta que recibe ese medio por defecto, o queda avisado en la caja.
- * Para "otro" no hay cuenta por defecto: hay que elegir (ver `useCuentaObligatoria`).
+ * Para "otro" y MercadoLibre no hay cuenta por defecto: hay que elegir (ver `useCuentaObligatoria`).
  */
 export default function SelectorCuentaCobro({ id, metodoPago, value, onChange }: Props) {
   const { data: cuentas = [] } = useCuentas();
@@ -33,9 +33,9 @@ export default function SelectorCuentaCobro({ id, metodoPago, value, onChange }:
 
   return (
     <div>
-      <AdminLabel htmlFor={id}>¿En qué cuenta entró?</AdminLabel>
+      <AdminLabel htmlFor={id}>{metodoPago === 'mercadolibre' ? '¿En qué cuenta te cae la plata?' : '¿En qué cuenta entró?'}</AdminLabel>
       <AdminSelect id={id} value={valida ? value : ''} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{metodoPago === 'otro' ? 'Elegí una cuenta' : 'La de siempre para este medio'}</option>
+        <option value="">{metodoPago === 'otro' || metodoPago === 'mercadolibre' ? 'Elegí una cuenta' : 'La de siempre para este medio'}</option>
         {opciones.map((c) => (
           <option key={c.id} value={c.id}>{c.nombre}</option>
         ))}

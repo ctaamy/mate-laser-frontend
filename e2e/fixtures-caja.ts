@@ -60,6 +60,8 @@ export interface Capturas {
   cuentasActualizadas: { id: string; body: Record<string, unknown> }[];
   /** PUT /caja/pagos/:pagoId/cuenta (corregir un cobro ya aprobado, Fase 2). */
   correccionesPago: { pagoId: string; body: { cuenta_caja_id: string; metodo_pago?: string } }[];
+  /** POST /caja/pagos/:pagoId/liberar ("Ya se liberó" de una venta de MercadoLibre). */
+  liberaciones: string[];
 }
 
 export interface OpcionesCaja {
@@ -73,6 +75,10 @@ export interface OpcionesCaja {
   arqueo?: { saldo_sistema: number; contado: number; diferencia: number; resultado: 'justo' | 'faltan' | 'sobran' };
   /** Plata de Mercado Pago ya en la cuenta pero todavía "a liberar". */
   aLiberar?: number;
+  /** Ventas de MercadoLibre cobradas cuyo neto todavía no se liberó; "Ya se liberó" las saca de la lista. */
+  meli?: { pago_id: string; pedido: string; cuenta_id: string; bruto: number; neto: number; liberacion_estimada: string | null }[];
+  /** Estado HTTP de POST /caja/pagos/:pagoId/liberar (por defecto 201). */
+  estadoLiberar?: number;
   /** Recaudado (total / del mes) y lo que falta cobrar. Si no se pasa, el mock responde como un backend viejo (sin estos campos). */
   cobros?: { total: number; mes: number; porCobrar: number; ordenes: number };
   /** Resultado de POST /caja/sincronizar (por defecto: nada nuevo, nada sin cuenta). */
@@ -86,7 +92,8 @@ export interface OpcionesCaja {
 }
 
 export async function mockCaja(page: Page, opts: OpcionesCaja = {}): Promise<Capturas> {
-  const cap: Capturas = { movimientos: [], correcciones: [], transferencias: [], arqueos: [], setups: [], anulaciones: [], listados: [], sincronizaciones: [], cuentasActualizadas: [], correccionesPago: [] };
+  const cap: Capturas = { movimientos: [], correcciones: [], transferencias: [], arqueos: [], setups: [], anulaciones: [], listados: [], sincronizaciones: [], cuentasActualizadas: [], correccionesPago: [], liberaciones: [] };
+  let meliPendientes = [...(opts.meli ?? [])];
   let configurada = opts.configurada ?? true;
   let intentosPost = 0;
   const lista = opts.movimientos ?? [mov()];
@@ -108,6 +115,8 @@ export async function mockCaja(page: Page, opts: OpcionesCaja = {}): Promise<Cap
         por_cobrar: opts.cobros.porCobrar,
         por_cobrar_ordenes: opts.cobros.ordenes,
       }),
+      // Solo si el test lo pide: sin esto el mock responde como un backend viejo.
+      ...(opts.meli && { mercadolibre_por_liberar: meliPendientes }),
       socios: cuentas
         .filter((c) => c.tipo === 'bolsillo')
         .map((c) => ({ cuenta_id: c.id, titular: c.titular, saldo: c.saldo, le_debemos: c.saldo < 0 ? -c.saldo : 0, tiene_del_negocio: c.saldo > 0 ? c.saldo : 0 })),
@@ -205,6 +214,14 @@ export async function mockCaja(page: Page, opts: OpcionesCaja = {}): Promise<Cap
       cap.cuentasActualizadas.push({ id: ruta.split('/')[2], body: cuerpo() });
       const c = CUENTAS.find((x) => x.id === ruta.split('/')[2]);
       return route.fulfill({ status: 200, json: c ?? {} });
+    }
+
+    if (ruta.startsWith('/pagos/') && ruta.endsWith('/liberar') && metodo === 'POST') {
+      const pagoId = ruta.split('/')[2];
+      cap.liberaciones.push(pagoId);
+      if (opts.estadoLiberar && opts.estadoLiberar >= 400) return route.fulfill({ status: opts.estadoLiberar, json: { statusCode: opts.estadoLiberar, message: 'No se pudo.' } });
+      meliPendientes = meliPendientes.filter((v) => v.pago_id !== pagoId);
+      return route.fulfill({ status: 201, json: { pago_id: pagoId, liberado_en: new Date().toISOString(), ya_estaba_liberado: false } });
     }
 
     if (ruta === '/setup' && metodo === 'POST') {

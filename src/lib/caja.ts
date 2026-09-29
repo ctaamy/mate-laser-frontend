@@ -48,6 +48,7 @@ export const CATEGORIA_LABEL: Record<string, string> = {
   ajuste_caja: 'Diferencia al contar',
   ventas: 'Ventas',
   comision_mp: 'Comisión de Mercado Pago',
+  comision_meli: 'Comisión de MercadoLibre',
 };
 
 /** Qué cobros recibe una cuenta por defecto (una sola cuenta activa por cada uno). */
@@ -102,7 +103,22 @@ export interface SaldosCaja {
   /** Lo que los clientes todavía deben (ventas con seña o pago parcial), y de cuántas ventas. */
   por_cobrar?: number;
   por_cobrar_ordenes?: number;
+  /** Ventas de MercadoLibre ya cobradas cuya plata MeLI todavía no liberó (el neto ya está en la cuenta, como "a liberar"). */
+  mercadolibre_por_liberar?: MeliPorLiberar[];
   socios: SocioSaldo[];
+}
+
+export interface MeliPorLiberar {
+  pago_id: string;
+  /** Primeros 8 caracteres del id de la orden, como se ve en Órdenes. */
+  pedido: string;
+  cuenta_id: string;
+  /** Lo que pagó el cliente. */
+  bruto: number;
+  /** Lo que MeLI libera (bruto − comisión y envío). */
+  neto: number;
+  /** YYYY-MM-DD, o null si no se cargó fecha estimada. */
+  liberacion_estimada: string | null;
 }
 
 /** Resultado de POST /caja/sincronizar: qué pasó al pasar los cobros a la caja. */
@@ -120,6 +136,8 @@ const TIPOS_POR_METODO: Record<string, readonly TipoCuenta[]> = {
   efectivo: ['efectivo'],
   transferencia: ['banco', 'mercadopago'],
   otro: ['efectivo', 'banco', 'mercadopago'],
+  // La plata de una venta de MercadoLibre la libera MeLI en Mercado Pago.
+  mercadolibre: ['mercadopago'],
 };
 
 /** Cuentas del negocio (activas, sin bolsillos) donde puede entrar un cobro por ese método. */
