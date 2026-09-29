@@ -129,6 +129,31 @@ export default function CajaResumen() {
         </div>
       </AdminCard>
 
+      {/* Recaudado ≠ disponible: lo recaudado no descuenta gastos ni retiros; "falta cobrar" es plata que todavía no entró. */}
+      {saldos.recaudado_total !== undefined && (
+        <section aria-label="Ventas cobradas y por cobrar" className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="resumen-cobros">
+          <AdminCard className="flex flex-col gap-1">
+            <div className="text-sm text-[var(--ink-soft)]">Recaudado este mes</div>
+            <div className="text-2xl font-semibold tabular-nums text-[var(--ink)]" data-testid="recaudado-mes">{formatearMonto(saldos.recaudado_mes ?? 0)}</div>
+            <div className="text-xs text-[var(--ink-soft)]">Ventas cobradas, sin descontar gastos.</div>
+          </AdminCard>
+          <AdminCard className="flex flex-col gap-1">
+            <div className="text-sm text-[var(--ink-soft)]">Recaudado en total</div>
+            <div className="text-2xl font-semibold tabular-nums text-[var(--ink)]" data-testid="recaudado-total">{formatearMonto(saldos.recaudado_total)}</div>
+            <div className="text-xs text-[var(--ink-soft)]">Desde que se usa la caja.</div>
+          </AdminCard>
+          <AdminCard className="flex flex-col gap-1">
+            <div className="text-sm text-[var(--ink-soft)]">Falta cobrar</div>
+            <div className="text-2xl font-semibold tabular-nums text-[var(--ink)]" data-testid="por-cobrar">{formatearMonto(saldos.por_cobrar ?? 0)}</div>
+            <div className="text-xs text-[var(--ink-soft)]">
+              {(saldos.por_cobrar_ordenes ?? 0) === 0
+                ? 'No hay ventas con saldo pendiente.'
+                : `De ${saldos.por_cobrar_ordenes} ${saldos.por_cobrar_ordenes === 1 ? 'venta' : 'ventas'} con seña o pago pendiente.`}
+            </div>
+          </AdminCard>
+        </section>
+      )}
+
       {sinCuentaTotal > 0 && (
         <div role="status" data-testid="cobros-sin-cuenta" className="flex flex-col gap-2 rounded-[var(--radius-el)] border-l-4 border-[var(--warn)] bg-[var(--warn-soft)] px-4 py-3 text-sm text-[var(--warn)]">
           <p>

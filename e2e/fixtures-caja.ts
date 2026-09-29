@@ -73,6 +73,8 @@ export interface OpcionesCaja {
   arqueo?: { saldo_sistema: number; contado: number; diferencia: number; resultado: 'justo' | 'faltan' | 'sobran' };
   /** Plata de Mercado Pago ya en la cuenta pero todavía "a liberar". */
   aLiberar?: number;
+  /** Recaudado (total / del mes) y lo que falta cobrar. Si no se pasa, el mock responde como un backend viejo (sin estos campos). */
+  cobros?: { total: number; mes: number; porCobrar: number; ordenes: number };
   /** Resultado de POST /caja/sincronizar (por defecto: nada nuevo, nada sin cuenta). */
   sync?: { creados?: number; sin_cuenta?: { pago_id: string; orden_id: string; proveedor: string; monto: number; pagado_en: string }[] };
   /** Estado HTTP de PUT /caja/pagos/:pagoId/cuenta (por defecto 200). */
@@ -99,6 +101,13 @@ export async function mockCaja(page: Page, opts: OpcionesCaja = {}): Promise<Cap
       total_negocio: total,
       a_liberar_total: aLiberar,
       total_disponible: total - aLiberar,
+      ...(opts.cobros && {
+        recaudado_total: opts.cobros.total,
+        recaudado_mes: opts.cobros.mes,
+        recaudado_mes_desde: '2026-09-01',
+        por_cobrar: opts.cobros.porCobrar,
+        por_cobrar_ordenes: opts.cobros.ordenes,
+      }),
       socios: cuentas
         .filter((c) => c.tipo === 'bolsillo')
         .map((c) => ({ cuenta_id: c.id, titular: c.titular, saldo: c.saldo, le_debemos: c.saldo < 0 ? -c.saldo : 0, tiene_del_negocio: c.saldo > 0 ? c.saldo : 0 })),

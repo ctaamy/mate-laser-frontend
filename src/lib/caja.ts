@@ -94,6 +94,14 @@ export interface SaldosCaja {
   a_liberar_total: number;
   /** `total_negocio` − `a_liberar_total`: lo que se puede usar hoy. */
   total_disponible: number;
+  /** Ventas cobradas (bruto menos reembolsos): distinto de lo que hay, que ya descontó gastos y retiros. */
+  recaudado_total?: number;
+  recaudado_mes?: number;
+  /** Primer día del mes de `recaudado_mes` (YYYY-MM-01). */
+  recaudado_mes_desde?: string;
+  /** Lo que los clientes todavía deben (ventas con seña o pago parcial), y de cuántas ventas. */
+  por_cobrar?: number;
+  por_cobrar_ordenes?: number;
   socios: SocioSaldo[];
 }
 
