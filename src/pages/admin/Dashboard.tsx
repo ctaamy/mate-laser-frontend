@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { DollarSign, Package, Clock, ArrowRight, AlertCircle, LayoutGrid, TrendingUp } from 'lucide-react';
 import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
+import { estadoPedidoVisible } from '../../lib/estadoOrden';
 import AdminCard from '../../components/admin/ui/AdminCard';
 import AdminTable from '../../components/admin/ui/AdminTable';
 import { navGroups, type NavItem } from '../../components/layout/AdminLayout';
@@ -368,7 +369,7 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-5 py-3 text-sm font-medium text-[var(--ink)]">${Number(orden.total).toLocaleString('es-AR')}</td>
                     <td className="px-5 py-3">
-                      <EstadoBadge estado={orden.estado} />
+                      <EstadoBadge estado={estadoPedidoVisible(orden.estado)} />
                     </td>
                     <td className="px-5 py-3 text-xs text-[var(--ink-soft)]">
                       {new Date(orden.creado_en).toLocaleDateString('es-AR')}

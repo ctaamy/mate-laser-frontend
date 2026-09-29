@@ -23,46 +23,49 @@ test.describe('Admin — Órdenes — cobro y pedido por separado', () => {
     await page.goto('/admin/ordenes');
   });
 
-  test('pagada pero sin preparar: cobro "pagado" y pedido "sin preparar"', async ({ page }) => {
+  test('pagada pero sin empezar: cobro "pagado" y pedido "Sin empezar"', async ({ page }) => {
     const f = fila(page, 'aaaaaaaa-1');
     await expect(f.getByTestId('badge-pago')).toHaveText('pagado');
-    await expect(f).toContainText('sin preparar');
+    await expect(f).toContainText('Sin empezar');
   });
 
-  test('en preparación con solo la seña: cobro "pago parcial" y pedido "en preparacion", con el saldo', async ({ page }) => {
+  test('en preparación con solo la seña: cobro "pago parcial" y pedido "En preparación", con el saldo', async ({ page }) => {
     const f = fila(page, 'bbbbbbbb-2');
     await expect(f.getByTestId('badge-pago')).toHaveText('pago parcial');
-    await expect(f).toContainText('en preparacion');
+    await expect(f).toContainText('En preparación');
     await expect(f).toContainText('saldo $41.500');
   });
 
-  test('sin cobrar: "sin cobrar" y sin preparar', async ({ page }) => {
+  test('sin cobrar: "sin cobrar" y Sin empezar', async ({ page }) => {
     const f = fila(page, 'cccccccc-3');
     await expect(f.getByTestId('badge-pago')).toHaveText('sin cobrar');
-    await expect(f).toContainText('sin preparar');
+    await expect(f).toContainText('Sin empezar');
     await expect(f).toContainText('saldo $42.000');
   });
 
   test('orden web entregada: pagada y entregada, sin saldo', async ({ page }) => {
     const f = fila(page, 'dddddddd-4');
     await expect(f.getByTestId('badge-pago')).toHaveText('pagado');
-    await expect(f).toContainText('entregado');
+    await expect(f).toContainText('Entregado');
     await expect(f).not.toContainText('saldo');
   });
 
   test('cancelada: no muestra estado de cobro', async ({ page }) => {
     const f = fila(page, 'eeeeeeee-5');
     await expect(f.getByTestId('badge-pago')).toHaveCount(0);
-    await expect(f).toContainText('cancelado');
+    await expect(f).toContainText('Cancelado');
   });
 
   test('una venta en preparación con saldo sigue mostrando "Registrar pago" en Gestionar', async ({ page }) => {
     await fila(page, 'bbbbbbbb-2').getByRole('button', { name: 'Gestionar' }).click();
     await expect(page.getByText('Registrar pago', { exact: false }).first()).toBeVisible();
     // Las opciones del estado del pedido no ofrecen los estados del cobro.
-    const opciones = await page.locator('select').last().locator('option').allTextContents();
-    expect(opciones).not.toContain('pago parcial');
-    expect(opciones).not.toContain('pendiente pago');
-    expect(opciones).toContain('pagado · sin preparar');
+    const select = page.locator('select').filter({ has: page.locator('optgroup') });
+    const opciones = await select.locator('option').allTextContents();
+    expect(opciones).not.toContain('Pago parcial');
+    expect(opciones).not.toContain('Sin cobrar');
+    // Ni el estado actual: no es de cobro, es del pedido (la orden está "En preparación").
+    expect(opciones).toContain('Sin empezar (pagado)');
+    expect(opciones).toContain('En preparación');
   });
 });

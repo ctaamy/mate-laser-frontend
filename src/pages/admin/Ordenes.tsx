@@ -4,7 +4,17 @@ import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
 import PagoBadge from '../../components/admin/PagoBadge';
 import ItemLibreForm from '../../components/admin/ItemLibreForm';
-import { estadoPagoDe, estadoPedidoVisible, saldoDe } from '../../lib/estadoOrden';
+import {
+  ESTADOS_POST_PAGO,
+  GRUPOS_ESTADO_PEDIDO,
+  estadoActualFueraDelSelect,
+  estadoPagoDe,
+  estadoPedidoVisible,
+  etiquetaAdmin,
+  etiquetaOpcionEstado,
+  saldoDe,
+  textoConfirmarCambio,
+} from '../../lib/estadoOrden';
 import ResumenDireccionEnvio from '../../components/ui/ResumenDireccionEnvio';
 import AdminButton from '../../components/admin/ui/AdminButton';
 import AdminCard from '../../components/admin/ui/AdminCard';
@@ -19,7 +29,9 @@ import { useCuentaObligatoria, useCuentas } from '../../hooks/useCaja';
 import { cuentasParaProveedor } from '../../lib/caja';
 import type { Orden, Producto, MetodoEnvio } from '../../types';
 
-const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
+// Filtro de la lista: valores internos de `ordenes.estado` (el backend filtra por ellos). Los chips por
+// pregunta ("me deben plata", "esperando al cliente") van en una entrega aparte.
+const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_diseno','diseno_listo','esperando_aprobacion','en_preparacion','listo_para_retirar','listo_para_enviar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
 
 // Compras de prueba — espejo de esMarcablePrueba()/stockSostenido() del backend
 // (mate-laser-backend/src/common/estados-orden.ts). El backend es la fuente de
@@ -27,7 +39,7 @@ const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_p
 // Con el pago aprobado el stock ya salió del inventario; cancelado/rechazado no
 // tienen stock que devolver; las pre-pago no se pueden marcar (pueden tener
 // stock reservado y un webhook/cron las mueve en cualquier momento).
-const ESTADOS_CON_STOCK = ['pagado', 'en_preparacion', 'listo_para_retirar', 'enviado', 'entregado'];
+const ESTADOS_CON_STOCK = ESTADOS_POST_PAGO;
 const ESTADOS_MARCABLES_PRUEBA = [...ESTADOS_CON_STOCK, 'cancelado', 'rechazado'];
 
 // Qué hacer con una orden pre-pago para poder marcarla. Cancelar a mano por PUT
@@ -409,6 +421,9 @@ export default function AdminOrdenes() {
     if (orden.canal !== 'admin_manual') return 'Esto solo aplica a ventas cargadas a mano.';
     if (orden.estado === 'cancelado') return 'La venta está anulada.';
     if (orden.es_prueba) return 'Es una orden de prueba: desmarcala antes de editar los productos.';
+    if (orden.estado === 'listo_para_enviar') {
+      return 'Ya está lista para enviar (el paquete está armado): no se pueden editar los productos.';
+    }
     if (['listo_para_retirar', 'enviado', 'entregado'].includes(orden.estado)) {
       return 'Ya está lista para retirar, enviada o entregada: no se pueden editar los productos.';
     }
@@ -478,7 +493,9 @@ export default function AdminOrdenes() {
 
   const handleActualizar = () => {
     if (!ordenSeleccionada) return;
-    if (!confirm(`¿Confirmás el cambio de estado a "${nuevoEstado.replace(/_/g, ' ')}"? El cliente puede ver este estado desde su cuenta.`)) return;
+    // Solo se pregunta si el ESTADO cambió: guardar notas o el seguimiento no es un cambio de estado
+    // (y preguntar siempre enseña a apretar "Aceptar" sin leer).
+    if (nuevoEstado !== ordenSeleccionada.estado && !confirm(textoConfirmarCambio(nuevoEstado, ordenSeleccionada))) return;
     actualizarMutation.mutate({
       id: ordenSeleccionada.id,
       data: {
@@ -740,7 +757,7 @@ export default function AdminOrdenes() {
           )}
           <AdminSelect value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} fullWidth={false}>
             <option value="">Todos los estados</option>
-            {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
+            {estados.map(e => <option key={e} value={e}>{etiquetaAdmin(e)}</option>)}
           </AdminSelect>
         </div>
       </div>
@@ -1209,10 +1226,16 @@ export default function AdminOrdenes() {
             <div>
               <AdminLabel>Estado</AdminLabel>
               <AdminSelect value={nuevoEstado} onChange={e => setNuevoEstado(e.target.value)}>
-                {/* 'pendiente pago' / 'pago parcial' son del cobro, no del pedido (se ven en la columna Cobro): solo aparecen si es el estado actual. */}
-                {estados
-                  .filter(e => (e !== 'pendiente_pago' && e !== 'pago_parcial') || e === ordenSeleccionada?.estado)
-                  .map(e => <option key={e} value={e}>{e === 'pagado' ? 'pagado · sin preparar' : e.replace(/_/g, ' ')}</option>)}
+                {/* Solo estados del PEDIDO, agrupados. Los de cobro y espera de pago (sin cobrar, pago parcial, reservado...)
+                    los mueven el cobro, el webhook y el cron: aparecen únicamente si son el estado actual de la orden. */}
+                {estadoActualFueraDelSelect(ordenSeleccionada?.estado ?? '') && (
+                  <option value={ordenSeleccionada!.estado}>{etiquetaAdmin(ordenSeleccionada!.estado)} (actual)</option>
+                )}
+                {GRUPOS_ESTADO_PEDIDO.map(g => (
+                  <optgroup key={g.grupo} label={g.grupo}>
+                    {g.estados.map(e => <option key={e} value={e}>{etiquetaOpcionEstado(e)}</option>)}
+                  </optgroup>
+                ))}
               </AdminSelect>
             </div>
             {cancelaOrdenPaga && (
@@ -1307,7 +1330,7 @@ export default function AdminOrdenes() {
           <div className="flex flex-col gap-3 text-sm text-[var(--ink)]">
             {/* Identidad de la orden: el riesgo real es marcar una venta de verdad. */}
             <div className="rounded-[var(--radius-el)] bg-[var(--n-50)] border border-[var(--line)] px-3 py-2 text-xs">
-              {nombreClienteOrden} · ${Number(ordenSeleccionada.total).toLocaleString('es-AR')} · {ordenSeleccionada.estado.replace(/_/g, ' ')}
+              {nombreClienteOrden} · ${Number(ordenSeleccionada.total).toLocaleString('es-AR')} · {etiquetaAdmin(ordenSeleccionada.estado)}
             </div>
 
             {modoPrueba === 'desmarcar' ? (

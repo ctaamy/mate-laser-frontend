@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, Clock, XCircle, Mail } from 'lucide-react';
 import api from '../lib/api';
 import type { Orden } from '../types';
+import { esEstadoPostPago } from '../lib/estadoOrden';
 import { useConfiguracion } from '../hooks/useConfiguracion';
 import CheckoutSteps from '../components/ui/CheckoutSteps';
 import OrdenItems from '../components/orden/OrdenItems';
@@ -60,7 +61,7 @@ export default function Confirmacion() {
   const pago = (orden as any).pagos?.[0];
   const estadoPago = pago?.estado;
 
-  const isAprobado = orden.estado === 'pagado' || estadoPago === 'aprobado';
+  const isAprobado = esEstadoPostPago(orden.estado) || estadoPago === 'aprobado';
   // MP devuelve "success" pero el webhook puede demorar — mostrar como pendiente hasta que llegue
   const isMPPending = mpStatus === 'success' && orden.estado === 'pendiente';
   // MP devuelve "pending"/"in_process" (ticket, transferencia, revisión antifraude) — no hay webhook de aprobación en curso, puede tardar días
@@ -191,7 +192,7 @@ export default function Confirmacion() {
         {/* SIDEBAR */}
         <div className="flex flex-col gap-4">
           {/* TIMELINE */}
-          <OrdenTimeline isAprobado={isAprobado} isPendiente={isPendiente} />
+          <OrdenTimeline isAprobado={isAprobado} isPendiente={isPendiente} estado={orden.estado} />
 
           <div className="flex flex-col gap-2">
             {isRechazado ? (
