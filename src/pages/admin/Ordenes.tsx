@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
+import PagoBadge from '../../components/admin/PagoBadge';
+import { estadoPagoDe, estadoPedidoVisible, saldoDe } from '../../lib/estadoOrden';
 import ResumenDireccionEnvio from '../../components/ui/ResumenDireccionEnvio';
 import AdminButton from '../../components/admin/ui/AdminButton';
 import AdminCard from '../../components/admin/ui/AdminCard';
@@ -640,8 +642,10 @@ export default function AdminOrdenes() {
     anularVentaManualMutation.mutate(ordenSeleccionada.id);
   };
 
+  // Con saldo por cobrar, sea cual sea el avance del pedido (puede estar en preparación con la seña cobrada).
   const esVentaManualPendiente = ordenSeleccionada?.canal === 'admin_manual'
-    && (ordenSeleccionada.estado === 'pendiente_pago' || ordenSeleccionada.estado === 'pago_parcial');
+    && ordenSeleccionada.estado !== 'cancelado'
+    && saldoDe(ordenSeleccionada) > 0;
   const esVentaManualAnulable = ordenSeleccionada?.canal === 'admin_manual' && ordenSeleccionada.estado !== 'cancelado';
 
   // --- Compras de prueba ---
@@ -755,7 +759,7 @@ export default function AdminOrdenes() {
             propósito: arreglarlo en AdminLayout/AdminTable cambia las otras 6 pantallas admin. */}
         <div className="overflow-x-auto w-0 min-w-full">
         <AdminTable
-          columns={['Orden', 'Cliente', 'Total', 'Pago', 'Estado', 'Fecha', 'Acciones']}
+          columns={['Orden', 'Cliente', 'Total', 'Método', 'Cobro', 'Pedido', 'Fecha', 'Acciones']}
           isLoading={isLoading}
           isError={isError}
           isEmpty={!ordenes || ordenes.length === 0}
@@ -802,15 +806,18 @@ export default function AdminOrdenes() {
               </td>
               <td className="px-5 py-3 text-sm font-medium text-[var(--ink)]">
                 ${Number(orden.total).toLocaleString('es-AR')}
-                {(orden.estado === 'pago_parcial' || orden.estado === 'pendiente_pago') && (
+                {orden.canal === 'admin_manual' && saldoDe(orden) > 0 && orden.estado !== 'cancelado' && (
                   <div className="text-[11px] font-normal text-[var(--ink-soft)]">
-                    saldo ${(Number(orden.total) - cobradoDe(orden)).toLocaleString('es-AR')}
+                    saldo ${saldoDe(orden).toLocaleString('es-AR')}
                   </div>
                 )}
               </td>
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)] capitalize">{orden.metodo_pago || '—'}</td>
               <td className="px-5 py-3">
-                <EstadoBadge estado={orden.estado} />
+                <PagoBadge estadoPago={estadoPagoDe(orden)} />
+              </td>
+              <td className="px-5 py-3">
+                <EstadoBadge estado={estadoPedidoVisible(orden.estado)} />
               </td>
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)]">
                 {new Date(orden.creado_en).toLocaleDateString('es-AR')}
@@ -1168,7 +1175,10 @@ export default function AdminOrdenes() {
             <div>
               <AdminLabel>Estado</AdminLabel>
               <AdminSelect value={nuevoEstado} onChange={e => setNuevoEstado(e.target.value)}>
-                {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
+                {/* 'pendiente pago' / 'pago parcial' son del cobro, no del pedido (se ven en la columna Cobro): solo aparecen si es el estado actual. */}
+                {estados
+                  .filter(e => (e !== 'pendiente_pago' && e !== 'pago_parcial') || e === ordenSeleccionada?.estado)
+                  .map(e => <option key={e} value={e}>{e === 'pagado' ? 'pagado · sin preparar' : e.replace(/_/g, ' ')}</option>)}
               </AdminSelect>
             </div>
             {cancelaOrdenPaga && (

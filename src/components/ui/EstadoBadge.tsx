@@ -11,6 +11,8 @@ const ESTADO_COLOR: Record<string, string> = {
   rechazado: 'bg-red-100 text-red-600',
   // Exclusivos de ventas manuales (canal='admin_manual') — ver
   // OrdenesService.crearVentaManual/registrarPago.
+  // Solo admin (columna Pedido): pagado o con seña, todavía sin empezar a preparar.
+  sin_preparar: 'bg-gray-100 text-gray-600',
   pendiente_pago: 'bg-gray-100 text-gray-600',
   pago_parcial: 'bg-amber-100 text-amber-700',
 };
