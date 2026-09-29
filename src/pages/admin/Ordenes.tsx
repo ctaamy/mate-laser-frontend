@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
 import PagoBadge from '../../components/admin/PagoBadge';
+import ItemLibreForm from '../../components/admin/ItemLibreForm';
 import { estadoPagoDe, estadoPedidoVisible, saldoDe } from '../../lib/estadoOrden';
 import ResumenDireccionEnvio from '../../components/ui/ResumenDireccionEnvio';
 import AdminButton from '../../components/admin/ui/AdminButton';
@@ -60,7 +61,8 @@ const CANALES_VENTA = [
 ];
 
 interface ItemVentaManual {
-  producto_id: string;
+  // Sin producto_id = ítem libre (algo que no está en el catálogo).
+  producto_id?: string;
   variante_id?: string;
   nombre_producto: string;
   color?: string;
@@ -375,8 +377,8 @@ export default function AdminOrdenes() {
     // Productos de la venta manual, listos para agregar/quitar sin ir a buscarlos
     // de nuevo -- el accordion arranca cerrado, esto solo prepara la lista.
     setItemsEdicion((orden.items_orden ?? []).map(i => ({
-      producto_id: i.producto_id || '',
-      variante_id: i.variante_id,
+      producto_id: i.producto_id || undefined,
+      variante_id: i.variante_id || undefined,
       nombre_producto: i.nombre_producto,
       color: i.color,
       precio_unitario: Number(i.precio_unitario),
@@ -441,6 +443,10 @@ export default function AdminOrdenes() {
     setEditItemPrecio('');
   };
 
+  const handleAgregarItemLibreEdicion = (item: { nombre_producto: string; precio_unitario: number; cantidad: number }) => {
+    setItemsEdicion(prev => [...prev, item]);
+  };
+
   const handleQuitarItemEdicion = (idx: number) => {
     setItemsEdicion(prev => prev.filter((_, i) => i !== idx));
   };
@@ -483,6 +489,11 @@ export default function AdminOrdenes() {
     if (!confirm(`¿Confirmás el pago de la orden #${orden.id.slice(0, 8).toUpperCase()}? Esto la marca como pagada.`)) return;
     confirmarPagoMutation.mutate(orden.id);
   };
+
+  // Nombres de ítems libres que ya se vendieron (de las órdenes cargadas), para autocompletar.
+  const nombresItemsLibres: string[] = [...new Set<string>(
+    (ordenes ?? []).flatMap((o: any) => (o.items_orden ?? []).filter((i: any) => !i.producto_id).map((i: any) => String(i.nombre_producto))),
+  )];
 
   const productoSeleccionado = productos?.find(p => p.id === itemProductoId);
   const varianteSeleccionada = productoSeleccionado?.variantes_producto?.find(v => v.id === itemVarianteId);
@@ -567,6 +578,10 @@ export default function AdminOrdenes() {
     setItemVarianteId('');
     setItemCantidad(1);
     setItemPrecio('');
+  };
+
+  const handleAgregarItemLibre = (item: { nombre_producto: string; precio_unitario: number; cantidad: number }) => {
+    setVentaItems(prev => [...prev, item]);
   };
 
   const handleQuitarItem = (idx: number) => {
@@ -972,6 +987,7 @@ export default function AdminOrdenes() {
                             Agregar
                           </AdminButton>
                         </div>
+                        <ItemLibreForm id="item-libre-edicion" sugerencias={nombresItemsLibres} onAgregar={handleAgregarItemLibreEdicion} />
 
                         {errorEditarItems && <div className="text-xs text-[var(--error)]">{errorEditarItems}</div>}
 
@@ -1409,6 +1425,7 @@ export default function AdminOrdenes() {
                 Agregar
               </AdminButton>
             </div>
+            <ItemLibreForm id="item-libre-venta" sugerencias={nombresItemsLibres} onAgregar={handleAgregarItemLibre} />
           </div>
 
           <div>
