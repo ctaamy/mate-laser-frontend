@@ -11,6 +11,7 @@ export type EstadoPago = 'pendiente' | 'parcial' | 'pagado';
 // Estados posteriores al pago aprobado (espejo de ESTADOS_POST_PAGO del backend,
 // que sale de CLASE_ESTADO en common/estados-orden.ts).
 export const ESTADOS_POST_PAGO = [
+  'sin_preparar',
   'pagado',
   'en_diseno',
   'diseno_listo',
@@ -49,11 +50,11 @@ export function saldoDe(orden: OrdenPago): number {
   return Math.max(0, Number(orden.total) - cobrado);
 }
 
-// Mientras el backend siga guardando el pago dentro de `estado` en las ventas
-// manuales, 'pendiente_pago' / 'pago_parcial' / 'pagado' quieren decir "todavía
-// no se empezó a preparar": esa es la información que va en la columna Pedido
-// (el pago ya tiene la suya).
-const SIN_EMPEZAR = ['pendiente_pago', 'pago_parcial', 'pagado'];
+// Una venta manual nace 'sin_preparar'; las ventas manuales VIEJAS todavía pueden estar en
+// 'pendiente_pago' / 'pago_parcial' / 'pagado' (el cobro dentro del estado), y 'pagado' es el paso
+// inicial de una orden web ya paga. Todos quieren decir "todavía no se empezó a diseñar ni a
+// preparar": esa es la información que va en la columna Pedido (el cobro ya tiene la suya).
+const SIN_EMPEZAR = ['sin_preparar', 'pendiente_pago', 'pago_parcial', 'pagado'];
 
 /** Clave (de EstadoBadge) del avance del pedido. */
 export function estadoPedidoVisible(estado: string): string {
@@ -70,6 +71,7 @@ export const ETIQUETA_ADMIN: Record<string, string> = {
   pendiente_pago: 'Sin cobrar',
   pago_parcial: 'Pago parcial',
   pagado: 'Pagado',
+  sin_preparar: 'Sin empezar',
   sin_empezar: 'Sin empezar',
   en_diseno: 'En diseño',
   diseno_listo: 'Diseño listo',
@@ -123,21 +125,26 @@ export function etiquetaCliente(clave: string): string {
  * 'pago_parcial'): los mueven el cobro, el webhook y el cron. Solo se muestran si es
  * el estado actual de la orden (para no dejar el select en blanco).
  */
-export const GRUPOS_ESTADO_PEDIDO: { grupo: string; estados: string[] }[] = [
-  { grupo: 'Diseño', estados: ['en_diseno', 'diseno_listo', 'esperando_aprobacion'] },
-  { grupo: 'Producción', estados: ['pagado', 'en_preparacion'] },
-  { grupo: 'Entrega', estados: ['listo_para_retirar', 'listo_para_enviar', 'enviado', 'entregado'] },
-  { grupo: 'Cerrar', estados: ['cancelado'] },
-];
-
-const ESTADOS_ELEGIBLES = new Set(GRUPOS_ESTADO_PEDIDO.flatMap((g) => g.estados));
-
-/** Estados de cobro / espera de pago que no se eligen a mano; se ofrecen solo si son el estado actual. */
-export function estadoActualFueraDelSelect(estadoActual: string): string | null {
-  return estadoActual && !ESTADOS_ELEGIBLES.has(estadoActual) ? estadoActual : null;
+//
+// El paso inicial depende del tipo de orden: una venta MANUAL arranca 'sin_preparar' (el cobro no
+// está en el estado); una orden WEB ya paga arranca 'pagado'.
+export function gruposEstadoPedido(canal?: string | null): { grupo: string; estados: string[] }[] {
+  const inicial = canal === 'admin_manual' ? 'sin_preparar' : 'pagado';
+  return [
+    { grupo: 'Diseño', estados: ['en_diseno', 'diseno_listo', 'esperando_aprobacion'] },
+    { grupo: 'Producción', estados: [inicial, 'en_preparacion'] },
+    { grupo: 'Entrega', estados: ['listo_para_retirar', 'listo_para_enviar', 'enviado', 'entregado'] },
+    { grupo: 'Cerrar', estados: ['cancelado'] },
+  ];
 }
 
-/** En el select "pagado" se llama "Sin empezar" (paga, todavía sin diseño ni preparación). */
+/** Estados de cobro / espera de pago que no se eligen a mano; se ofrecen solo si son el estado actual. */
+export function estadoActualFueraDelSelect(estadoActual: string, canal?: string | null): string | null {
+  const elegibles = new Set(gruposEstadoPedido(canal).flatMap((g) => g.estados));
+  return estadoActual && !elegibles.has(estadoActual) ? estadoActual : null;
+}
+
+/** En el select el paso inicial de una orden web se llama "Sin empezar (pagado)": paga, todavía sin diseño ni preparación. */
 export function etiquetaOpcionEstado(estado: string): string {
   return estado === 'pagado' ? 'Sin empezar (pagado)' : etiquetaAdmin(estado);
 }

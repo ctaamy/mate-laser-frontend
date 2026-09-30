@@ -65,7 +65,9 @@ test.describe('Admin — Órdenes — cobro y pedido por separado', () => {
     expect(opciones).not.toContain('Pago parcial');
     expect(opciones).not.toContain('Sin cobrar');
     // Ni el estado actual: no es de cobro, es del pedido (la orden está "En preparación").
-    expect(opciones).toContain('Sin empezar (pagado)');
+    // (es una venta MANUAL: su paso inicial es "Sin empezar"; "Sin empezar (pagado)" es el de las órdenes web)
+    expect(opciones).toContain('Sin empezar');
+    expect(opciones).not.toContain('Sin empezar (pagado)');
     expect(opciones).toContain('En preparación');
   });
 });

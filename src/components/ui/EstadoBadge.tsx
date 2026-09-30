@@ -10,6 +10,7 @@ const ESTADO_COLOR: Record<string, string> = {
   pagado: 'bg-[#E1F5EE] text-[#0F6E56]',
   // Solo admin (columna Pedido): pagado o con seña, todavía sin empezar (ni diseño ni preparación).
   sin_empezar: 'bg-gray-100 text-gray-600',
+  sin_preparar: 'bg-gray-100 text-gray-600',
   // Diseño: lo trabajamos nosotros (azul); esperando el OK del cliente es esperar a alguien de afuera (ámbar).
   en_diseno: 'bg-blue-100 text-blue-700',
   diseno_listo: 'bg-blue-100 text-blue-700',

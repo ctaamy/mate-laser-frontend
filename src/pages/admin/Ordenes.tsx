@@ -6,8 +6,8 @@ import PagoBadge from '../../components/admin/PagoBadge';
 import ItemLibreForm from '../../components/admin/ItemLibreForm';
 import {
   ESTADOS_POST_PAGO,
-  GRUPOS_ESTADO_PEDIDO,
   estadoActualFueraDelSelect,
+  gruposEstadoPedido,
   estadoPagoDe,
   estadoPedidoVisible,
   etiquetaAdmin,
@@ -31,7 +31,7 @@ import type { Orden, Producto, MetodoEnvio } from '../../types';
 
 // Filtro de la lista: valores internos de `ordenes.estado` (el backend filtra por ellos). Los chips por
 // pregunta ("me deben plata", "esperando al cliente") van en una entrega aparte.
-const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_diseno','diseno_listo','esperando_aprobacion','en_preparacion','listo_para_retirar','listo_para_enviar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
+const estados = ['pendiente','reservado','esperando_confirmacion','sin_preparar','pagado','en_diseno','diseno_listo','esperando_aprobacion','en_preparacion','listo_para_retirar','listo_para_enviar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
 
 // Compras de prueba — espejo de esMarcablePrueba()/stockSostenido() del backend
 // (mate-laser-backend/src/common/estados-orden.ts). El backend es la fuente de
@@ -1228,10 +1228,10 @@ export default function AdminOrdenes() {
               <AdminSelect value={nuevoEstado} onChange={e => setNuevoEstado(e.target.value)}>
                 {/* Solo estados del PEDIDO, agrupados. Los de cobro y espera de pago (sin cobrar, pago parcial, reservado...)
                     los mueven el cobro, el webhook y el cron: aparecen únicamente si son el estado actual de la orden. */}
-                {estadoActualFueraDelSelect(ordenSeleccionada?.estado ?? '') && (
+                {estadoActualFueraDelSelect(ordenSeleccionada?.estado ?? '', ordenSeleccionada?.canal) && (
                   <option value={ordenSeleccionada!.estado}>{etiquetaAdmin(ordenSeleccionada!.estado)} (actual)</option>
                 )}
-                {GRUPOS_ESTADO_PEDIDO.map(g => (
+                {gruposEstadoPedido(ordenSeleccionada?.canal).map(g => (
                   <optgroup key={g.grupo} label={g.grupo}>
                     {g.estados.map(e => <option key={e} value={e}>{etiquetaOpcionEstado(e)}</option>)}
                   </optgroup>
