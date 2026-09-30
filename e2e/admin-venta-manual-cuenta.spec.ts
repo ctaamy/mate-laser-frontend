@@ -83,11 +83,11 @@ test.describe('Venta manual — cuenta de cobro', () => {
     expect(venta.body).toMatchObject({ metodo_pago: 'otro', cuenta_caja_id: 'c-banco-facu' });
   });
 
-  test('sin cobro (seña $0) no hay nada que ubicar: no muestra el selector ni obliga a elegir', async ({ page }) => {
+  test('sin cobro no se puede cargar la venta (una venta se registra cuando ya entró plata): no hay cuenta que ubicar', async ({ page }) => {
     await abrirVentaManual(page);
     await medioDePago(page).selectOption('otro');
     await expect(selectorCuenta(page)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Cargar venta', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Cargar venta', exact: true })).toBeDisabled();
   });
 
   test('si cambia el medio de pago, la cuenta elegida que ya no sirve se limpia', async ({ page }) => {

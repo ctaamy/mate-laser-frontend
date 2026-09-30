@@ -55,6 +55,7 @@ test.describe('Admin — Órdenes — cargar venta manual', () => {
     await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
     await page.getByRole('button', { name: 'Agregar' }).click();
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
 
     await expect(page.getByText('cp debe ser un código postal argentino de 4 dígitos')).toBeVisible();
@@ -107,6 +108,7 @@ test.describe('Admin — Órdenes — venta manual con método de envío', () =>
     // No deberían aparecer campos de dirección para retiro.
     await expect(page.getByPlaceholder('Calle y número')).not.toBeVisible();
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
 
     await expect.poll(() => bodyEnviado).not.toBeNull();
@@ -139,6 +141,7 @@ test.describe('Admin — Órdenes — venta manual con método de envío', () =>
     await page.getByPlaceholder('Buenos Aires').first().fill('Buenos Aires'); // provincia (fallback)
     await page.getByPlaceholder('Buenos Aires').nth(1).fill('CABA'); // ciudad (fallback)
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
 
     await expect.poll(() => bodyEnviado).not.toBeNull();
@@ -185,6 +188,7 @@ test.describe('Admin — Órdenes — venta manual con método de envío', () =>
     await page.getByPlaceholder('Nombre de quien recibe').fill('María Gómez');
     await page.getByPlaceholder('Ej: 30123456').fill('30123456');
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
 
     await expect.poll(() => bodyEnviado).not.toBeNull();
@@ -447,6 +451,7 @@ test.describe('Admin — Órdenes — canal de venta (Instagram, feria, etc.)', 
     await page.getByRole('button', { name: 'Agregar' }).click();
     await page.getByText('Canal de venta', { exact: false }).locator('..').locator('select').selectOption('feria');
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
 
     await expect.poll(() => bodyEnviado).not.toBeNull();
@@ -469,6 +474,7 @@ test.describe('Admin — Órdenes — canal de venta (Instagram, feria, etc.)', 
     await page.getByText('Producto', { exact: true }).locator('..').locator('select').selectOption(PRODUCTO_ADMIN_MOCK.id);
     await page.getByRole('button', { name: 'Agregar' }).click();
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
 
     await expect.poll(() => bodyEnviado).not.toBeNull();

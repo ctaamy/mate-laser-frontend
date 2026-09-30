@@ -646,6 +646,11 @@ export default function AdminOrdenes() {
   const cuentaPagoObligatoria = useCuentaObligatoria(metodoNuevoPago, montoNuevoPago !== '' && Number(montoNuevoPago) > 0);
   const handleCrearVentaManual = () => {
     if (ventaItems.length === 0) return;
+    // Una venta manual solo se registra cuando ya entró plata (la seña o el total): el backend también lo valida.
+    if (!cobraAlCargar) {
+      setErrorVentaManual('Cargá al menos una seña: una venta se registra cuando ya entró plata.');
+      return;
+    }
     setErrorVentaManual('');
     crearVentaManualMutation.mutate({
       items: ventaItems,
@@ -1399,7 +1404,7 @@ export default function AdminOrdenes() {
           <AdminButton variant="secondary" onClick={cerrarModalVentaManual}>Cancelar</AdminButton>
           <AdminButton
             variant="primary"
-            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0 || (cuentaVentaObligatoria && !cuentaCajaVenta) || (esMeli && (!netoMeliValido || totalVentaManual <= 0))}
+            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0 || (cuentaVentaObligatoria && !cuentaCajaVenta) || !cobraAlCargar || (esMeli && (!netoMeliValido || totalVentaManual <= 0))}
             onClick={handleCrearVentaManual}
           >
             {crearVentaManualMutation.isPending ? 'Guardando...' : 'Cargar venta'}
@@ -1601,7 +1606,7 @@ export default function AdminOrdenes() {
             </p>
           ) : (
           <p className="text-xs text-[var(--ink-soft)] -mt-2">
-            Dejalo vacío o en $0 si todavía no cobraste nada (queda "pendiente de pago"). Si cobrás menos que el total, queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
+            Una venta se registra cuando ya entró plata: cargá la seña o el total. Si cobrás menos que el total queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
           </p>
           )}
 

@@ -56,6 +56,7 @@ test.describe('Venta manual — producto que no está en el catálogo', () => {
     await expect(page.getByText('Total: $7.000')).toBeVisible();
     await expect(page.getByTestId('item-libre-venta')).toHaveCount(0);
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
     await expect.poll(() => body).not.toBeNull();
     expect(body.items).toEqual([{ nombre_producto: 'Llavero LED personalizado', precio_unitario: 3500, cantidad: 2 }]);
@@ -89,6 +90,7 @@ test.describe('Venta manual — producto que no está en el catálogo', () => {
     await page.getByTestId('item-libre-venta-precio').fill('3500');
     await page.getByTestId('item-libre-venta-agregar').click();
 
+    await page.getByText('Monto cobrado ahora', { exact: true }).locator('..').locator('input').fill('5000');
     await page.getByRole('button', { name: 'Cargar venta', exact: true }).click();
     await expect.poll(() => body).not.toBeNull();
     expect(body.items).toHaveLength(2);
