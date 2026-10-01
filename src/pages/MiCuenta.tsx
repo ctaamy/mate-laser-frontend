@@ -6,6 +6,8 @@ import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 import type { Orden, OrdenResumen } from '../types';
 import EstadoBadge from '../components/ui/EstadoBadge';
+import { esEstadoPostPago } from '../lib/estadoOrden';
+import { useConfiguracion } from '../hooks/useConfiguracion';
 import BannerVerificacion from '../components/ui/BannerVerificacion';
 import OrdenItems from '../components/orden/OrdenItems';
 import OrdenEnvioResumen from '../components/orden/OrdenEnvioResumen';
@@ -114,7 +116,7 @@ function ListaPedidos() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <EstadoBadge estado={orden.estado} />
+            <EstadoBadge estado={orden.estado} paraCliente />
             <span className="text-sm font-medium">${Number(orden.total).toLocaleString('es-AR')}</span>
             <ChevronRight size={16} className="text-gray-300" />
           </div>
@@ -126,6 +128,7 @@ function ListaPedidos() {
 
 function DetallePedido({ id }: { id: string }) {
   const navigate = useNavigate();
+  const { data: config } = useConfiguracion();
   const [pagando, setPagando] = useState(false);
   const [errorPago, setErrorPago] = useState('');
   const { data: orden, isLoading } = useQuery<Orden>({
@@ -137,11 +140,17 @@ function DetallePedido({ id }: { id: string }) {
   if (!orden) return <div className="text-sm text-gray-400 py-10 text-center">Pedido no encontrado</div>;
 
   const pago = (orden as any).pagos?.[0];
-  const isAprobado = orden.estado === 'pagado' || pago?.estado === 'aprobado';
+  const isAprobado = esEstadoPostPago(orden.estado) || pago?.estado === 'aprobado';
   const isPendiente = orden.estado === 'pendiente' || orden.estado === 'reservado' || orden.estado === 'esperando_confirmacion';
   // Solo se puede retomar el pago de una orden 'pendiente' de Mercado Pago
   // (nunca hubo intento de pago → no hay boleto vivo). El backend valida igual.
   const puedeRetomarPago = orden.estado === 'pendiente' && orden.metodo_pago === 'mercadopago';
+
+  // Sin pantalla de aprobación: el cliente responde por WhatsApp, donde le llegó el boceto.
+  const telefonoWhatsapp = (config?.telefono_contacto || '').replace(/\D/g, '');
+  const waDiseno = telefonoWhatsapp
+    ? `https://wa.me/${telefonoWhatsapp}?text=${encodeURIComponent(`Hola! Te escribo por el diseño del pedido #${orden.id.slice(0, 8).toUpperCase()}.`)}`
+    : undefined;
 
   const retomarPago = async () => {
     setPagando(true);
@@ -164,8 +173,24 @@ function DetallePedido({ id }: { id: string }) {
 
       <div className="flex items-center gap-3">
         <h2 className="text-lg font-medium">Pedido #{orden.id.slice(0, 8).toUpperCase()}</h2>
-        <EstadoBadge estado={orden.estado} />
+        <EstadoBadge estado={orden.estado} paraCliente />
       </div>
+
+      {orden.estado === 'esperando_aprobacion' && (
+        <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3" data-testid="aprobar-diseno">
+          <span className="text-sm text-amber-900">Tu diseño está listo. Necesitamos tu OK para grabarlo.</span>
+          {waDiseno && (
+            <a
+              href={waDiseno}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#1D9E75] text-white rounded-lg py-2 px-4 text-sm font-medium hover:bg-[#0F6E56] transition-colors flex-shrink-0"
+            >
+              Responder por WhatsApp
+            </a>
+          )}
+        </div>
+      )}
 
       {puedeRetomarPago && (
         <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 flex flex-col gap-2">
@@ -189,7 +214,7 @@ function DetallePedido({ id }: { id: string }) {
           <OrdenEnvioResumen orden={orden} />
         </div>
         <div>
-          <OrdenTimeline isAprobado={isAprobado} isPendiente={isPendiente} />
+          <OrdenTimeline isAprobado={isAprobado} isPendiente={isPendiente} estado={orden.estado} />
         </div>
       </div>
     </div>

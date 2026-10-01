@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import EstadoBadge from '../../components/ui/EstadoBadge';
+import PagoBadge from '../../components/admin/PagoBadge';
+import ItemLibreForm from '../../components/admin/ItemLibreForm';
+import {
+  ESTADOS_POST_PAGO,
+  estadoActualFueraDelSelect,
+  gruposEstadoPedido,
+  estadoPagoDe,
+  estadoPedidoVisible,
+  etiquetaAdmin,
+  etiquetaOpcionEstado,
+  saldoDe,
+  textoConfirmarCambio,
+} from '../../lib/estadoOrden';
 import ResumenDireccionEnvio from '../../components/ui/ResumenDireccionEnvio';
 import AdminButton from '../../components/admin/ui/AdminButton';
 import AdminCard from '../../components/admin/ui/AdminCard';
@@ -16,7 +29,9 @@ import { useCuentaObligatoria, useCuentas } from '../../hooks/useCaja';
 import { cuentasParaProveedor } from '../../lib/caja';
 import type { Orden, Producto, MetodoEnvio } from '../../types';
 
-const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_preparacion','listo_para_retirar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
+// Filtro de la lista: valores internos de `ordenes.estado` (el backend filtra por ellos). Los chips por
+// pregunta ("me deben plata", "esperando al cliente") van en una entrega aparte.
+const estados = ['pendiente','reservado','esperando_confirmacion','sin_preparar','pagado','en_diseno','diseno_listo','esperando_aprobacion','en_preparacion','listo_para_retirar','listo_para_enviar','enviado','entregado','cancelado','pendiente_pago','pago_parcial'];
 
 // Compras de prueba — espejo de esMarcablePrueba()/stockSostenido() del backend
 // (mate-laser-backend/src/common/estados-orden.ts). El backend es la fuente de
@@ -24,7 +39,7 @@ const estados = ['pendiente','reservado','esperando_confirmacion','pagado','en_p
 // Con el pago aprobado el stock ya salió del inventario; cancelado/rechazado no
 // tienen stock que devolver; las pre-pago no se pueden marcar (pueden tener
 // stock reservado y un webhook/cron las mueve en cualquier momento).
-const ESTADOS_CON_STOCK = ['pagado', 'en_preparacion', 'listo_para_retirar', 'enviado', 'entregado'];
+const ESTADOS_CON_STOCK = ESTADOS_POST_PAGO;
 const ESTADOS_MARCABLES_PRUEBA = [...ESTADOS_CON_STOCK, 'cancelado', 'rechazado'];
 
 // Qué hacer con una orden pre-pago para poder marcarla. Cancelar a mano por PUT
@@ -44,7 +59,13 @@ function pistaOrdenNoMarcable(estado: string): string {
 // Métodos válidos para venta manual — debe coincidir con METODOS_VENTA_MANUAL
 // del backend (mate-laser-backend/src/common/metodos-pago.ts). Excluye
 // mercadopago a propósito.
-const METODOS_VENTA_MANUAL = ['efectivo', 'transferencia', 'otro'];
+const METODOS_COBRO_SIMPLE = ['efectivo', 'transferencia', 'otro'];
+// + 'mercadolibre': la cobra MeLI (pide neto y fecha de liberación), así que solo se elige al CARGAR
+// la venta, no al registrar un pago posterior ni al corregir un cobro (esos usan METODOS_COBRO_SIMPLE).
+const METODOS_VENTA_MANUAL = [...METODOS_COBRO_SIMPLE, 'mercadolibre'];
+
+const METODO_LABEL: Record<string, string> = { mercadolibre: 'MercadoLibre', mercadopago: 'Mercado Pago' };
+const etiquetaMetodo = (m: string) => METODO_LABEL[m] ?? m;
 
 // Sub-canal de una venta manual — valores deben coincidir con
 // CANALES_VENTA_MANUAL del backend (mismo archivo que METODOS_VENTA_MANUAL).
@@ -52,13 +73,15 @@ const CANALES_VENTA = [
   { value: 'instagram', label: 'Instagram' },
   { value: 'facebook', label: 'Facebook' },
   { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'mercadolibre', label: 'MercadoLibre' },
   { value: 'feria', label: 'Feria' },
   { value: 'presencial', label: 'Presencial / local' },
   { value: 'otro', label: 'Otro' },
 ];
 
 interface ItemVentaManual {
-  producto_id: string;
+  // Sin producto_id = ítem libre (algo que no está en el catálogo).
+  producto_id?: string;
   variante_id?: string;
   nombre_producto: string;
   color?: string;
@@ -94,6 +117,9 @@ export default function AdminOrdenes() {
   const [itemPrecio, setItemPrecio] = useState<number | ''>('');
   const [metodoPagoManual, setMetodoPagoManual] = useState('efectivo');
   const [montoPagado, setMontoPagado] = useState<number | ''>('');
+  // Venta por MercadoLibre: neto que libera MeLI y fecha estimada (YYYY-MM-DD, opcional).
+  const [netoMeli, setNetoMeli] = useState<number | ''>('');
+  const [liberacionMeli, setLiberacionMeli] = useState('');
   const [nombreCliente, setNombreCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
   const [origenVenta, setOrigenVenta] = useState('');
@@ -373,8 +399,8 @@ export default function AdminOrdenes() {
     // Productos de la venta manual, listos para agregar/quitar sin ir a buscarlos
     // de nuevo -- el accordion arranca cerrado, esto solo prepara la lista.
     setItemsEdicion((orden.items_orden ?? []).map(i => ({
-      producto_id: i.producto_id || '',
-      variante_id: i.variante_id,
+      producto_id: i.producto_id || undefined,
+      variante_id: i.variante_id || undefined,
       nombre_producto: i.nombre_producto,
       color: i.color,
       precio_unitario: Number(i.precio_unitario),
@@ -395,6 +421,9 @@ export default function AdminOrdenes() {
     if (orden.canal !== 'admin_manual') return 'Esto solo aplica a ventas cargadas a mano.';
     if (orden.estado === 'cancelado') return 'La venta está anulada.';
     if (orden.es_prueba) return 'Es una orden de prueba: desmarcala antes de editar los productos.';
+    if (orden.estado === 'listo_para_enviar') {
+      return 'Ya está lista para enviar (el paquete está armado): no se pueden editar los productos.';
+    }
     if (['listo_para_retirar', 'enviado', 'entregado'].includes(orden.estado)) {
       return 'Ya está lista para retirar, enviada o entregada: no se pueden editar los productos.';
     }
@@ -439,6 +468,10 @@ export default function AdminOrdenes() {
     setEditItemPrecio('');
   };
 
+  const handleAgregarItemLibreEdicion = (item: { nombre_producto: string; precio_unitario: number; cantidad: number }) => {
+    setItemsEdicion(prev => [...prev, item]);
+  };
+
   const handleQuitarItemEdicion = (idx: number) => {
     setItemsEdicion(prev => prev.filter((_, i) => i !== idx));
   };
@@ -460,7 +493,9 @@ export default function AdminOrdenes() {
 
   const handleActualizar = () => {
     if (!ordenSeleccionada) return;
-    if (!confirm(`¿Confirmás el cambio de estado a "${nuevoEstado.replace(/_/g, ' ')}"? El cliente puede ver este estado desde su cuenta.`)) return;
+    // Solo se pregunta si el ESTADO cambió: guardar notas o el seguimiento no es un cambio de estado
+    // (y preguntar siempre enseña a apretar "Aceptar" sin leer).
+    if (nuevoEstado !== ordenSeleccionada.estado && !confirm(textoConfirmarCambio(nuevoEstado, ordenSeleccionada))) return;
     actualizarMutation.mutate({
       id: ordenSeleccionada.id,
       data: {
@@ -482,6 +517,11 @@ export default function AdminOrdenes() {
     confirmarPagoMutation.mutate(orden.id);
   };
 
+  // Nombres de ítems libres que ya se vendieron (de las órdenes cargadas), para autocompletar.
+  const nombresItemsLibres: string[] = [...new Set<string>(
+    (ordenes ?? []).flatMap((o: any) => (o.items_orden ?? []).filter((i: any) => !i.producto_id).map((i: any) => String(i.nombre_producto))),
+  )];
+
   const productoSeleccionado = productos?.find(p => p.id === itemProductoId);
   const varianteSeleccionada = productoSeleccionado?.variantes_producto?.find(v => v.id === itemVarianteId);
 
@@ -489,7 +529,7 @@ export default function AdminOrdenes() {
   // compara useDirtyGuard para saber si hay algo sin guardar al cerrar.
   const snapshotVentaManual = () => ({
     ventaItems, itemProductoId, itemVarianteId, itemCantidad, itemPrecio,
-    metodoPagoManual, montoPagado, cuentaCajaVenta, nombreCliente, telefonoCliente, origenVenta, notasManual,
+    metodoPagoManual, montoPagado, netoMeli, liberacionMeli, cuentaCajaVenta, nombreCliente, telefonoCliente, origenVenta, notasManual,
     metodoEnvioId, calleEnvio, pisoEnvio, cpEnvio, ciudadEnvio, provinciaEnvio,
     especificacionesEnvio, recibeCompradorManual, quienRecibeManual, dniReceptorManual,
   });
@@ -510,6 +550,8 @@ export default function AdminOrdenes() {
     setItemPrecio('');
     setMetodoPagoManual('efectivo');
     setMontoPagado('');
+    setNetoMeli('');
+    setLiberacionMeli('');
     setCuentaCajaVenta('');
     setCuentaCajaVenta('');
     setNombreCliente('');
@@ -567,6 +609,10 @@ export default function AdminOrdenes() {
     setItemPrecio('');
   };
 
+  const handleAgregarItemLibre = (item: { nombre_producto: string; precio_unitario: number; cantidad: number }) => {
+    setVentaItems(prev => [...prev, item]);
+  };
+
   const handleQuitarItem = (idx: number) => {
     setVentaItems(prev => prev.filter((_, i) => i !== idx));
   };
@@ -591,17 +637,28 @@ export default function AdminOrdenes() {
   const costoEnvioPreview = esRetiroEnvio ? 0 : (costosEnvioPreview?.find((c: any) => c.id === metodoEnvioId)?.costo ?? 0);
   const totalVentaManual = subtotalVentaManual + (metodoEnvioId ? costoEnvioPreview : 0);
 
-  const cobraAlCargar = montoPagado !== '' && Number(montoPagado) > 0;
+  // MercadoLibre cobra la venta entera: no hay seña ni monto a tipear, solo el neto que libera.
+  const esMeli = metodoPagoManual === 'mercadolibre';
+  const netoMeliValido = netoMeli !== '' && Number(netoMeli) > 0 && Number(netoMeli) <= totalVentaManual;
+  const cobraAlCargar = esMeli || (montoPagado !== '' && Number(montoPagado) > 0);
   // "Otro" no tiene una cuenta por defecto: si ya hay caja, hay que elegirla o el cobro quedaría sin anotar.
   const cuentaVentaObligatoria = useCuentaObligatoria(metodoPagoManual, cobraAlCargar);
   const cuentaPagoObligatoria = useCuentaObligatoria(metodoNuevoPago, montoNuevoPago !== '' && Number(montoNuevoPago) > 0);
   const handleCrearVentaManual = () => {
     if (ventaItems.length === 0) return;
+    // Una venta manual solo se registra cuando ya entró plata (la seña o el total): el backend también lo valida.
+    if (!cobraAlCargar) {
+      setErrorVentaManual('Cargá al menos una seña: una venta se registra cuando ya entró plata.');
+      return;
+    }
     setErrorVentaManual('');
     crearVentaManualMutation.mutate({
       items: ventaItems,
       metodo_pago: metodoPagoManual,
-      monto_pagado: montoPagado === '' ? 0 : Number(montoPagado),
+      monto_pagado: esMeli ? totalVentaManual : montoPagado === '' ? 0 : Number(montoPagado),
+      ...(esMeli && {
+        mercadolibre: { neto: Number(netoMeli), ...(liberacionMeli && { liberacion_estimada: liberacionMeli }) },
+      }),
       // Solo si se cobró algo: sin cobro no hay pago que ubicar en una cuenta.
       cuenta_caja_id: cobraAlCargar && cuentaCajaVenta ? cuentaCajaVenta : undefined,
       nombre_cliente: nombreCliente || undefined,
@@ -640,8 +697,10 @@ export default function AdminOrdenes() {
     anularVentaManualMutation.mutate(ordenSeleccionada.id);
   };
 
+  // Con saldo por cobrar, sea cual sea el avance del pedido (puede estar en preparación con la seña cobrada).
   const esVentaManualPendiente = ordenSeleccionada?.canal === 'admin_manual'
-    && (ordenSeleccionada.estado === 'pendiente_pago' || ordenSeleccionada.estado === 'pago_parcial');
+    && ordenSeleccionada.estado !== 'cancelado'
+    && saldoDe(ordenSeleccionada) > 0;
   const esVentaManualAnulable = ordenSeleccionada?.canal === 'admin_manual' && ordenSeleccionada.estado !== 'cancelado';
 
   // --- Compras de prueba ---
@@ -703,7 +762,7 @@ export default function AdminOrdenes() {
           )}
           <AdminSelect value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} fullWidth={false}>
             <option value="">Todos los estados</option>
-            {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
+            {estados.map(e => <option key={e} value={e}>{etiquetaAdmin(e)}</option>)}
           </AdminSelect>
         </div>
       </div>
@@ -755,7 +814,7 @@ export default function AdminOrdenes() {
             propósito: arreglarlo en AdminLayout/AdminTable cambia las otras 6 pantallas admin. */}
         <div className="overflow-x-auto w-0 min-w-full">
         <AdminTable
-          columns={['Orden', 'Cliente', 'Total', 'Pago', 'Estado', 'Fecha', 'Acciones']}
+          columns={['Orden', 'Cliente', 'Total', 'Método', 'Cobro', 'Pedido', 'Fecha', 'Acciones']}
           isLoading={isLoading}
           isError={isError}
           isEmpty={!ordenes || ordenes.length === 0}
@@ -802,15 +861,18 @@ export default function AdminOrdenes() {
               </td>
               <td className="px-5 py-3 text-sm font-medium text-[var(--ink)]">
                 ${Number(orden.total).toLocaleString('es-AR')}
-                {(orden.estado === 'pago_parcial' || orden.estado === 'pendiente_pago') && (
+                {orden.canal === 'admin_manual' && saldoDe(orden) > 0 && orden.estado !== 'cancelado' && (
                   <div className="text-[11px] font-normal text-[var(--ink-soft)]">
-                    saldo ${(Number(orden.total) - cobradoDe(orden)).toLocaleString('es-AR')}
+                    saldo ${saldoDe(orden).toLocaleString('es-AR')}
                   </div>
                 )}
               </td>
-              <td className="px-5 py-3 text-xs text-[var(--ink-soft)] capitalize">{orden.metodo_pago || '—'}</td>
+              <td className="px-5 py-3 text-xs text-[var(--ink-soft)] capitalize">{orden.metodo_pago ? etiquetaMetodo(orden.metodo_pago) : '—'}</td>
               <td className="px-5 py-3">
-                <EstadoBadge estado={orden.estado} />
+                <PagoBadge estadoPago={estadoPagoDe(orden)} />
+              </td>
+              <td className="px-5 py-3">
+                <EstadoBadge estado={estadoPedidoVisible(orden.estado)} />
               </td>
               <td className="px-5 py-3 text-xs text-[var(--ink-soft)]">
                 {new Date(orden.creado_en).toLocaleDateString('es-AR')}
@@ -965,6 +1027,7 @@ export default function AdminOrdenes() {
                             Agregar
                           </AdminButton>
                         </div>
+                        <ItemLibreForm id="item-libre-edicion" sugerencias={nombresItemsLibres} onAgregar={handleAgregarItemLibreEdicion} />
 
                         {errorEditarItems && <div className="text-xs text-[var(--error)]">{errorEditarItems}</div>}
 
@@ -1084,7 +1147,7 @@ export default function AdminOrdenes() {
                                 value={corregirMetodoPago}
                                 onChange={e => { setCorregirMetodoPago(e.target.value); setCorregirCuentaId(''); }}
                               >
-                                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                                {METODOS_COBRO_SIMPLE.map(m => <option key={m} value={m}>{m}</option>)}
                               </AdminSelect>
                             </div>
                           )}
@@ -1144,7 +1207,7 @@ export default function AdminOrdenes() {
                   <div className="flex-1">
                     <AdminLabel>Medio de pago</AdminLabel>
                     <AdminSelect value={metodoNuevoPago} onChange={e => setMetodoNuevoPago(e.target.value)}>
-                      {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                      {METODOS_COBRO_SIMPLE.map(m => <option key={m} value={m}>{m}</option>)}
                     </AdminSelect>
                   </div>
                   <AdminButton
@@ -1168,7 +1231,16 @@ export default function AdminOrdenes() {
             <div>
               <AdminLabel>Estado</AdminLabel>
               <AdminSelect value={nuevoEstado} onChange={e => setNuevoEstado(e.target.value)}>
-                {estados.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
+                {/* Solo estados del PEDIDO, agrupados. Los de cobro y espera de pago (sin cobrar, pago parcial, reservado...)
+                    los mueven el cobro, el webhook y el cron: aparecen únicamente si son el estado actual de la orden. */}
+                {estadoActualFueraDelSelect(ordenSeleccionada?.estado ?? '', ordenSeleccionada?.canal) && (
+                  <option value={ordenSeleccionada!.estado}>{etiquetaAdmin(ordenSeleccionada!.estado)} (actual)</option>
+                )}
+                {gruposEstadoPedido(ordenSeleccionada?.canal).map(g => (
+                  <optgroup key={g.grupo} label={g.grupo}>
+                    {g.estados.map(e => <option key={e} value={e}>{etiquetaOpcionEstado(e)}</option>)}
+                  </optgroup>
+                ))}
               </AdminSelect>
             </div>
             {cancelaOrdenPaga && (
@@ -1263,7 +1335,7 @@ export default function AdminOrdenes() {
           <div className="flex flex-col gap-3 text-sm text-[var(--ink)]">
             {/* Identidad de la orden: el riesgo real es marcar una venta de verdad. */}
             <div className="rounded-[var(--radius-el)] bg-[var(--n-50)] border border-[var(--line)] px-3 py-2 text-xs">
-              {nombreClienteOrden} · ${Number(ordenSeleccionada.total).toLocaleString('es-AR')} · {ordenSeleccionada.estado.replace(/_/g, ' ')}
+              {nombreClienteOrden} · ${Number(ordenSeleccionada.total).toLocaleString('es-AR')} · {etiquetaAdmin(ordenSeleccionada.estado)}
             </div>
 
             {modoPrueba === 'desmarcar' ? (
@@ -1332,7 +1404,7 @@ export default function AdminOrdenes() {
           <AdminButton variant="secondary" onClick={cerrarModalVentaManual}>Cancelar</AdminButton>
           <AdminButton
             variant="primary"
-            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0 || (cuentaVentaObligatoria && !cuentaCajaVenta)}
+            disabled={crearVentaManualMutation.isPending || ventaItems.length === 0 || (cuentaVentaObligatoria && !cuentaCajaVenta) || !cobraAlCargar || (esMeli && (!netoMeliValido || totalVentaManual <= 0))}
             onClick={handleCrearVentaManual}
           >
             {crearVentaManualMutation.isPending ? 'Guardando...' : 'Cargar venta'}
@@ -1399,6 +1471,7 @@ export default function AdminOrdenes() {
                 Agregar
               </AdminButton>
             </div>
+            <ItemLibreForm id="item-libre-venta" sugerencias={nombresItemsLibres} onAgregar={handleAgregarItemLibre} />
           </div>
 
           <div>
@@ -1489,26 +1562,53 @@ export default function AdminOrdenes() {
             <div>
               <AdminLabel>Medio de pago</AdminLabel>
               <AdminSelect value={metodoPagoManual} onChange={e => setMetodoPagoManual(e.target.value)}>
-                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{m}</option>)}
+                {METODOS_VENTA_MANUAL.map(m => <option key={m} value={m}>{etiquetaMetodo(m)}</option>)}
               </AdminSelect>
             </div>
-            <div>
-              <AdminLabel>Monto cobrado ahora</AdminLabel>
-              <AdminInput
-                type="number"
-                min={0}
-                value={montoPagado}
-                onChange={e => setMontoPagado(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder={`Total: $${totalVentaManual.toLocaleString('es-AR')}`}
-              />
-            </div>
+            {esMeli ? (
+              <div>
+                <AdminLabel>Neto que te libera MeLI</AdminLabel>
+                <AdminInput
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={netoMeli}
+                  onChange={e => setNetoMeli(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder={`Menor o igual a ${totalVentaManual.toLocaleString('es-AR')}`}
+                  data-testid="neto-meli"
+                />
+              </div>
+            ) : (
+              <div>
+                <AdminLabel>Monto cobrado ahora</AdminLabel>
+                <AdminInput
+                  type="number"
+                  min={0}
+                  value={montoPagado}
+                  onChange={e => setMontoPagado(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder={`Total: ${totalVentaManual.toLocaleString('es-AR')}`}
+                />
+              </div>
+            )}
           </div>
+          {esMeli && (
+            <div>
+              <AdminLabel htmlFor="liberacion-meli">Fecha estimada de liberación (opcional)</AdminLabel>
+              <AdminInput id="liberacion-meli" type="date" value={liberacionMeli} onChange={e => setLiberacionMeli(e.target.value)} data-testid="liberacion-meli" />
+            </div>
+          )}
           {cobraAlCargar && (
             <SelectorCuentaCobro id="venta-manual-cuenta" metodoPago={metodoPagoManual} value={cuentaCajaVenta} onChange={setCuentaCajaVenta} />
           )}
+          {esMeli ? (
+            <p className="text-xs text-[var(--ink-soft)] -mt-2" data-testid="ayuda-meli">
+              MercadoLibre cobra el total (${totalVentaManual.toLocaleString('es-AR')}). Cargá el neto que te va a liberar, después de su comisión y el envío. Hasta que se libere, esa plata figura en la Caja como "a liberar"; con "Ya se liberó" (o al llegar la fecha) pasa a disponible.
+            </p>
+          ) : (
           <p className="text-xs text-[var(--ink-soft)] -mt-2">
-            Dejalo vacío o en $0 si todavía no cobraste nada (queda "pendiente de pago"). Si cobrás menos que el total, queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
+            Una venta se registra cuando ya entró plata: cargá la seña o el total. Si cobrás menos que el total queda como seña ("pago parcial") y podés registrar el resto después desde "Gestionar".
           </p>
+          )}
 
           <div>
             <AdminLabel>Canal de venta (opcional)</AdminLabel>

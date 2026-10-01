@@ -3,14 +3,23 @@ interface Props {
   isAprobado: boolean;
   /** true si sigue reservada/esperando pago o confirmación de MP */
   isPendiente: boolean;
+  /** Estado de la orden: en diseño el paso activo no es "En preparación" (todavía no se empezó a producir). */
+  estado?: string;
 }
 
-export default function OrdenTimeline({ isAprobado, isPendiente }: Props) {
+// Paso activo de una orden ya paga, según el estado (los de diseño van antes de producir).
+function pasoActivo(estado?: string): string {
+  if (estado === 'en_diseno' || estado === 'diseno_listo') return 'Diseñando tu grabado';
+  if (estado === 'esperando_aprobacion') return 'Esperando tu OK';
+  return 'En preparación';
+}
+
+export default function OrdenTimeline({ isAprobado, isPendiente, estado }: Props) {
   if (!isAprobado && !isPendiente) return null;
 
   const steps = [
     { label: isAprobado ? 'Pedido confirmado' : 'Pedido reservado', done: true },
-    { label: isAprobado ? 'En preparación' : 'Esperando pago', active: true },
+    { label: isAprobado ? pasoActivo(estado) : 'Esperando pago', active: true },
     { label: 'Enviado', done: false },
     { label: 'Entregado', done: false },
   ];

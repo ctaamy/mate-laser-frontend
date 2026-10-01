@@ -181,6 +181,11 @@ export interface Orden {
   // Compra de prueba (Tami/Facu probando el checkout): el backend la deja
   // fuera de todas las métricas y contadores. Se marca desde Órdenes → Gestionar.
   es_prueba?: boolean;
+  // Pago visto aparte del avance del pedido (`estado`). Solo en el listado admin
+  // (GET /ordenes); null si la orden está cancelada o rechazada.
+  estado_pago?: 'pendiente' | 'parcial' | 'pagado' | null;
+  monto_cobrado?: number;
+  saldo?: number;
   // Sellado cuando al marcarla como prueba se devolvió su stock al inventario.
   stock_liberado_en?: string | null;
   cupon_id?: string | null;

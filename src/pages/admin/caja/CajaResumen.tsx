@@ -5,8 +5,14 @@ import AdminCard from '../../../components/admin/ui/AdminCard';
 import AdminButton from '../../../components/admin/ui/AdminButton';
 import MovimientoCard from '../../../components/admin/caja/MovimientoCard';
 import SetupCaja from '../../../components/admin/caja/SetupCaja';
-import { useMovimientos } from '../../../hooks/useCaja';
+import { useCajaMutaciones, useMovimientos } from '../../../hooks/useCaja';
 import { TIPO_CUENTA_LABEL, formatearMonto, type CuentaConSaldo } from '../../../lib/caja';
+
+/** 'YYYY-MM-DD' → '10/10/2026' (sin pasar por Date con zona horaria: el día no se corre). */
+function fechaCorta(f: string): string {
+  const [a, m, d] = f.split('-');
+  return `${d}/${m}/${a}`;
+}
 import type { CajaContext } from './CajaLayout';
 
 // En 360 px son 2 por fila: con el texto de tamaño normal "Contar la caja" se parte en dos líneas.
@@ -49,7 +55,8 @@ function FilaSaldo({ cuenta, destacada = false }: { cuenta: CuentaConSaldo; dest
 }
 
 export default function CajaResumen() {
-  const { saldos, cargando, error, abrir, sincronizar, sincronizando, resumenSync, errorSync } = useOutletContext<CajaContext>();
+  const { saldos, cargando, error, abrir, avisar, sincronizar, sincronizando, resumenSync, errorSync } = useOutletContext<CajaContext>();
+  const { liberarMeli } = useCajaMutaciones();
   const { data: ultimos } = useMovimientos({}, 5);
   // En el celu los grupos arrancan cerrados (una pantalla, sin scroll); en escritorio, abiertos.
   const [abiertos] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);
@@ -82,6 +89,7 @@ export default function CajaResumen() {
   // El backend viejo no manda estos dos: sin ellos, todo lo que hay es lo disponible.
   const aLiberar = saldos.a_liberar_total ?? 0;
   const disponible = saldos.total_disponible ?? saldos.total_negocio;
+  const meliPorLiberar = saldos.mercadolibre_por_liberar ?? [];
   const sinCuenta = resumenSync?.sin_cuenta ?? [];
   const sinCuentaTotal = resumenSync?.saltados.sin_cuenta ?? 0;
   const sinCuentaMonto = sinCuenta.reduce((acc, c) => acc + Math.round(c.monto * 100), 0) / 100;
@@ -113,7 +121,7 @@ export default function CajaResumen() {
           </div>
           {aLiberar > 0 && (
             <p className="mt-2 rounded-[var(--radius-el)] bg-[var(--n-100)] px-3 py-2 text-sm text-[var(--ink)]" data-testid="a-liberar">
-              Además hay <strong className="font-semibold">{formatearMonto(aLiberar)}</strong> en Mercado Pago que todavía no se libera: ya es tuyo, pero no lo podés usar hasta que MP lo acredite.
+              Además hay <strong className="font-semibold">{formatearMonto(aLiberar)}</strong> que todavía no se libera (Mercado Pago o MercadoLibre): ya es tuyo, pero no lo podés usar hasta que lo acrediten.
             </p>
           )}
           {errorSync && (
@@ -128,6 +136,70 @@ export default function CajaResumen() {
           <AdminButton variant="secondary" className={ACCION} icon={<HandCoins size={15} />} onClick={() => abrir('arqueo')}>Contar la caja</AdminButton>
         </div>
       </AdminCard>
+
+      {/* Recaudado ≠ disponible: lo recaudado no descuenta gastos ni retiros; "falta cobrar" es plata que todavía no entró. */}
+      {saldos.recaudado_total !== undefined && (
+        <section aria-label="Ventas cobradas y por cobrar" className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="resumen-cobros">
+          <AdminCard className="flex flex-col gap-1">
+            <div className="text-sm text-[var(--ink-soft)]">Recaudado este mes</div>
+            <div className="text-2xl font-semibold tabular-nums text-[var(--ink)]" data-testid="recaudado-mes">{formatearMonto(saldos.recaudado_mes ?? 0)}</div>
+            <div className="text-xs text-[var(--ink-soft)]">Ventas cobradas, sin descontar gastos.</div>
+          </AdminCard>
+          <AdminCard className="flex flex-col gap-1">
+            <div className="text-sm text-[var(--ink-soft)]">Recaudado en total</div>
+            <div className="text-2xl font-semibold tabular-nums text-[var(--ink)]" data-testid="recaudado-total">{formatearMonto(saldos.recaudado_total)}</div>
+            <div className="text-xs text-[var(--ink-soft)]">Desde que se usa la caja.</div>
+          </AdminCard>
+          <AdminCard className="flex flex-col gap-1">
+            <div className="text-sm text-[var(--ink-soft)]">Falta cobrar</div>
+            <div className="text-2xl font-semibold tabular-nums text-[var(--ink)]" data-testid="por-cobrar">{formatearMonto(saldos.por_cobrar ?? 0)}</div>
+            <div className="text-xs text-[var(--ink-soft)]">
+              {(saldos.por_cobrar_ordenes ?? 0) === 0
+                ? 'No hay ventas con saldo pendiente.'
+                : `De ${saldos.por_cobrar_ordenes} ${saldos.por_cobrar_ordenes === 1 ? 'venta' : 'ventas'} con seña o pago pendiente.`}
+            </div>
+          </AdminCard>
+        </section>
+      )}
+
+      {meliPorLiberar.length > 0 && (
+        <section aria-labelledby="meli-titulo" className="flex flex-col gap-3" data-testid="meli-por-liberar">
+          <div>
+            <h2 id="meli-titulo" className="text-sm font-medium text-[var(--ink)]">MercadoLibre: esperando que libere</h2>
+            <p className="text-xs text-[var(--ink-soft)]">Cuando veas en el panel de MercadoLibre que ya se acreditó, marcala. Si cargaste la fecha, pasa sola a disponible ese día.</p>
+          </div>
+          <AdminCard padded={false}>
+            <ul className="divide-y divide-[var(--line)]">
+              {meliPorLiberar.map((v) => (
+                <li key={v.pago_id} className="flex items-center justify-between gap-3 px-4 py-3.5" data-testid="meli-fila">
+                  <div className="min-w-0">
+                    <div className="text-sm text-[var(--ink)]">
+                      Pedido #{v.pedido.toUpperCase()} · <span className="font-semibold tabular-nums">{formatearMonto(v.neto)}</span>
+                    </div>
+                    <div className="text-xs text-[var(--ink-soft)]">
+                      {v.bruto !== v.neto ? `Cobró el cliente ${formatearMonto(v.bruto)}. ` : ''}
+                      {v.liberacion_estimada ? `Se libera el ${fechaCorta(v.liberacion_estimada)}.` : 'Sin fecha estimada.'}
+                    </div>
+                  </div>
+                  <AdminButton
+                    size="sm"
+                    variant="secondary"
+                    disabled={liberarMeli.isPending && liberarMeli.variables === v.pago_id}
+                    onClick={() =>
+                      liberarMeli.mutate(v.pago_id, {
+                        onSuccess: () => avisar('Listo: esa plata ya figura como disponible.'),
+                        onError: () => avisar('No se pudo marcar como liberado. Probá de nuevo.'),
+                      })
+                    }
+                  >
+                    Ya se liberó
+                  </AdminButton>
+                </li>
+              ))}
+            </ul>
+          </AdminCard>
+        </section>
+      )}
 
       {sinCuentaTotal > 0 && (
         <div role="status" data-testid="cobros-sin-cuenta" className="flex flex-col gap-2 rounded-[var(--radius-el)] border-l-4 border-[var(--warn)] bg-[var(--warn-soft)] px-4 py-3 text-sm text-[var(--warn)]">
