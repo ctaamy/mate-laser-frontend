@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Shield, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Shield, ArrowLeft, CheckCircle, Info } from 'lucide-react';
 import api from '../lib/api';
+import { track } from '../lib/analytics';
+import { datosParaMedirErrorDelBrick, esTarjetaEnSeccionEquivocada } from '../lib/mpBrickErrors';
+import { useConfiguracion } from '../hooks/useConfiguracion';
 import { useCarritoStore } from '../store/carrito.store';
 import type { Orden } from '../types';
 import CheckoutSteps from '../components/ui/CheckoutSteps';
@@ -34,13 +37,26 @@ export default function Pago() {
   const [sdkReady, setSdkReady] = useState(false);
   const [brickMounted, setBrickMounted] = useState(false);
   const [error, setError] = useState('');
-
+  // Tarjeta de un tipo que no corresponde a la sección abierta del Brick (p. ej.
+  // débito escrita en "Tarjeta de crédito"). Estado propio, NO `error`: ese es
+  // fatal. Tampoco va en las deps del efecto de montaje: remontaría el Brick y
+  // el usuario perdería lo que tipeó.
+  const [tarjetaEquivocada, setTarjetaEquivocada] = useState(false);
+  const avisoRef = useRef<HTMLDivElement>(null);
 
   const { data: orden, isLoading } = useQuery<Orden>({
     queryKey: ['orden-pago', id],
     queryFn: () => api.get(`/ordenes/${id}`).then(r => r.data),
     enabled: !!id,
   });
+
+  // Misma config y misma lógica de link que WhatsAppButton.tsx (telefono_contacto).
+  const { data: config } = useConfiguracion();
+  const telefonoWa = (config?.telefono_contacto || '').replace(/\D/g, '');
+  const numeroPedido = id ? ` #${id.slice(0, 8).toUpperCase()}` : '';
+  const hrefWhatsapp = telefonoWa
+    ? `https://wa.me/${telefonoWa}?text=${encodeURIComponent(`¡Hola! Tengo un problema para pagar mi pedido${numeroPedido} 🧉`)}`
+    : null;
 
   const esPagable = !!orden && ESTADOS_PAGABLES.includes(orden.estado);
   const yaPago = !!orden && (orden.estado === 'pagado' || orden.pagos?.[0]?.estado === 'aprobado');
@@ -54,6 +70,17 @@ export default function Pago() {
     script.onload = () => setSdkReady(true);
     document.body.appendChild(script);
   }, []);
+
+  // Al pasar al estado de error del aviso: medirlo y llevarlo a la vista. El
+  // efecto solo corre en el cambio false → true, así que el scroll es uno por
+  // episodio aunque el Brick repita el error. 'nearest' no mueve nada si ya se
+  // ve; el foco no se toca (en mobile cerraría el teclado).
+  useEffect(() => {
+    if (!tarjetaEquivocada) return;
+    track('pago_aviso_tarjeta');
+    const sinAnimacion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    avisoRef.current?.scrollIntoView({ block: 'nearest', behavior: sinAnimacion ? 'auto' : 'smooth' });
+  }, [tarjetaEquivocada]);
 
   // Montar el Brick cuando SDK y preference estén listos
   useEffect(() => {
@@ -101,14 +128,31 @@ export default function Pago() {
         },
       },
       callbacks: {
-        onReady: () => setBrickMounted(true),
+        onReady: () => {
+          setBrickMounted(true);
+          setTarjetaEquivocada(false);
+        },
+        // Número de tarjeta nuevo (llega ~300 ms ANTES que el onError del mismo
+        // número): el aviso del número anterior ya no aplica. Se ignora el BIN
+        // a propósito — no se guarda ni se mide.
+        onBinChange: () => setTarjetaEquivocada(false),
         onError: (err: any) => {
           console.error('Brick error:', err);
           if (err?.type === 'critical') {
             setError('Error en el procesador de pagos.');
           }
+          // Corre dentro del store de MP: una excepción nuestra podría cortar su
+          // cadena de suscriptores, así que nada de lo que sigue puede tirar.
+          try {
+            const datos = datosParaMedirErrorDelBrick(err);
+            if (datos) track('mp_brick_error', datos);
+            if (esTarjetaEnSeccionEquivocada(err)) setTarjetaEquivocada(true);
+          } catch {
+            /* el aviso y la medición nunca rompen el callback del Brick */
+          }
         },
         onSubmit: ({ formData }: { formData: any }) => {
+          setTarjetaEquivocada(false);
           // El Brick llama esto cuando el usuario confirma el pago.
           // Device ID: lo genera el SDK de MP de forma asíncrona (por eso se lee
           // ahora y no al montar el Brick). El backend se lo pasa a MP como
@@ -238,11 +282,41 @@ export default function Pago() {
         </div>
       ) : null}
 
+      {/* AVISO DE TARJETA — un solo cartel con dos estados, siempre en el DOM
+          para que los lectores de pantalla anuncien el cambio (aria-live).
+          Neutro a propósito: el campo del Brick ya se pinta en rojo. Va afuera
+          del Brick porque no se puede inyectar texto ni reemplazar su mensaje. */}
+      <div ref={avisoRef} data-testid="aviso-tarjeta" role="status" aria-live="polite" className="scroll-mt-20">
+        {brickMounted && (tarjetaEquivocada ? (
+          <div className="flex items-start gap-2.5 border-l-2 border-black bg-black/[0.04] px-3.5 py-3 mb-4 text-sm text-black/80">
+            <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <p>
+              <strong className="font-semibold">Esa tarjeta no va en esta opción.</strong>{' '}
+              Elegí “Tarjeta de débito” o “Tarjeta de crédito”, la que corresponda.
+            </p>
+          </div>
+        ) : (
+          <p className="flex items-start gap-2 mb-3 text-xs text-black/70">
+            <Info size={14} className="mt-px shrink-0" aria-hidden="true" />
+            Con tarjeta, elegí si es de crédito o de débito.
+          </p>
+        ))}
+      </div>
+
       <div ref={brickWrapperRef} />
 
       <div className="flex items-center justify-center gap-1.5 mt-6 text-[11px] text-black/30">
         <Shield size={11} /> Pago 100% seguro — procesado por Mercado Pago
       </div>
+
+      {hrefWhatsapp && (
+        <p className="mt-3 text-center text-xs text-black/60">
+          ¿Algo no funciona?{' '}
+          <a href={hrefWhatsapp} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-black">
+            Escribinos por WhatsApp
+          </a>
+        </p>
+      )}
     </div>
   );
 }

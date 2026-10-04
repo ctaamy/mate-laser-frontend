@@ -1,10 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockBackendYMercadoPago } from './fixtures';
 
+// Lo que los tests agregan a window (stub del SDK de MP, espías de Umami y de scroll).
+type VentanaDeTest = {
+  __mpBrickSettings: { callbacks: Record<string, (arg?: unknown) => unknown> };
+  __marca?: unknown;
+  __umami: [string, Record<string, unknown>?][];
+  __scrolls: unknown[];
+  umami: { track: (evento: string, datos?: Record<string, unknown>) => void };
+};
+
 // Caracterización de cómo reacciona Pago.tsx al onError del Payment Brick de MP.
 //
 // Se escribió ANTES de agregar el aviso de "tarjeta en la sección equivocada"
-// (docs/propuesta-aviso-tarjeta-debito-brick.md): CLAUDE.md pide tests previos
+// (docs/propuesta-aviso-tarjeta-debito-brick.md del monorepo mate-laser): CLAUDE.md pide tests previos
 // que cubran el código de pagos antes de tocarlo. Fija lo que NO tiene que
 // cambiar con ese aviso:
 //   · un error `critical` sigue mostrando el cartel rojo de error fatal;
@@ -20,9 +29,9 @@ const CARTEL_FATAL = 'Error en el procesador de pagos.';
 // que Pago.tsx le pasó en create(...). El stub de e2e/fixtures.ts expone esos
 // settings en window.__mpBrickSettings.
 async function dispararErrorDelBrick(page: Page, payload: unknown) {
-  await page.waitForFunction(() => (window as any).__mpBrickSettings != null);
+  await page.waitForFunction(() => (window as unknown as VentanaDeTest).__mpBrickSettings != null);
   await page.evaluate((p) => {
-    (window as any).__mpBrickSettings.callbacks.onError(p);
+    (window as unknown as VentanaDeTest).__mpBrickSettings.callbacks.onError(p);
   }, payload);
 }
 
@@ -30,7 +39,7 @@ test.describe('onError del Brick en /pago', () => {
   test.beforeEach(async ({ page }) => {
     await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
     await page.goto(ORDEN_URL);
-    await page.waitForFunction(() => (window as any).__mpBrickSettings != null);
+    await page.waitForFunction(() => (window as unknown as VentanaDeTest).__mpBrickSettings != null);
   });
 
   test('un error crítico muestra el cartel de error del procesador de pagos', async ({ page }) => {
