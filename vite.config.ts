@@ -31,5 +31,23 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       preconnectApi(env.VITE_API_URL),
     ],
+    build: {
+      rolldownOptions: {
+        output: {
+          // Las librerías de terceros van en chunks propios y estables: cambian muy
+          // poco entre deploys, así que el navegador las conserva en caché y cada
+          // deploy solo invalida el código de la app (antes cambiaba el hash de TODO
+          // el bundle). Solo se agrupan las que ya usa el bundle inicial; el resto
+          // (markdown, etc.) sigue viajando con la pantalla que lo necesita.
+          codeSplitting: {
+            groups: [
+              { name: 'vendor-react', test: /node_modules[\/](react|react-dom|react-router|react-router-dom|scheduler)[\/]/ },
+              { name: 'vendor-motion', test: /node_modules[\/](motion|motion-dom|motion-utils|framer-motion)[\/]/ },
+              { name: 'vendor-datos', test: /node_modules[\/](@tanstack|axios|zustand)[\/]/ },
+            ],
+          },
+        },
+      },
+    },
   }
 })
