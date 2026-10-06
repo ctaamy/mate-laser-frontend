@@ -358,3 +358,57 @@ test.describe('Cupón pendiente (?cupon=)', () => {
     await expect(banner).toHaveCount(0);
   });
 });
+
+// Editar el carrito (cambiar cantidad, quitar) desaplica el cupón porque el
+// descuento depende del contenido — pero antes lo BORRABA sin avisar: la persona
+// veía subir el total sin saber por qué. Ahora el código queda como "cupón listo"
+// y se vuelve a aplicar con un toque.
+test.describe('Cupón: editar el carrito no lo pierde', () => {
+  test('cambiar la cantidad deja el cupón listo para volver a aplicar', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await mockValidarCupon(page);
+
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito');
+    await page.getByPlaceholder('Código de descuento').fill('MATE20');
+    await page.getByRole('button', { name: /^Aplicar$/ }).click();
+    await expect(page.getByText('Descuento (MATE20)')).toBeVisible();
+
+    // Sumo una unidad: el descuento se desaplica, pero el código no se pierde.
+    await page.getByRole('button', { name: 'Sumar una unidad' }).click();
+    await expect(page.getByText('Descuento (MATE20)')).toHaveCount(0);
+    const banner = page.getByText(/Tenés un cupón listo/);
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText('MATE20');
+
+    // Un toque y vuelve el descuento.
+    await page.getByRole('button', { name: 'Aplicar cupón pendiente' }).click();
+    await expect(page.getByText('Descuento (MATE20)')).toBeVisible();
+    await expect(banner).toHaveCount(0);
+  });
+
+  test('quitar el último producto deja el cupón guardado para la próxima compra', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await mockValidarCupon(page);
+
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito');
+    await page.getByPlaceholder('Código de descuento').fill('MATE20');
+    await page.getByRole('button', { name: /^Aplicar$/ }).click();
+    await expect(page.getByText('Descuento (MATE20)')).toBeVisible();
+
+    await page.getByRole('button', { name: /Eliminar/ }).click();
+    await expect(page.getByText('Tu carrito está vacío')).toBeVisible();
+    await expect(page.getByText(/Tenés el cupón/)).toContainText('MATE20');
+  });
+
+  test('si ya había un cupón pendiente (sin aplicar), editar el carrito no lo pisa', async ({ page }) => {
+    await mockBackendYMercadoPago(page, { estadoPagoBrick: 'approved' });
+    await agregarProductoAlCarrito(page);
+    await page.goto('/carrito?cupon=BIENVENIDA');
+    await expect(page.getByText(/Tenés un cupón listo/)).toContainText('BIENVENIDA');
+
+    await page.getByRole('button', { name: 'Sumar una unidad' }).click();
+    await expect(page.getByText(/Tenés un cupón listo/)).toContainText('BIENVENIDA');
+  });
+});

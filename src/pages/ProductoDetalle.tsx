@@ -137,6 +137,15 @@ export default function ProductoDetalle() {
   const cantidadMaxima = fuenteStock.cantidad_maxima ?? 0;
   const puedeAgregar = disponible && (!tieneVariantes || !!varianteSeleccionada);
 
+  // Con el grabado prendido el texto es obligatorio. El precio de la ficha suma
+  // `costo_grabado` apenas se prende el toggle, pero el servidor solo cobra el
+  // grabado si la línea trae texto (common/precios.ts): con el texto vacío el
+  // carrito quedaba con un precio que el checkout rechazaba ("el precio cambió")
+  // y la persona no tenía cómo corregirlo desde ahí.
+  const textoGrabadoLimpio = textoGrabado.trim();
+  const grabadoSinTexto = quierePersonalizar && textoGrabadoLimpio.length === 0;
+  const puedeComprar = puedeAgregar && !grabadoSinTexto;
+
   // Imagen a mostrar: la de la variante resuelta; y si todavía es una selección
   // parcial, la de la primera variante compatible que tenga imagen (preferimos
   // una con stock). Da feedback visual antes de completar la combinación.
@@ -173,6 +182,10 @@ export default function ProductoDetalle() {
     tieneVariantes && !varianteSeleccionada && tiposFaltantes.length > 0
       ? `Elegí ${faltanNombres} para continuar`
       : '';
+  // Solo cuando lo demás está resuelto: si falta elegir variante, ese es el
+  // motivo que importa primero.
+  const motivoGrabado =
+    puedeAgregar && grabadoSinTexto ? 'Escribí el texto a grabar, o apagá el grabado, para continuar' : '';
 
   // ── Disponibilidad por valor (Fase 2) ──
   // Para cada valor de cada tipo, decidir si combinándolo con lo ya elegido en
@@ -256,7 +269,7 @@ export default function ProductoDetalle() {
     : 0;
 
   const handleAgregar = () => {
-    if (!puedeAgregar) return;
+    if (!puedeComprar) return;
     agregar({
       producto_id: producto.id,
       variante_id: varianteSeleccionada?.id,
@@ -265,7 +278,7 @@ export default function ProductoDetalle() {
       precio_unitario: precioFinal,
       cantidad,
       con_grabado: quierePersonalizar || undefined,
-      texto_grabado: quierePersonalizar ? (textoGrabado || undefined) : undefined,
+      texto_grabado: quierePersonalizar ? textoGrabadoLimpio : undefined,
       con_bombilla: bombillaActiva || undefined,
       bombilla_nombre: bombillaActiva ? bombilla!.nombre : undefined,
       imagen_url: imagenVariante?.url ?? producto.imagenes_producto?.[0]?.url,
@@ -582,6 +595,7 @@ export default function ProductoDetalle() {
                           <div className="border border-black/15 focus-within:border-black transition-colors">
                             <input
                               type="text"
+                              aria-required="true"
                               value={textoGrabado}
                               onChange={(e) => setTextoGrabado(e.target.value.slice(0, producto.personalizado_max_chars))}
                               placeholder={producto.personalizado_placeholder || 'Ej: Nombre, frase, fecha...'}
@@ -627,8 +641,8 @@ export default function ProductoDetalle() {
                 que el CTA quede siempre a mano sin scrollear hasta el fondo. */}
             <div className="flex flex-col gap-2 sticky bottom-0 z-20 bg-white py-3 -mx-4 px-4 border-t border-black/[0.08] sm:static sm:bg-transparent sm:py-0 sm:mx-0 sm:px-0 sm:border-0">
               {/* Motivo por el que el CTA está bloqueado, pegado al botón. */}
-              {!puedeAgregar && motivoNoAgregar && (
-                <p className="text-[11px] font-medium text-black/45">{motivoNoAgregar}</p>
+              {!puedeComprar && (motivoNoAgregar || motivoGrabado) && (
+                <p className="text-[11px] font-medium text-black/45">{motivoNoAgregar || motivoGrabado}</p>
               )}
 
               <div className="flex items-stretch gap-3">
@@ -648,7 +662,7 @@ export default function ProductoDetalle() {
                 {/* Botón agregar */}
                 <motion.button
                   onClick={handleAgregar}
-                  disabled={!puedeAgregar}
+                  disabled={!puedeComprar}
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 sm:py-0 text-sm font-bold uppercase tracking-[0.08em] transition-colors disabled:opacity-30"
                   style={{ backgroundColor: agregado ? '#111' : '#111', color: '#fff' }}
                   whileTap={{ scale: 0.98 }}
