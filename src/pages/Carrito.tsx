@@ -247,6 +247,7 @@ export default function Carrito() {
                   <div className="flex items-center flex-wrap gap-x-3 gap-y-2">
                     <div className="flex items-center border border-black/15">
                       <button
+                        aria-label="Restar una unidad"
                         onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1, item.variante_id, item.con_grabado, item.con_bombilla, item.texto_grabado, item.color)}
                         className="w-8 h-8 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors"
                       >
@@ -254,6 +255,7 @@ export default function Carrito() {
                       </button>
                       <span className="w-8 text-center text-sm font-medium text-black select-none">{item.cantidad}</span>
                       <button
+                        aria-label="Sumar una unidad"
                         onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1, item.variante_id, item.con_grabado, item.con_bombilla, item.texto_grabado, item.color)}
                         disabled={item.stock !== undefined && item.cantidad >= item.stock}
                         className="w-8 h-8 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/[0.04] transition-colors disabled:opacity-20 disabled:cursor-not-allowed"

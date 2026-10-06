@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Shield, ArrowLeft, CheckCircle, Info } from 'lucide-react';
 import api from '../lib/api';
 import { track } from '../lib/analytics';
+import { cargarSdkMp, reiniciarCargaSdkMp } from '../lib/mpSdk';
 import { datosParaMedirErrorDelBrick, esTarjetaEnSeccionEquivocada } from '../lib/mpBrickErrors';
 import { useConfiguracion } from '../hooks/useConfiguracion';
 import { useCarritoStore } from '../store/carrito.store';
@@ -12,6 +13,10 @@ import CheckoutSteps from '../components/ui/CheckoutSteps';
 
 // Estados desde los que todavía tiene sentido mostrar el formulario de pago.
 const ESTADOS_PAGABLES = ['pendiente', 'reservado', 'esperando_confirmacion'];
+
+// Cuánto se espera al script del SDK de MP antes de dar el formulario por caído.
+// Generoso a propósito: una red móvil lenta tarda; el aviso tiene "Reintentar".
+const SDK_TIMEOUT_MS = 25_000;
 
 // Tipos del SDK de Mercado Pago
 declare global {
@@ -35,6 +40,10 @@ export default function Pago() {
   const brickWrapperRef = useRef<HTMLDivElement>(null);
   const brickCreatedRef = useRef(false);
   const [sdkReady, setSdkReady] = useState(false);
+  // El script del SDK de MP no cargó (red caída, bloqueador de anuncios que frena
+  // mercadopago.com) o tardó demasiado. `sdkIntento` re-dispara la carga con "Reintentar".
+  const [sdkError, setSdkError] = useState(false);
+  const [sdkIntento, setSdkIntento] = useState(0);
   const [brickMounted, setBrickMounted] = useState(false);
   const [error, setError] = useState('');
   // Tarjeta de un tipo que no corresponde a la sección abierta del Brick (p. ej.
@@ -61,15 +70,45 @@ export default function Pago() {
   const esPagable = !!orden && ESTADOS_PAGABLES.includes(orden.estado);
   const yaPago = !!orden && (orden.estado === 'pagado' || orden.pagos?.[0]?.estado === 'aprobado');
 
-  // Cargar SDK de MP
+  // Cargar SDK de MP (lib/mpSdk.ts: una sola carga compartida, ver ahí por qué).
+  // Si no llega (sin conexión, un bloqueador de anuncios frenando mercadopago.com)
+  // o tarda demasiado, antes la pantalla quedaba con el spinner "Cargando
+  // formulario de pago…" para siempre, sin decir nada ni ofrecer salida. Ahora el
+  // fallo muestra un aviso con "Reintentar" (el WhatsApp ya está al pie).
   useEffect(() => {
-    if (document.getElementById('mp-sdk')) { setSdkReady(true); return; }
-    const script = document.createElement('script');
-    script.id = 'mp-sdk';
-    script.src = 'https://sdk.mercadopago.com/js/v2';
-    script.onload = () => setSdkReady(true);
-    document.body.appendChild(script);
-  }, []);
+    let vigente = true;
+    const fallo = (motivo: 'error' | 'timeout') => {
+      if (!vigente) return;
+      track('mp_sdk_no_cargo', { motivo });
+      setSdkError(true);
+    };
+    const timer = window.setTimeout(() => {
+      // Se descarta la carga en curso para que "Reintentar" pida el script de nuevo.
+      reiniciarCargaSdkMp();
+      fallo('timeout');
+    }, SDK_TIMEOUT_MS);
+    cargarSdkMp().then(
+      () => {
+        window.clearTimeout(timer);
+        if (!vigente) return;
+        setSdkError(false);
+        setSdkReady(true);
+      },
+      () => {
+        window.clearTimeout(timer);
+        fallo('error');
+      },
+    );
+    return () => {
+      vigente = false;
+      window.clearTimeout(timer);
+    };
+  }, [sdkIntento]);
+
+  const reintentarSdk = () => {
+    setSdkError(false);
+    setSdkIntento((n) => n + 1);
+  };
 
   // Al pasar al estado de error del aviso: medirlo y llevarlo a la vista. El
   // efecto solo corre en el cambio false → true, así que el scroll es uno por
@@ -274,8 +313,24 @@ export default function Pago() {
         </div>
       )}
 
+      {sdkError && (
+        <div role="alert" className="border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700 mb-6 flex flex-col gap-3">
+          <p>
+            No pudimos cargar el formulario de pago de Mercado Pago. Puede ser tu conexión o un
+            bloqueador de anuncios que lo está frenando.
+          </p>
+          <button
+            type="button"
+            onClick={reintentarSdk}
+            className="self-start bg-black text-white px-4 py-2 text-xs font-medium hover:bg-black/80 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
       {/* BRICK CONTAINER */}
-      {!sdkReady || (!brickMounted && !error) ? (
+      {!sdkError && (!sdkReady || (!brickMounted && !error)) ? (
         <div className="border border-black/[0.07] p-10 text-center">
           <div className="w-6 h-6 border-2 border-black/20 border-t-black/60 rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-black/40">Cargando formulario de pago…</p>

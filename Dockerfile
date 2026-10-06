@@ -61,5 +61,10 @@ COPY --from=build /app /app
 # "serve" en vez de nginx: lee public/serve.json (copiado a dist/ por Vite en
 # el build) para las cabeceras de seguridad — X-Frame-Options, CSP, HSTS.
 # Con nginx ese archivo se ignora en silencio y quedan sin aplicar.
+#
+# --no-request-logging: "serve" imprime cada request con su URL completa, y varias
+# rutas llevan secretos en el query (/auth/google/callback?token=…&refreshToken=…,
+# /resetear-password?token=…) que terminaban en `fly logs`. Los logs de error de
+# la app no se tocan.
 EXPOSE 8080
-CMD [ "npx", "serve", "-s", "dist", "-l", "8080" ]
+CMD [ "npx", "serve", "-s", "dist", "-l", "8080", "--no-request-logging" ]

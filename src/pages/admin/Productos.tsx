@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Copy, Check, Image, Shapes, Layers, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Check, Image, Shapes, Layers, Plus, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import type { Producto, Categoria, ImagenProducto } from '../../types';
 import ImageUploader from '../../components/ui/ImageUploader';
@@ -342,9 +342,6 @@ export default function AdminProductos() {
         <div className="flex items-center gap-1">
           <AdminButton variant="ghost" size="sm" onClick={() => abrirModal(p)} aria-label="Editar">
             <Pencil size={13} />
-          </AdminButton>
-          <AdminButton variant="ghost" size="sm" aria-label="Duplicar">
-            <Copy size={13} />
           </AdminButton>
           <AdminButton
             variant="danger" size="sm"

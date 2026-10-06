@@ -67,10 +67,11 @@ interface CarritoState {
   // acción del usuario) — sirve para avisar "este carrito es de hace
   // varios días" sin borrar nada solo.
   actualizadoEn: number;
-  // Cupón aplicado en el carrito, o null. Cualquier cambio de items lo limpia
-  // (el descuento depende del contenido del carrito); se vuelve a aplicar a
-  // mano. `sincronizarDisponibilidad` no lo toca — el re-chequeo del checkout
-  // es la red de seguridad para ese caso.
+  // Cupón aplicado en el carrito, o null. Cualquier cambio de items lo desaplica
+  // (el descuento depende del contenido del carrito) pero su código pasa a
+  // `cuponPendiente`, así el carrito ofrece "Tenés un cupón listo — Aplicar" en
+  // vez de perderlo en silencio. `sincronizarDisponibilidad` no lo toca — el
+  // re-chequeo del checkout es la red de seguridad para ese caso.
   cupon: CuponAplicado | null;
   // Código de cupón traído por la URL (?cupon=…) o por el flujo de bienvenida
   // del newsletter, todavía SIN aplicar. A diferencia de `cupon`, NO se limpia
@@ -114,6 +115,19 @@ const mismoItem = (a: ItemCarrito, b: Partial<ItemCarrito>) =>
   a.color === b.color &&
   hashSelecciones(a.selecciones_configurador) === hashSelecciones(b.selecciones_configurador);
 
+/**
+ * Estado del cupón después de editar el carrito (agregar, quitar, cambiar
+ * cantidad). El descuento ya calculado deja de valer — depende del contenido —
+ * así que `cupon` se desaplica, pero el código NO se pierde: pasa a
+ * `cuponPendiente` y Carrito.tsx lo ofrece con el botón "Aplicar". Antes, tocar
+ * la cantidad borraba el cupón sin avisar y la persona veía subir el total sin
+ * saber por qué. Si ya había un pendiente (todavía sin aplicar), se conserva.
+ */
+const cuponTrasEditar = (s: { cupon: CuponAplicado | null; cuponPendiente: string | null }) => ({
+  cupon: null,
+  cuponPendiente: s.cupon?.codigo ?? s.cuponPendiente,
+});
+
 export const useCarritoStore = create<CarritoState>()(
   persist(
     (set, get) => ({
@@ -135,10 +149,10 @@ export const useCarritoStore = create<CarritoState>()(
                 : i
             ),
             actualizadoEn: Date.now(),
-            cupon: null,
+            ...cuponTrasEditar(get()),
           });
         } else {
-          set({ items: [...items, item], actualizadoEn: Date.now(), cupon: null });
+          set({ items: [...items, item], actualizadoEn: Date.now(), ...cuponTrasEditar(get()) });
         }
       },
 
@@ -146,7 +160,7 @@ export const useCarritoStore = create<CarritoState>()(
         set({
           items: get().items.filter(i => !mismoItem(i, { producto_id, variante_id, con_grabado, con_bombilla, texto_grabado, color, selecciones_configurador })),
           actualizadoEn: Date.now(),
-          cupon: null,
+          ...cuponTrasEditar(get()),
         });
       },
 
@@ -162,7 +176,7 @@ export const useCarritoStore = create<CarritoState>()(
             return { ...i, cantidad: Math.min(cantidad, max) };
           }),
           actualizadoEn: Date.now(),
-          cupon: null,
+          ...cuponTrasEditar(get()),
         });
       },
 
@@ -199,13 +213,14 @@ export const useCarritoStore = create<CarritoState>()(
       // v3: entró `con_bombilla` en la identidad de la línea (mismoItem). Los
       // items viejos sin el flag se leen como "sin bombilla", que es correcto —
       // no hace falta reparar nada.
-      version: 3,
+      // v4: se descartan las líneas con grabado y sin texto (ver más abajo).
+      version: 4,
       // Carritos persistidos antes de la Fase 2 no tienen `actualizadoEn`.
       // Se completa con "ahora" en vez de dejarlo undefined (que se leería
       // como "hace milenios" y dispararía el aviso de carrito viejo de
       // entrada, sin base real para afirmar la antigüedad).
       migrate: (persisted: any, fromVersion: number) => {
-        const base = {
+        let estado = {
           ...persisted,
           actualizadoEn: persisted?.actualizadoEn ?? Date.now(),
         };
@@ -217,14 +232,26 @@ export const useCarritoStore = create<CarritoState>()(
         if (fromVersion < 2) {
           const previos: ItemCarrito[] = Array.isArray(persisted?.items) ? persisted.items : [];
           const items = previos.filter((i) => !i.variante_id && !i.combo_id);
-          return {
-            ...base,
+          estado = {
+            ...estado,
             items,
             // el cupón depende del contenido; si algo se descartó, se re-aplica a mano.
-            cupon: items.length === previos.length ? base.cupon ?? null : null,
+            cupon: items.length === previos.length ? estado.cupon ?? null : null,
           };
         }
-        return base;
+        // v4: la ficha de producto dejaba agregar "Grabado personalizado" con el
+        // texto vacío y le sumaba el costo del grabado al precio; el servidor solo
+        // cobra el grabado si hay texto, así que esa línea nunca podía comprarse
+        // (el checkout la rechazaba con "el precio cambió" y no había cómo
+        // corregirla desde el carrito). Se descartan esas líneas guardadas.
+        if (fromVersion < 4) {
+          const previos: ItemCarrito[] = Array.isArray(estado?.items) ? estado.items : [];
+          const items = previos.filter((i) => !(i.con_grabado && !i.texto_grabado?.trim()));
+          if (items.length !== previos.length) {
+            estado = { ...estado, items, cupon: null };
+          }
+        }
+        return estado;
       },
     }
   )
