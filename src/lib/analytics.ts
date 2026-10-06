@@ -1,4 +1,5 @@
 import { categoriaIdDeHref, type NodoCategoria } from './categoriasArbol';
+import { antesDeEnviarAUmami } from './urlAnalitica';
 
 // Analítica de visitas — Umami Cloud (cookie-less, sin banner de consentimiento
 // necesario). Se inyecta el script SOLO en producción y solo si el ID está
@@ -8,12 +9,24 @@ export function initAnalytics() {
   const websiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID;
   if (!import.meta.env.PROD || !websiteId) return;
 
+  // Umami manda la URL completa de cada página, con su query string. Varias
+  // pantallas llevan secretos en la URL (tokens de login con Google, de reset de
+  // contraseña, de verificación y de baja; el id de un pedido en /confirmacion/…),
+  // así que se limpia con `data-before-send` antes de que salga. NO se usa
+  // `data-exclude-search`: borraría también los `utm_*` de las campañas.
+  const w = window as unknown as Record<string, unknown>;
+  w[HOOK_ANTES_DE_ENVIAR] = antesDeEnviarAUmami;
+
   const script = document.createElement('script');
   script.defer = true;
   script.src = 'https://cloud.umami.is/script.js';
   script.setAttribute('data-website-id', websiteId);
+  script.setAttribute('data-before-send', HOOK_ANTES_DE_ENVIAR);
   document.head.appendChild(script);
 }
+
+// Nombre global de la función que Umami llama antes de cada envío (`window[nombre]`).
+const HOOK_ANTES_DE_ENVIAR = '__mlsUmamiAntesDeEnviar';
 
 // ── Eventos ───────────────────────────────────────────────────────────────────
 // `window.umami` solo existe en producción y una vez cargado el script (defer):
