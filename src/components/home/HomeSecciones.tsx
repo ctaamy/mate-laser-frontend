@@ -290,13 +290,18 @@ export function HeroImg({ desktop, mobile, objectPosition, alt = '' }: {
     style: { objectPosition },
   };
   if (!mobile || mobile === desktop) {
-    return <motion.img key={desktop} src={desktop} alt={alt} className={cls} {...common} />;
+    return <motion.img key={desktop} src={desktop} alt={alt} className={cls} fetchPriority="high" {...common} />;
   }
+  // <picture> en vez de dos <img> con sm:hidden / hidden sm:block: un <img> con
+  // display:none igual se descarga, así que cada visita bajaba las DOS versiones
+  // (65 kB + 98 kB). Con <picture> el navegador pide solo la que corresponde.
+  // Mismo corte que Tailwind `sm` (640px). El hero es la imagen más grande de
+  // la primera pantalla: fetchPriority alta.
   return (
-    <>
-      <motion.img key={`m-${mobile}`} src={mobile} alt={alt} className={`${cls} sm:hidden`} {...common} />
-      <motion.img key={`d-${desktop}`} src={desktop} alt={alt} className={`${cls} hidden sm:block`} {...common} />
-    </>
+    <picture>
+      <source media="(min-width: 640px)" srcSet={desktop} />
+      <motion.img key={`m-${mobile}-${desktop}`} src={mobile} alt={alt} className={cls} fetchPriority="high" {...common} />
+    </picture>
   );
 }
 

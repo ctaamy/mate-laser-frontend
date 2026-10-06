@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import api from '../lib/api';
+import { useConfiguracion } from '../hooks/useConfiguracion';
 import { useTemaGlobalData } from '../hooks/useThemeGlobal';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { metaPaginaEstatica } from '../lib/seo';
@@ -25,10 +24,7 @@ import ContenidoBloques, { type BloqueContenido } from '../components/ui/Conteni
 export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefault, descripcion }: { claveBase: string; tituloDefault: string; markdownDefault?: string; descripcion?: string }) {
   const tema = useTemaGlobalData();
   const { pathname } = useLocation();
-  const { data: config, isLoading } = useQuery<Record<string, any>>({
-    queryKey: ['configuracion'],
-    queryFn: () => api.get('/configuracion').then(r => r.data),
-  });
+  const { data: config, isLoading } = useConfiguracion();
 
   const titulo: string = config?.[`${claveBase}_titulo`] || tituloDefault;
   // Los hooks van antes del early return de isLoading. Mientras carga no se

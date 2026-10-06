@@ -67,4 +67,4 @@ COPY --from=build /app /app
 # /resetear-password?token=…) que terminaban en `fly logs`. Los logs de error de
 # la app no se tocan.
 EXPOSE 8080
-CMD [ "npx", "serve", "-s", "dist", "-l", "8080", "--no-request-logging" ]
+CMD [ "./node_modules/.bin/serve", "-s", "dist", "-l", "8080", "--no-request-logging" ]

@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import api from '../lib/api';
+import { useConfiguracion } from './useConfiguracion';
 import { jsonLdOrganizacion } from '../lib/seo';
 import { useHomepageSecciones } from './useHomepageSecciones';
 import { upsertJsonLd } from './usePageMeta';
@@ -14,10 +13,7 @@ import { upsertJsonLd } from './usePageMeta';
 // sola request). Hasta que ambas respondan queda el valor base de index.html.
 // Va en Layout: el sitio público lo tiene montado siempre.
 export function useOrganizacionSeo() {
-  const { data: config } = useQuery<Record<string, unknown>>({
-    queryKey: ['configuracion'],
-    queryFn: () => api.get('/configuracion').then((r) => r.data),
-  });
+  const { data: config } = useConfiguracion();
   const { data: secciones } = useHomepageSecciones();
 
   const footer = secciones?.find((s) => s.tipo === 'footer')?.datos;

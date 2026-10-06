@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { isAxiosError } from 'axios';
 import api from '../lib/api';
+import { useConfiguracion } from '../hooks/useConfiguracion';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { metaNoEncontrado, metaProducto } from '../lib/seo';
 import { armarMigas } from '../lib/migas';
@@ -59,10 +60,7 @@ export default function ProductoDetalle() {
   // Config real de envío gratis (GET /configuracion, público, lee 'publicado').
   // El cartel "Envío gratis en compras mayores a $X" solo se muestra si esto
   // confirma que está activo y con un monto válido — nunca un texto fijo.
-  const { data: config } = useQuery<Record<string, string>>({
-    queryKey: ['configuracion'],
-    queryFn: () => api.get('/configuracion').then((r) => r.data),
-  });
+  const { data: config } = useConfiguracion();
   const montoEnvioGratis = Number(config?.envio_gratis_monto);
   const envioGratisConfirmado =
     config?.envio_gratis_activo === 'true' && Number.isFinite(montoEnvioGratis) && montoEnvioGratis > 0;
