@@ -25,7 +25,8 @@ export default function Login() {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      console.log('Error:', err);
+      // Sin console.log del error: el de axios trae `config.data` con el email y la
+      // contraseña que se acaban de tipear, y quedaba en la consola del navegador.
       setError(err.response?.data?.message || 'Credenciales inválidas');
     } finally {
       setLoading(false);
