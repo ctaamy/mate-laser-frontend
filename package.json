@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:e2e": "playwright test --project=chromium",
     "test:visual": "playwright test --project=visual",
+    "test:build": "playwright test --config=playwright.build.config.ts",
     "test:visual:update": "playwright test --project=visual --update-snapshots",
     "test:smoke": "playwright test --config=playwright.smoke.config.ts",
     "start": "serve -s dist -l $PORT"

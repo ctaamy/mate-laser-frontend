@@ -111,6 +111,9 @@ test.describe('Buscador — URL, filtro y sugerencias', () => {
 
     await page.goto('/productos');
     const input = page.getByPlaceholder('Buscar producto...');
+    // La pantalla /productos es un chunk diferido: llega un instante después de `load`.
+    // Este test busca el input dentro de la página con evaluate() (sin auto-espera).
+    await expect(input).toBeVisible();
 
     // El <title> pasa a "Búsqueda" en el mismo commit en que el router entrega
     // ?q=mate: es el eco. Se captura el valor del input en ESE instante, dentro

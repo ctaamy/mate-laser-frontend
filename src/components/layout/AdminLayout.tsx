@@ -8,6 +8,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import logoBlanco from '../../assets/mls-logo-blanco.png';
+import LimiteDeRuta from './LimiteDeRuta';
 
 const SIDEBAR_STORAGE_KEY = 'admin-sidebar-expanded';
 // Delay antes de abrir el panel flotante de una sección al pasar el mouse
@@ -439,7 +440,9 @@ export default function AdminLayout() {
         )}
 
         <div className={`flex-1 bg-gray-50 min-h-screen transition-all duration-200 ${expanded ? 'md:ml-56' : 'md:ml-16'}`}>
-          <Outlet />
+          <LimiteDeRuta>
+            <Outlet />
+          </LimiteDeRuta>
         </div>
       </div>
     </div>

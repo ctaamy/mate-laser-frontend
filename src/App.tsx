@@ -9,43 +9,45 @@ import api from './lib/api';
 
 // Layout
 import Layout from './components/layout/Layout';
-import AdminLayout from './components/layout/AdminLayout';
+import LimiteDeRuta from './components/layout/LimiteDeRuta';
+import { cargar, lazyConRecarga } from './lib/cargaDeRutas';
+const AdminLayout = lazyConRecarga(() => import('./components/layout/AdminLayout'));
 
-// Páginas públicas
+// Páginas públicas: solo la home y la 404 van en el bundle inicial; el resto, por chunk.
 import Home from './pages/Home';
-import Productos from './pages/Productos';
-import ProductoDetalle from './pages/ProductoDetalle';
-import Carrito from './pages/Carrito';
-import Checkout from './pages/Checkout';
-import Pago from './pages/Pago';
-import Confirmacion from './pages/Confirmacion';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import OlvidePassword from './pages/OlvidePassword';
-import ResetearPassword from './pages/ResetearPassword';
-import VerificarEmail from './pages/VerificarEmail';
-import ConfirmarNewsletter from './pages/ConfirmarNewsletter';
-import BajaNewsletter from './pages/BajaNewsletter';
-import GoogleCallback from './pages/auth/GoogleCallback';
-import DisenaTuMateV2 from './pages/DisenaTuMateV2';
-import PaginaEstatica from './pages/PaginaEstatica';
 import NoEncontrada from './pages/NoEncontrada';
-import MiCuenta from './pages/MiCuenta';
+const Productos = lazyConRecarga(cargar.productos);
+const ProductoDetalle = lazyConRecarga(cargar.productoDetalle);
+const Carrito = lazyConRecarga(cargar.carrito);
+const Checkout = lazyConRecarga(cargar.checkout);
+const Pago = lazyConRecarga(cargar.pago);
+const Confirmacion = lazyConRecarga(cargar.confirmacion);
+const Login = lazyConRecarga(() => import('./pages/Login'));
+const Register = lazyConRecarga(() => import('./pages/Register'));
+const OlvidePassword = lazyConRecarga(() => import('./pages/OlvidePassword'));
+const ResetearPassword = lazyConRecarga(() => import('./pages/ResetearPassword'));
+const VerificarEmail = lazyConRecarga(() => import('./pages/VerificarEmail'));
+const ConfirmarNewsletter = lazyConRecarga(() => import('./pages/ConfirmarNewsletter'));
+const BajaNewsletter = lazyConRecarga(() => import('./pages/BajaNewsletter'));
+const GoogleCallback = lazyConRecarga(() => import('./pages/auth/GoogleCallback'));
+const DisenaTuMateV2 = lazyConRecarga(() => import('./pages/DisenaTuMateV2'));
+const PaginaEstatica = lazyConRecarga(() => import('./pages/PaginaEstatica'));
+const MiCuenta = lazyConRecarga(() => import('./pages/MiCuenta'));
 
 // Páginas admin
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminProductos from './pages/admin/Productos';
-import AdminOrdenes from './pages/admin/Ordenes';
-import AdminCupones from './pages/admin/Cupones';
-import AdminEnvios from './pages/admin/Envios';
-import AdminConfiguracion from './pages/admin/Configuracion';
-import AdminConfiguradorV2 from './pages/admin/ConfiguradorV2';
-import AdminPromocionesBancarias from './pages/admin/PromocionesBancarias';
-import AdminUsuarios from './pages/admin/Usuarios';
-import AdminCajaLayout from './pages/admin/caja/CajaLayout';
-import AdminCajaResumen from './pages/admin/caja/CajaResumen';
-import AdminCajaMovimientos from './pages/admin/caja/CajaMovimientos';
-import EtiquetaOrden from './pages/admin/EtiquetaOrden';
+const AdminDashboard = lazyConRecarga(() => import('./pages/admin/Dashboard'));
+const AdminProductos = lazyConRecarga(() => import('./pages/admin/Productos'));
+const AdminOrdenes = lazyConRecarga(() => import('./pages/admin/Ordenes'));
+const AdminCupones = lazyConRecarga(() => import('./pages/admin/Cupones'));
+const AdminEnvios = lazyConRecarga(() => import('./pages/admin/Envios'));
+const AdminConfiguracion = lazyConRecarga(() => import('./pages/admin/Configuracion'));
+const AdminConfiguradorV2 = lazyConRecarga(() => import('./pages/admin/ConfiguradorV2'));
+const AdminPromocionesBancarias = lazyConRecarga(() => import('./pages/admin/PromocionesBancarias'));
+const AdminUsuarios = lazyConRecarga(() => import('./pages/admin/Usuarios'));
+const AdminCajaLayout = lazyConRecarga(() => import('./pages/admin/caja/CajaLayout'));
+const AdminCajaResumen = lazyConRecarga(() => import('./pages/admin/caja/CajaResumen'));
+const AdminCajaMovimientos = lazyConRecarga(() => import('./pages/admin/caja/CajaMovimientos'));
+const EtiquetaOrden = lazyConRecarga(() => import('./pages/admin/EtiquetaOrden'));
 
 // Texto de arranque de /nosotros hasta que se cargue el definitivo desde el
 // admin (Configuración → Páginas). Corto y verdadero a propósito — la
@@ -195,7 +197,7 @@ export default function App() {
 
           {/* Rutas de admin */}
           <Route path="/admin" element={
-            <AdminRoute><AdminLayout /></AdminRoute>
+            <AdminRoute><LimiteDeRuta><AdminLayout /></LimiteDeRuta></AdminRoute>
           }>
             <Route index element={<AdminDashboard />} />
             <Route path="productos" element={<AdminProductos />} />
@@ -219,7 +221,7 @@ export default function App() {
           {/* Vista standalone (sin el chrome de AdminLayout) para imprimir la
               etiqueta interna de un pedido — ver EtiquetaOrden. */}
           <Route path="/admin/ordenes/:id/etiqueta" element={
-            <AdminRoute><EtiquetaOrden /></AdminRoute>
+            <AdminRoute><LimiteDeRuta><EtiquetaOrden /></LimiteDeRuta></AdminRoute>
           } />
         </Routes>
       </BrowserRouter>
