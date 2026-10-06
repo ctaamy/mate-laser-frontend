@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCarritoStore } from '../store/carrito.store';
 import api from '../lib/api';
+import { useConfiguracion } from '../hooks/useConfiguracion';
 import CheckoutSteps from '../components/ui/CheckoutSteps';
 
 // Forma resumida de lo que devuelve GET /productos para un item del carrito:
@@ -71,10 +72,7 @@ export default function Carrito() {
   // Config real de envío gratis (GET /configuracion, público, lee 'publicado').
   // Sin certeza de que esté activo y con un monto válido, no se muestra nada:
   // más vale "A calcular" que prometer un gratis que después no se cobra así.
-  const { data: config } = useQuery<Record<string, string>>({
-    queryKey: ['configuracion'],
-    queryFn: () => api.get('/configuracion').then((r) => r.data),
-  });
+  const { data: config } = useConfiguracion();
   const montoEnvioGratis = Number(config?.envio_gratis_monto);
   const envioGratisConfirmado =
     config?.envio_gratis_activo === 'true' && Number.isFinite(montoEnvioGratis) && montoEnvioGratis > 0;
