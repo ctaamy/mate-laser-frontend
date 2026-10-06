@@ -33,6 +33,11 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } } as const,
 };
 
+// Escalonado de la animación de entrada: solo dentro de una fila (hasta 4 cards).
+// Con `index * 0.07` crudo, en un listado con "Ver más" acumulado la card #40
+// esperaba 2,8 s después de entrar en pantalla.
+const retrasoDeEntrada = (index: number) => (index % 4) * 0.07;
+
 export default function ProductCard({ producto, onAgregar, index = 0, variant = 'catalogo', accentColor, textColor = '#111827', tituloFontSize, linkFontSize }: ProductCardProps) {
   const [hovered, setHovered] = useState(false);
   const img1 = producto.imagenes_producto?.[0];
@@ -76,7 +81,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: '-40px' }}
-        transition={{ delay: index * 0.07 }}
+        transition={{ delay: retrasoDeEntrada(index) }}
         className="group flex flex-col"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -155,7 +160,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: '-40px' }}
-        transition={{ delay: index * 0.07 }}
+        transition={{ delay: retrasoDeEntrada(index) }}
         className="group flex flex-col"
       >
         <Link to={`/productos/${producto.slug}`} className="relative block w-full overflow-hidden rounded-xl" style={{ aspectRatio: '3/4' }}>
@@ -203,7 +208,7 @@ export default function ProductCard({ producto, onAgregar, index = 0, variant = 
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: '-40px' }}
-      transition={{ delay: index * 0.07 }}
+      transition={{ delay: retrasoDeEntrada(index) }}
       className="group flex flex-col"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
