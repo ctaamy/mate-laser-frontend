@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source("../src");
 
 /* Estilos de tipografía para contenido Markdown (páginas legales vía
    PaginaEstatica, bloque texto_libre, y el cuerpo del bloque media_texto).
