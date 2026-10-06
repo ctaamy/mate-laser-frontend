@@ -73,3 +73,40 @@ apuntando a una categoría que se vació.
 
 Los clicks a categorías desde los bloques de la Home (`categorias_grid`,
 `filtros_rapidos`) todavía no se miden: son otra puerta de entrada importante.
+
+# Analítica del pago (Umami)
+
+Dos eventos de `/pago` para saber si el formulario de Mercado Pago (el Brick)
+le está dando problemas a la gente. Mismas reglas: solo producción, sin datos
+personales, y `track()` no hace nada si Umami no cargó. **Nunca viaja el número
+de tarjeta ni el BIN**: los valores salen de una lista de etiquetas con forma de
+identificador (`/^[a-z_]{1,64}$/`) y todo lo demás se reemplaza por `otro`
+(ver `datosParaMedirErrorDelBrick` en `src/lib/mpBrickErrors.ts`).
+
+## `mp_brick_error`
+
+El Brick de Mercado Pago avisó un error (cualquiera, crítico o no).
+
+| Propiedad | Valores |
+|---|---|
+| `tipo` | `critical` · `non_critical` (u `otro` si no vino como etiqueta) |
+| `causa` | identificador interno de MP (ej. `missing_payment_information`) u `otro` |
+| `mensaje` | identificador interno de MP (ej. `payment_method_not_in_allowed_types`) u `otro` |
+
+**Cómo usarlo:** es el termómetro del aviso de tarjeta. Si `mensaje` =
+`payment_method_not_in_allowed_types` cae a cero con tráfico en `/pago`, lo más
+probable es que MP haya renombrado ese identificador (el SDK no tiene versión
+fija) y el aviso dejó de salir: hay que revisar `src/lib/mpBrickErrors.ts`. Si
+aparece un `mensaje` nuevo y frecuente, vale evaluar si merece su propio aviso.
+
+## `pago_aviso_tarjeta`
+
+Se mostró el aviso "Esa tarjeta no va en esta opción" (una tarjeta de débito o
+crédito escrita en la sección equivocada del Brick). Sin propiedades. Una vez por
+episodio: se vuelve a disparar solo después de que el aviso se limpió (número de
+tarjeta nuevo, reintento o pago).
+
+**Cómo usarlo:** cuántas veces por semana se equivoca la gente de sección. Si es
+alto y las órdenes de esas sesiones no terminan pagas, es el argumento para la
+fase condicional de `docs/propuesta-aviso-tarjeta-debito-brick.md` del monorepo `mate-laser` (decirle
+exactamente a qué sección ir).
