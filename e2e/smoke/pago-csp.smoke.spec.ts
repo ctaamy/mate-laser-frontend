@@ -101,13 +101,21 @@ test('el Brick de MP monta sin violaciones de CSP en el frontend deployado', asy
 
   await page.goto(`/pago/${ORDEN_SMOKE.id}`, { waitUntil: 'domcontentloaded' });
 
-  // El Brick real monta un iframe de MP/ML/mlstatic cuando el SDK terminó
-  // de inicializar. Si la CSP bloquea alguna etapa, este selector no aparece.
-  const brickIframe = page.locator(
-    'iframe[src*="mercadopago.com"], iframe[src*="mercadolibre.com"], iframe[src*="mlstatic.com"]',
-  );
+  // Señal de que el Brick REAL montó: Pago.tsx muestra esta línea recién cuando el SDK
+  // llama a onReady (brickMounted). Antes el test buscaba un <iframe src*="mercadopago|
+  // mercadolibre|mlstatic", pero el Brick actual (op-cho-bricks 3.17.x) se dibuja directo en
+  // la página y solo deja un iframe about:blank invisible: el test daba rojo con el pago
+  // funcionando (falso negativo, desde antes de la Fase 1 de la auditoría). El iframe queda
+  // como señal alternativa por si MP vuelve a renderizarlo así.
+  const brickListo = page
+    .getByText('Con tarjeta, elegí si es de crédito o de débito.')
+    .or(
+      page.locator(
+        'iframe[src*="mercadopago.com"], iframe[src*="mercadolibre.com"], iframe[src*="mlstatic.com"]',
+      ),
+    );
   const BRICK_TIMEOUT_MS = 60_000; // MP a veces tarda en inicializar el SDK
-  const montó = await brickIframe
+  const montó = await brickListo
     .first()
     .waitFor({ state: 'attached', timeout: BRICK_TIMEOUT_MS })
     .then(() => true)
@@ -137,7 +145,7 @@ test('el Brick de MP monta sin violaciones de CSP en el frontend deployado', asy
   // el smoke igual lo marque en vez de pasar en verde.
   expect(
     montó,
-    `El iframe del Brick de MP no apareció en ${BRICK_TIMEOUT_MS / 1000}s en ${base}, y no se ` +
+    `El Brick de MP no montó (ni onReady ni iframe) en ${BRICK_TIMEOUT_MS / 1000}s en ${base}, y no se ` +
       `registraron violaciones de CSP — así que es otra cosa (SDK caído, cambio de API del Brick, red).\n` +
       `Console errors:\n  ${consoleErrors.join('\n  ') || '(ninguno)'}`,
   ).toBe(true);
