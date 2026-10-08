@@ -69,14 +69,30 @@ test.describe('Umami — navbar (desktop)', () => {
   });
 
   test('en el panel: título de columna = raíz; "Ver todos los productos" = todos', async ({ page }) => {
+    test.setTimeout(60_000); // varios pasos con reintento; bajo carga de CI 30 s quedaba justo
     await conUmami(page);
     await mocks(page);
     await page.goto('/');
     await linkBarra(page, 'Productos').hover();
     await page.locator('#mega-categorias').getByRole('link', { name: 'Mates', exact: true }).click();
-    await page.mouse.move(640, 700);
-    await linkBarra(page, 'Productos').hover();
-    await page.locator('#mega-categorias').getByRole('link', { name: 'Ver todos los productos' }).click();
+    // Reabrir el panel y elegir "Ver todos" con REINTENTO. Al hacer clic en una categoría el
+    // Navbar cierra el menú y CANCELA el timer de apertura en un efecto que corre cuando React
+    // confirma la nueva ruta (Navbar.tsx, [location.pathname, location.search]). Ese cambio se
+    // aplica con baja prioridad y /productos es un chunk diferido, así que el efecto puede llegar
+    // DESPUÉS de este segundo hover y matar su apertura, o cerrar el panel justo antes del clic
+    // (flake que frenó 3 deploys). No hay una señal confiable de "el efecto ya corrió" (ni la URL
+    // ni que el panel esté oculto alcanzan: se cierra al hacer clic), así que se reintenta todo el
+    // gesto: una vez que el efecto corrió, el hover abre el panel y el clic entra.
+    // Idempotente: si el clic ya se ejecutó (su evento ya está) pero Playwright lo dio por fallido
+    // porque la navegación diferida tardó, NO se vuelve a clicar (duplicaría el evento).
+    const yaClickeoTodos = async () =>
+      (await eventos(page, 'nav_categoria_click')).some((e) => (e.d as { categoria?: string } | undefined)?.categoria === 'todos');
+    await expect(async () => {
+      if (await yaClickeoTodos()) return;
+      await page.mouse.move(640, 700);
+      await linkBarra(page, 'Productos').hover();
+      await page.locator('#mega-categorias').getByRole('link', { name: 'Ver todos los productos' }).click({ timeout: 2000 });
+    }).toPass({ timeout: 25_000 });
 
     expect((await eventos(page, 'nav_categoria_click')).map((e) => e.d)).toEqual([
       { origen: 'navbar_panel', categoria: 'Mates', categoria_id: 1, nivel: 'raiz' },
@@ -157,16 +173,28 @@ test.describe('Umami — menú mobile', () => {
   test.use({ viewport: { width: 390, height: 700 } });
 
   test('categoría, "Ver todos" y link de otra sección', async ({ page }) => {
+    test.setTimeout(60_000); // varios pasos con reintento; bajo carga de CI 30 s quedaba justo
     await conUmami(page);
     await mocks(page);
     await page.goto('/');
-    const abrirProductos = async () => {
-      await page.getByLabel('Abrir menú').click();
-      const panel = page.locator('nav').last();
-      const productos = panel.getByRole('button', { name: 'Productos', exact: true });
-      await expect(productos).toBeVisible();
-      if ((await productos.getAttribute('aria-expanded')) !== 'true') await productos.click();
-      return panel;
+    // Abre el menú, despliega "Productos" y elige un link, con REINTENTO: el efecto de navegación
+    // del Navbar (ver el test de escritorio) puede cerrar el menú recién abierto. Solo se vuelve
+    // a tocar "Abrir menú" si quedó cerrado (con el menú abierto hay 2 <nav>), para no cerrarlo.
+    // Idempotente: si el clic ya se ejecutó (su evento ya está) no se repite, aunque Playwright
+    // lo haya dado por fallido porque la navegación diferida tardó.
+    const elegirEnMenuProductos = async (nombreLink: string, categoriaEvento: string) => {
+      await expect(async () => {
+        const ya = (await eventos(page, 'nav_categoria_click')).some(
+          (e) => (e.d as { categoria?: string } | undefined)?.categoria === categoriaEvento,
+        );
+        if (ya) return;
+        if ((await page.locator('nav').count()) < 2) await page.getByLabel('Abrir menú').click({ timeout: 2000 });
+        const panel = page.locator('nav').last();
+        const productos = panel.getByRole('button', { name: 'Productos', exact: true });
+        await expect(productos).toBeVisible({ timeout: 2000 });
+        if ((await productos.getAttribute('aria-expanded')) !== 'true') await productos.click({ timeout: 2000 });
+        await panel.getByRole('link', { name: nombreLink }).click({ timeout: 2000 });
+      }).toPass({ timeout: 25_000 });
     };
     // Tras elegir un link del menú hay que esperar a que la navegación se asiente Y
     // a que el panel termine de salir (queda solo el <nav> de la barra) antes de
@@ -178,12 +206,10 @@ test.describe('Umami — menú mobile', () => {
       await expect(page.locator('nav')).toHaveCount(1);
     };
 
-    let panel = await abrirProductos();
-    await panel.getByRole('link', { name: 'Termos' }).click();
+    await elegirEnMenuProductos('Termos', 'Termos');
     await esperarCierre(/categoria_id=10$/);
 
-    panel = await abrirProductos();
-    await panel.getByRole('link', { name: 'Ver todos los productos' }).click();
+    await elegirEnMenuProductos('Ver todos los productos', 'todos');
     await esperarCierre(/\/productos$/);
 
     await page.getByLabel('Abrir menú').click();
