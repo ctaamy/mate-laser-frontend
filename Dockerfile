@@ -2,7 +2,7 @@
 
 # Alineado con la versión de Node que usa el resto del pipeline (CI), no la
 # que propuso el generador de Fly.io por defecto.
-ARG NODE_VERSION=20
+ARG NODE_VERSION=22
 FROM node:${NODE_VERSION}-slim AS base
 
 LABEL fly_launch_runtime="Vite"
