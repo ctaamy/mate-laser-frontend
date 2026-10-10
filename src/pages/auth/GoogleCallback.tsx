@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
+import { leerTokensDeGoogle } from '../../lib/tokensGoogle';
 
-// El backend redirige acá tras un login con Google exitoso, con el token
-// y el refreshToken en query params (GET /auth/google/callback en el backend).
+// El backend redirige acá tras un login con Google exitoso, con el token y el
+// refreshToken en el fragmento de la URL (GET /auth/google/callback en el backend).
 export default function GoogleCallback() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { loginConToken } = useAuthStore();
   const yaProcesado = useRef(false);
@@ -14,18 +14,21 @@ export default function GoogleCallback() {
     if (yaProcesado.current) return;
     yaProcesado.current = true;
 
-    const token = searchParams.get('token');
-    const refreshToken = searchParams.get('refreshToken');
+    const tokens = leerTokensDeGoogle(window.location.hash, window.location.search);
 
-    if (!token || !refreshToken) {
+    // Sacar los tokens de la barra de direcciones de inmediato: así no quedan en el historial
+    // del navegador ni se copian si el usuario comparte o recarga la página.
+    window.history.replaceState(null, '', window.location.pathname);
+
+    if (!tokens) {
       navigate('/login?error=google_denied', { replace: true });
       return;
     }
 
-    loginConToken(token, refreshToken)
+    loginConToken(tokens.token, tokens.refreshToken)
       .then(() => navigate('/', { replace: true }))
       .catch(() => navigate('/login?error=google_denied', { replace: true }));
-  }, [searchParams, navigate, loginConToken]);
+  }, [navigate, loginConToken]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f9f9f9] px-4">
