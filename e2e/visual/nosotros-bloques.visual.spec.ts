@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockPaginas } from '../mock-paginas';
 
 // Baselines de la página /nosotros por bloques (párrafo + foto interpolados).
 // Se generan con `npm run test:visual:update`. Emula prefers-reduced-motion
@@ -11,19 +12,14 @@ const IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
 
 async function mockConfig(page: import('@playwright/test').Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.route('**/api/v1/configuracion', (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
-    return route.fulfill({
-      json: {
-        pagina_nosotros_titulo: 'El Taller',
-        pagina_nosotros_contenido: [
-          { id: 'p1', tipo: 'parrafo', md: 'Somos un **taller de grabado láser** en Buenos Aires. Hacemos cada mate de a uno: elegís el diseño, te mostramos cómo queda y recién ahí prendemos el láser.' },
-          { id: 'i1', tipo: 'imagen', url: IMG, alt: 'El láser grabando', layout: 'destacada', epigrafe: 'El láser en pleno grabado. Cada pieza pasa de a una.' },
-          { id: 'p2', tipo: 'parrafo', md: '## Cómo lo hacemos\n\nNos mandás tu logo o un texto. Te devolvemos una previsualización y, cuando la aprobás, grabamos.\n\n- Envíos a todo el país\n- Retiro por el taller' },
-          { id: 'i2', tipo: 'imagen', url: IMG, alt: 'Macro del grabado', layout: 'ancho_lectura' },
-        ],
-      },
-    });
+  await mockPaginas(page, {
+    pagina_nosotros_titulo: 'El Taller',
+    pagina_nosotros_contenido: [
+      { id: 'p1', tipo: 'parrafo', md: 'Somos un **taller de grabado láser** en Buenos Aires. Hacemos cada mate de a uno: elegís el diseño, te mostramos cómo queda y recién ahí prendemos el láser.' },
+      { id: 'i1', tipo: 'imagen', url: IMG, alt: 'El láser grabando', layout: 'destacada', epigrafe: 'El láser en pleno grabado. Cada pieza pasa de a una.' },
+      { id: 'p2', tipo: 'parrafo', md: '## Cómo lo hacemos\n\nNos mandás tu logo o un texto. Te devolvemos una previsualización y, cuando la aprobás, grabamos.\n\n- Envíos a todo el país\n- Retiro por el taller' },
+      { id: 'i2', tipo: 'imagen', url: IMG, alt: 'Macro del grabado', layout: 'ancho_lectura' },
+    ],
   });
 }
 

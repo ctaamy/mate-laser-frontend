@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockPaginas } from './mock-paginas';
 
 // Migración HTML → Markdown de páginas legales (Términos, Privacidad, FAQ,
 // Envíos y devoluciones). Cubre:
@@ -7,14 +8,11 @@ import { test, expect } from '@playwright/test';
 // 3) regresión XSS: react-markdown sin rehype-raw no debe ejecutar ni
 //    inyectar HTML embebido en el contenido admin-controlado.
 //
-// Mockeamos GET /api/v1/configuracion vía page.route (mismo patrón que
+// Mockeamos GET /api/v1/configuracion/pagina/:slug vía page.route (mismo patrón que
 // fixtures-admin.ts) para no depender de Postgres real.
 
 async function mockConfiguracion(page: import('@playwright/test').Page, valor: Record<string, any>) {
-  await page.route('**/api/v1/configuracion', (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
-    return route.fulfill({ json: valor });
-  });
+  await mockPaginas(page, valor);
 }
 
 test.describe('PaginaEstatica — renderizado Markdown', () => {
@@ -73,14 +71,12 @@ test.describe('PaginaEstatica — renderizado Markdown', () => {
   // Hallazgo #10 del plan de seguridad/performance (2026-08-17): mientras
   // /configuracion no respondía, el componente mostraba "todavía no fue
   // cargado" como si fuera el estado real, en vez del estado de carga.
-  test('mientras /configuracion está en vuelo muestra el skeleton, no el fallback', async ({ page }) => {
-    await page.route('**/api/v1/configuracion', async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      await new Promise((r) => setTimeout(r, 1000));
-      return route.fulfill({
-        json: { pagina_faq_titulo: 'Preguntas frecuentes', pagina_faq_markdown: 'Contenido real.' },
-      });
-    });
+  test('mientras la página está en vuelo muestra el skeleton, no el fallback', async ({ page }) => {
+    await mockPaginas(
+      page,
+      { pagina_faq_titulo: 'Preguntas frecuentes', pagina_faq_markdown: 'Contenido real.' },
+      { demoraMs: 1000 },
+    );
 
     await page.goto('/faq');
 

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockPaginas } from './mock-paginas';
 
 // Página /nosotros editorial: contenido por bloques (párrafo Markdown + foto
 // interpolados). Renderer: src/components/ui/ContenidoBloques.tsx, integrado
@@ -13,10 +14,7 @@ const IMG_B = 'data:image/svg+xml;utf8,' + encodeURIComponent(
 );
 
 async function mockConfig(page: import('@playwright/test').Page, valor: Record<string, any>) {
-  await page.route('**/api/v1/configuracion', (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
-    return route.fulfill({ json: valor });
-  });
+  await mockPaginas(page, valor);
 }
 
 const CONTENIDO = [

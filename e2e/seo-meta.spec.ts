@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { PRODUCTO_MOCK } from './fixtures';
 import { DESCRIPCION_HOME, TITULO_HOME } from '../src/lib/seo';
+import { mockPaginas } from './mock-paginas';
 
 // SEO Fase 1 — el <head> que deja cada ruta (usePageMeta + lib/seo). Corre en
 // el dev server, que usa StrictMode: el setup → cleanup → setup del effect se
@@ -17,6 +18,7 @@ const APEX = 'https://matelaserstudio.com.ar';
 const OG_DEFAULT = `${APEX}/og-default.png`;
 
 async function mockBase(page: Page, config: Record<string, unknown> = {}, secciones: unknown[] = []) {
+  await mockPaginas(page, config);
   await page.route(/\/api\/v1\/configuracion\/homepage(\/borrador)?$/, (r) => r.fulfill({ json: secciones }));
   await page.route(/\/api\/v1\/configuracion(\/borrador)?$/, (r) =>
     r.request().method() === 'GET' ? r.fulfill({ json: config }) : r.continue(),
