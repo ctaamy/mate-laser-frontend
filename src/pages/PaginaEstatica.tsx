@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { useConfiguracion } from '../hooks/useConfiguracion';
+import { usePaginaContenido } from '../hooks/usePaginaContenido';
 import { useTemaGlobalData } from '../hooks/useThemeGlobal';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { metaPaginaEstatica } from '../lib/seo';
@@ -8,9 +8,9 @@ import ContenidoBloques, { type BloqueContenido } from '../components/ui/Conteni
 
 // Página estática de contenido editable (título + Markdown) desde el
 // admin — reusa el mismo mecanismo genérico de configuración clave/valor que
-// ya existe para el tema global (GET /configuracion público = publicado,
-// PUT /configuracion:clave admin = borrador), sin agregar tablas ni
-// endpoints nuevos. El contenido real se carga después desde el admin; acá
+// ya existe para el tema global (GET /configuracion/pagina/:slug público =
+// publicado, PUT /configuracion:clave admin = borrador), sin agregar tablas.
+// El contenido real se carga después desde el admin; acá
 // solo existen la ruta y el template. Se renderiza con react-markdown (sin
 // rehype-raw), que no interpreta HTML embebido — evita XSS sin necesidad de
 // sanitizar manualmente.
@@ -24,14 +24,14 @@ import ContenidoBloques, { type BloqueContenido } from '../components/ui/Conteni
 export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefault, descripcion }: { claveBase: string; tituloDefault: string; markdownDefault?: string; descripcion?: string }) {
   const tema = useTemaGlobalData();
   const { pathname } = useLocation();
-  const { data: config, isLoading } = useConfiguracion();
+  const { data: pagina, isLoading } = usePaginaContenido(claveBase.replace(/^pagina_/, ''));
 
-  const titulo: string = config?.[`${claveBase}_titulo`] || tituloDefault;
+  const titulo: string = pagina?.titulo || tituloDefault;
   // Los hooks van antes del early return de isLoading. Mientras carga no se
   // toca el <head>: el título del admin puede diferir del default.
   usePageMeta(isLoading ? null : metaPaginaEstatica(titulo, descripcion, pathname));
 
-  // Mientras la respuesta de /configuracion no llegó, `config` es undefined y
+  // Mientras la respuesta de la página no llegó, `pagina` es undefined y
   // el `||` de abajo caía en el placeholder como si fuera el estado real —
   // hallazgo #10 del plan de seguridad/performance (2026-08-17). Con este
   // guard, "todavía no fue cargado" solo aparece si de verdad no hay
@@ -55,8 +55,8 @@ export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefau
   // esta clave). El wrapper se ensancha a max-w-6xl para que una foto
   // "destacada" pueda ser más ancha que la columna de lectura; los párrafos
   // y el h1 quedan igual contenidos a max-w-3xl dentro de ContenidoBloques.
-  const bloques: BloqueContenido[] | undefined = Array.isArray(config?.[`${claveBase}_contenido`])
-    ? config![`${claveBase}_contenido`]
+  const bloques: BloqueContenido[] | undefined = Array.isArray(pagina?.contenido)
+    ? (pagina!.contenido as BloqueContenido[])
     : undefined;
 
   if (bloques && bloques.length > 0) {
@@ -74,7 +74,7 @@ export default function PaginaEstatica({ claveBase, tituloDefault, markdownDefau
     );
   }
 
-  const markdown: string = config?.[`${claveBase}_markdown`] || markdownDefault || 'Este contenido todavía no fue cargado.';
+  const markdown: string = pagina?.markdown || markdownDefault || 'Este contenido todavía no fue cargado.';
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-16" style={{ color: tema.texto_color, fontFamily: tema.font_family || undefined }}>
